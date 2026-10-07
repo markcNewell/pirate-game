@@ -12,6 +12,10 @@ const PIER_Y := 1.2
 const HUT_ANGLE := 0.55
 const HUT_RADIUS_IN := 5.0
 const REACH := 3.2
+## The lighthouse stands on the far side of the island from the pier.
+const LIGHTHOUSE_ANGLE := -2.0
+const LIGHTHOUSE_IN := 8.0
+const LIGHTHOUSE_HEIGHT := 13.0
 
 
 static func spec() -> Dictionary:
@@ -48,6 +52,20 @@ static func barrels() -> Array[Vector3]:
 
 
 ## A good anchorage off the merchant's beach (used by tests to start nearby).
+## The lighthouse's foot, island-local.
+static func _lighthouse_foot() -> Vector3:
+	var s := spec()
+	var r: float = s.radius - LIGHTHOUSE_IN
+	var x := cos(LIGHTHOUSE_ANGLE) * r
+	var z := sin(LIGHTHOUSE_ANGLE) * r
+	return Vector3(x, IslandMesh.ground(s, x, z) - 0.3, z)
+
+
+## The middle of the lighthouse's lamp room, in world space.
+static func lighthouse_lamp() -> Vector3:
+	return _centre() + _lighthouse_foot() + Vector3(0, LIGHTHOUSE_HEIGHT + 1.1, 0)
+
+
 ## Where the pier lamps and the hut's lantern hang, in world space.
 static func lamps() -> Array[Vector3]:
 	var r1: float = spec().radius + PIER_END
@@ -102,6 +120,7 @@ static func build() -> Dictionary:
 		solid.box(Vector3(local.x, PIER_Y + 0.45, local.z), Vector3(0.38, 0.45, 0.38), Color.BLACK)
 
 	_hut(b, solid)
+	_lighthouse(b, solid)
 	# Flag pole by the root of the pier.
 	var pole := Vector3(r0 - 1.0, IslandMesh.ground(s, r0 - 1.0, -3.0), -3.0)
 	b.cylinder(pole, pole + Vector3(0, 9, 0), 0.12, 0.08, 7, dark)
@@ -115,6 +134,32 @@ static func _barrel(b: MeshBuilder, foot: Vector3) -> void:
 	for h: float in [0.2, 0.65]:
 		b.cylinder(foot + Vector3(0, h, 0), foot + Vector3(0, h + 0.08, 0), 0.39, 0.39, 10, Toon.color("trim"))
 	b.cylinder(foot + Vector3(0, 0.9, 0), foot + Vector3(0, 0.95, 0), 0.3, 0.3, 10, Toon.color("deck"))
+
+
+## A striped lighthouse: a tapering tower, a railed gallery, the lamp room and a red cap.
+static func _lighthouse(b: MeshBuilder, solid: MeshBuilder) -> void:
+	var foot := _lighthouse_foot()
+	var white := Color("f4efe2")
+	var red := Color("c8302a")
+	var stripes := 5
+	for i in stripes:
+		var y0 := LIGHTHOUSE_HEIGHT * i / stripes
+		var y1 := LIGHTHOUSE_HEIGHT * (i + 1) / stripes
+		var r0 := lerpf(2.3, 1.5, float(i) / stripes)
+		var r1 := lerpf(2.3, 1.5, float(i + 1) / stripes)
+		b.cylinder(foot + Vector3(0, y0, 0), foot + Vector3(0, y1, 0), r0, r1, 14, white if i % 2 == 0 else red)
+	var top := foot + Vector3(0, LIGHTHOUSE_HEIGHT, 0)
+	b.cylinder(top, top + Vector3(0, 0.25, 0), 2.2, 2.2, 14, Color("3a3a42"))
+	for k in 12:
+		var a := TAU * k / 12.0
+		b.box(top + Vector3(cos(a) * 2.05, 0.75, sin(a) * 2.05), Vector3(0.05, 0.5, 0.05), Color("3a3a42"))
+	b.cylinder(top + Vector3(0, 1.2, 0), top + Vector3(0, 1.28, 0), 2.1, 2.1, 14, Color("3a3a42"))
+	b.cylinder(top + Vector3(0, 0.25, 0), top + Vector3(0, 2.0, 0), 1.05, 1.05, 10, Color("fff3b0"))
+	b.cylinder(top + Vector3(0, 2.0, 0), top + Vector3(0, 3.3, 0), 1.45, 0.0, 10, red)
+	# A door at the foot, facing the middle of the island.
+	var inward := -Vector3(foot.x, 0, foot.z).normalized()
+	b.box(foot + inward * 2.2 + Vector3(0, 1.0, 0), Vector3(0.6, 1.0, 0.1), Color("4a2c1c"), Basis.looking_at(inward))
+	solid.box(foot + Vector3(0, LIGHTHOUSE_HEIGHT * 0.5, 0), Vector3(1.9, LIGHTHOUSE_HEIGHT * 0.5, 1.9), Color.BLACK)
 
 
 ## The merchant's hut: plank walls on three sides, open toward the sea with a counter,

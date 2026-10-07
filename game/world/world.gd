@@ -166,6 +166,9 @@ func _island(spec: Dictionary) -> void:
 		merchant.rotation.y = -PI / 2.0 - Outpost.HUT_ANGLE
 		root.add_child(merchant)
 		faces.append_array(port.faces)
+		var lighthouse := Lighthouse.new()
+		lighthouse.position = Outpost.lighthouse_lamp() - root.position
+		root.add_child(lighthouse)
 		for lamp in Outpost.lamps():
 			var light := Lantern.new(Color("ffd08a"), 1.6, 9.0)
 			light.position = lamp - root.position

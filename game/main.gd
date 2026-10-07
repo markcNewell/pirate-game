@@ -192,6 +192,12 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			var isl: Dictionary = Islands.LAYOUT[0]
 			var centre := Vector3(isl.x, 4.0, isl.z)
 			cam.look_at_from_position(centre + Vector3(60, 22, 75), centre)
+		elif view == "lighthouse":
+			var lamp := Outpost.lighthouse_lamp()
+			var isl := Outpost.spec()
+			var out := Vector3(lamp.x - isl.x, 0, lamp.z - isl.z).normalized()
+			var side := out.cross(Vector3.UP)
+			cam.look_at_from_position(lamp + out * 60.0 + side * 35.0 - Vector3(0, 8.0, 0), lamp - Vector3(0, 5.0, 0))
 		elif view == "outpost":
 			var at := Outpost.merchant_pos() + Vector3(0, 1.5, 0)
 			var out := (Outpost.sell_spot() - Outpost.merchant_pos()).normalized()
