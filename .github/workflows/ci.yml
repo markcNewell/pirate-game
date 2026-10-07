@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
 
+# A newer push to the same branch cancels the run still going for the older one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   GODOT_VERSION: 4.7.2
 
