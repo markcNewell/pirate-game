@@ -282,6 +282,12 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 				# Out of the picture: our own first-person arm would float in mid air.
 				game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.WHEEL + Vector3(2.0, 0, 2.5), 0.0)
 			var spec: Array = offsets.get(view, offsets.outside)
+			if view == "ship":
+				# A camera placed by hand in the ship's frame: --shot-from X,Y,Z --shot-look X,Y,Z.
+				var from: PackedStringArray = str(_args.get("shot-from", "6,6,6")).split(",")
+				var to: PackedStringArray = str(_args.get("shot-look", "0,3,0")).split(",")
+				spec = [Vector3(float(from[0]), float(from[1]), float(from[2])), Vector3(float(to[0]), float(to[1]), float(to[2]))]
+				game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6), 0.0)
 			var follow := func() -> void:
 				var ship := game.ship_view.global_transform
 				cam.look_at_from_position(ship * spec[0], ship * spec[1])
