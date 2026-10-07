@@ -477,6 +477,16 @@ static func _lower_deck(b: MeshBuilder) -> void:
 			var w := ShipShape.half_width(bz, top) - ShipShape.RAIL_THICKNESS
 			b.box(Vector3(0, top - 0.17, bz), Vector3(w, 0.15, 0.13), _c("mast").darkened(0.15))
 		bz += 2.0
+	# Frames standing against the walls every so often, so the hold reads as a hull.
+	var fz := ShipShape.LOWER_Z0 + 0.8
+	while fz < ShipShape.LOWER_Z1 - 0.3:
+		var fw := ShipShape.lower_wall_x(fz)
+		for side: int in [-1, 1]:
+			b.box(Vector3(side * (fw - 0.06), (floor_y + top) * 0.5 - 0.1, fz), Vector3(0.07, (top - floor_y) * 0.5 - 0.1, 0.09), _c("hull_dark").darkened(0.35))
+		fz += 1.6
+	# Crew hammocks slung high along the walls, clear of anyone walking beneath.
+	for hammock: Array in [[-1, -6.4], [1, -6.0], [-1, -3.4]]:
+		_hammock(b, int(hammock[0]), float(hammock[1]), floor_y + 2.35)
 	# Stores at the bow end.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
@@ -493,6 +503,36 @@ static func _lower_deck(b: MeshBuilder) -> void:
 		var a := TAU * k / 5.0
 		b.ellipsoid(bb + Vector3(cos(a) * 0.18, 0.86, sin(a) * 0.18), 0.17, Vector3(1.4, 0.6, 0.6), 4, 7, Color("ffd84a"))
 	b.box(Vector3(-1.1, floor_y + 0.3, 4.9), Vector3(0.35, 0.3, 0.35), _c("deck").darkened(0.2), Basis(Vector3.UP, -0.2))
+
+
+## A canvas hammock along the wall on `side`, from `z0` toward the stern, its top edge at `y`,
+## hanging from ropes tied up to the frames.
+static func _hammock(b: MeshBuilder, side: int, z0: float, y: float) -> void:
+	var length := 1.9
+	var cloth := Color("e9dcc0")
+	var steps := 8
+	var x_out := side * (ShipShape.lower_wall_x(z0) - 0.25)
+	var x_in := side * (ShipShape.lower_wall_x(z0) - 1.0)
+	var sag := 0.35
+	for i in steps:
+		var t0 := float(i) / steps
+		var t1 := float(i + 1) / steps
+		var za := z0 + t0 * length
+		var zb := z0 + t1 * length
+		var ya := y - sag * sin(t0 * PI)
+		var yb := y - sag * sin(t1 * PI)
+		# The cloth dips in the middle across its width as well as along it.
+		var dip := 0.12
+		for half: Array in [[x_out, (x_out + x_in) * 0.5], [(x_out + x_in) * 0.5, x_in]]:
+			var xa: float = half[0]
+			var xb: float = half[1]
+			var da := dip if xa != x_out and xa != x_in else 0.0
+			var db := dip if xb != x_out and xb != x_in else 0.0
+			b.quad(Vector3(xa, ya - da, za), Vector3(xb, ya - db, za), Vector3(xb, yb - db, zb), Vector3(xa, yb - da, zb), cloth, Vector3.UP)
+			b.quad(Vector3(xa, ya - da - 0.02, za), Vector3(xa, yb - da - 0.02, zb), Vector3(xb, yb - db - 0.02, zb), Vector3(xb, ya - db - 0.02, za), cloth.darkened(0.15), Vector3.DOWN)
+	for end: float in [z0, z0 + length]:
+		var tie := Vector3((x_out + x_in) * 0.5, y, end)
+		b.cylinder(tie, tie + Vector3(side * 0.3, 0.45, (end - z0 - length * 0.5) * 0.25), 0.02, 0.02, 4, _c("rope"))
 
 
 ## The fixed part of each deck cannon: a wooden carriage on four little wheels.
