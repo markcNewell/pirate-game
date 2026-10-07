@@ -35,6 +35,12 @@ func _ready() -> void:
 	for m in ShipShape.MAST_Z.size():
 		_build_rig(m)
 
+	# The stern windows: dark by day, glowing from the cabin lamps at night.
+	var panes := MeshBuilder.new()
+	for x: float in [-1.8, -0.6, 0.6, 1.8]:
+		panes.box(Vector3(x, ShipShape.DECK_Y + 0.9, ShipShape.HALF_LENGTH + 0.13), Vector3(0.28, 0.28, 0.01), Color.WHITE)
+	add_child(Lantern.lit_panes(panes.build(), ShipMesh._c("trim")))
+
 	# The ship's name in gold letters across the transom.
 	var name_plate := Label3D.new()
 	name_plate.text = ServerSim.CREW_NAMES[crew - 1] if crew > 0 else "The Rotten Grin"

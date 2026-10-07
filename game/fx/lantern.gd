@@ -43,6 +43,32 @@ func _init(color: Color, energy: float, reach: float, fire := false) -> void:
 	add_to_group(GROUP)
 
 
+## Window panes that glow warm once the lamps are lit: a mesh of flat panes whose colour runs
+## from `day` to a lamplit yellow with the lamp level.
+static func lit_panes(mesh: Mesh, day: Color) -> MeshInstance3D:
+	var panes := LitPanes.new()
+	panes.mesh = mesh
+	panes.day = day
+	panes.add_to_group(GROUP)
+	panes.set_level(0.0)
+	return panes
+
+
+class LitPanes:
+	extends MeshInstance3D
+
+	var day := Color.BLACK
+	var _material := StandardMaterial3D.new()
+
+	func _init() -> void:
+		_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material_override = _material
+		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	func set_level(level: float) -> void:
+		_material.albedo_color = day.lerp(Color("ffcf6a"), clampf(level * 1.4, 0.0, 1.0))
+
+
 ## 0 by day, 1 at night.
 func set_level(level: float) -> void:
 	_light.visible = level > 0.02
