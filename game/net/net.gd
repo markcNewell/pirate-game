@@ -43,13 +43,17 @@ func join(address: String, port: int, player_name: String, bot_role := "") -> Er
 
 
 func leave(reason := "") -> void:
+	_teardown()
+	session_ended.emit(reason)
+
+
+func _teardown() -> void:
 	if game:
 		game.queue_free()
 		game = null
 	if multiplayer.multiplayer_peer:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
-	session_ended.emit(reason)
 
 
 func _create_server(port: int) -> Error:
@@ -84,8 +88,8 @@ func _on_connected() -> void:
 
 
 func _on_connection_failed() -> void:
-	session_failed.emit("Could not reach the server.")
-	leave()
+	_teardown()
+	session_failed.emit("Could not reach the server. Check the address and that it is running.")
 
 
 func _on_server_disconnected() -> void:
@@ -170,8 +174,8 @@ func _welcome(my_id: int) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func _refused(reason: String) -> void:
+	_teardown()
 	session_failed.emit(reason)
-	leave()
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
