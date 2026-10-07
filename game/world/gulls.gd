@@ -12,28 +12,22 @@ static var _body: ArrayMesh
 static var _wing: ArrayMesh
 
 
-## One gull: a node with two wing pivots to flap (see flap()).
+## One gull (art/blender/wildlife.py): a node with two wing pivots to flap (see flap()).
 static func make_bird() -> Dictionary:
 	if _body == null:
-		var body := MeshBuilder.new()
-		body.ellipsoid(Vector3.ZERO, 0.22, Vector3(0.7, 0.6, 1.6), 5, 8, Color("ffffff"))
-		body.ellipsoid(Vector3(0, 0.08, -0.33), 0.12, Vector3.ONE, 4, 6, Color("ffffff"))
-		body.box(Vector3(0, 0.06, -0.48), Vector3(0.03, 0.025, 0.07), Color("ffb030"))
-		var wing := MeshBuilder.new()
-		wing.box(Vector3(0.45, 0, 0), Vector3(0.45, 0.02, 0.16), Color("f4f4f4"))
-		wing.box(Vector3(0.82, 0, 0.02), Vector3(0.1, 0.021, 0.12), Color("4a4a52"))
-		_body = body.build()
-		_wing = wing.build()
+		_body = Models.part("gull", "gull_body")
+		_wing = Models.part("gull", "gull_wing")
 	var bird := Node3D.new()
 	bird.add_child(Toon.instance(_body))
 	var wings: Array[Node3D] = []
 	for side: float in [-1.0, 1.0]:
 		var pivot := Node3D.new()
 		pivot.scale.x = side
+		pivot.position = Vector3(side * 0.08, 0.06, -0.04)
 		pivot.add_child(Toon.instance(_wing))
 		bird.add_child(pivot)
 		wings.append(pivot)
-	bird.scale = Vector3.ONE * 1.4
+	bird.scale = Vector3.ONE * 1.15
 	return {"node": bird, "wings": wings}
 
 

@@ -22,12 +22,8 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	_rng.randomize()
 	_wait = 2.0 if eager else _rng.randf_range(20.0, GAP_MAX)
-	var b := MeshBuilder.new()
-	var skin := Color("3e5a78")
-	b.ellipsoid(Vector3.ZERO, 2.2, Vector3(1.0, 0.55, 3.6), 8, 14, skin)
-	b.ellipsoid(Vector3(0, -0.5, -0.5), 1.9, Vector3(0.9, 0.35, 3.0), 6, 10, Color("c9d6de"))
-	b.box(Vector3(0, 1.0, 3.6), Vector3(0.08, 0.5, 0.6), skin, Basis(Vector3.RIGHT, 0.5))
-	_back = Toon.instance(b.build())
+	# A humpback's back (art/blender/wildlife.py), facing -z.
+	_back = Toon.instance(Models.mesh("whale"))
 	_back.visible = false
 	add_child(_back)
 	var s := MeshBuilder.new()
@@ -67,8 +63,9 @@ func follow(camera_pos: Vector3, sea_time: float, delta: float) -> void:
 	var rise := sin(k * PI)
 	var ahead := Vector3(sin(_heading), 0.0, cos(_heading)) * k * 10.0
 	_back.visible = true
+	# Head first along `ahead` (the model faces -z), nose up as it rises, down as it dives.
 	_back.global_transform = Transform3D(
-		Basis(Vector3.UP, _heading) * Basis(Vector3.RIGHT, (k - 0.5) * 0.5),
+		Basis(Vector3.UP, _heading + PI) * Basis(Vector3.RIGHT, (0.5 - k) * 0.5),
 		_at + ahead + Vector3(0, sea - 1.6 + rise * 1.6, 0))
 	var blowing := k > 0.3 and k < 0.6
 	if blowing and not _spout.visible:
@@ -76,5 +73,6 @@ func follow(camera_pos: Vector3, sea_time: float, delta: float) -> void:
 	_spout.visible = blowing
 	if blowing:
 		var puff := sin((k - 0.3) / 0.3 * PI)
-		_spout.global_position = _at + ahead + Vector3(0, sea + 0.4, 0) + Vector3(sin(_heading), 0, cos(_heading)) * -1.5
+		# From the blowhole, behind the head.
+		_spout.global_position = _at + ahead + Vector3(0, sea + 0.4, 0) + Vector3(sin(_heading), 0, cos(_heading)) * 2.5
 		_spout.scale = Vector3(1.0, maxf(0.05, puff), 1.0)

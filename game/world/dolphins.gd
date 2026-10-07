@@ -97,17 +97,6 @@ func _nearest_moving(camera_pos: Vector3, ships: Dictionary) -> ShipState:
 	return best
 
 
-## A toon dolphin facing -z: blue-grey back, pale belly, beak, dorsal fin and flukes.
+## A toon dolphin facing -z (art/blender/wildlife.py).
 static func dolphin_mesh() -> ArrayMesh:
-	var b := MeshBuilder.new()
-	var back := Color("6c7d8e")
-	var belly := Color("dbe6ec")
-	b.ellipsoid(Vector3(0, 0, 0), 0.34, Vector3(0.8, 0.85, 3.0), 6, 12, back)
-	b.ellipsoid(Vector3(0, -0.09, -0.1), 0.3, Vector3(0.78, 0.6, 2.8), 5, 10, belly)
-	b.ellipsoid(Vector3(0, -0.05, -1.08), 0.11, Vector3(0.8, 0.7, 1.6), 4, 6, back)
-	b.box(Vector3(0, 0.36, 0.1), Vector3(0.025, 0.2, 0.17), back, Basis(Vector3.RIGHT, -0.5))
-	for side: float in [-1.0, 1.0]:
-		b.box(Vector3(side * 0.3, -0.15, -0.35), Vector3(0.16, 0.02, 0.08), back, Basis(Vector3.UP, side * 0.5))
-		b.box(Vector3(side * 0.18, 0.0, 1.12), Vector3(0.18, 0.025, 0.09), back, Basis(Vector3.UP, -side * 0.45))
-		b.ellipsoid(Vector3(side * 0.17, 0.06, -0.8), 0.03, Vector3.ONE, 3, 5, Color("1a1a24"))
-	return b.build()
+	return Models.mesh("dolphin")

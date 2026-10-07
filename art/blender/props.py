@@ -203,16 +203,101 @@ def flintlock():
     return kit.join("flintlock", parts)
 
 
+CHESTS = [
+    # wood, darker wood, metal, metal shade, trim
+    ("8a5a32", "6e4626", "3a2c22", "2a2018", "5a3a22"),
+    ("7a4a2a", "5e3820", "c9d2dc", "9aa4b0", "e4ecf2"),
+    ("8f2f24", "6e2218", "ffd23a", "d0a020", "ffe680"),
+]
+
+
+def chest(tier):
+    """A treasure chest, front toward -Z, on the ground at y = 0 (0.84 wide, 0.62 tall): planked
+    box, a domed lid of curved slats, metal bands, corner caps, studs, a lock plate with a
+    keyhole and handles on the ends. Tier 0 is plain wood and iron, 1 wood bound in silver,
+    2 a red captain's chest bound in gold with a skull on the lid."""
+    wood, wood_dark, metal, metal_dark, trim = CHESTS[tier]
+    parts = []
+    hx, hz = 0.42, 0.28
+    body_h = 0.42
+    # Body: planks running along, each its own shade.
+    for k in range(4):
+        y = 0.02 + (k + 0.5) * body_h / 4
+        for sz in (1, -1):
+            parts.append(kit.box("plank", (0, y, sz * (hz - 0.015)), (2 * hx - 0.02, body_h / 4 - 0.012, 0.035), wood if (k + (sz > 0)) % 2 else wood_dark, bevel=0.005, segments=1))
+        for sx in (1, -1):
+            parts.append(kit.box("endplank", (sx * (hx - 0.015), y, 0), (0.035, body_h / 4 - 0.012, 2 * hz - 0.02), wood_dark if k % 2 else wood, bevel=0.005, segments=1))
+    parts.append(kit.box("core", (0, body_h / 2 + 0.01, 0), (2 * hx - 0.05, body_h, 2 * hz - 0.05), "2a1e16"))
+    parts.append(kit.box("bottom", (0, 0.015, 0), (2 * hx + 0.02, 0.03, 2 * hz + 0.02), wood_dark, bevel=0.008))
+    # Lid: a half barrel of slats from the back hinge over to the front.
+    slats = 7
+    lid_r = hz + 0.01
+    lid_y = body_h + 0.02
+    for k in range(slats):
+        a0 = math.pi * k / slats
+        a1 = math.pi * (k + 1) / slats
+        am = (a0 + a1) / 2
+        c = (0, lid_y + math.sin(am) * lid_r * 0.75, math.cos(am) * lid_r)
+        w = 2 * lid_r * math.sin((a1 - a0) / 2) * 1.05
+        parts.append(kit.box("slat", c, (2 * hx - 0.02, 0.035, w), wood if k % 2 else wood_dark, bevel=0.006, segments=1, rot=(-(am - math.pi / 2), 0, 0)))
+    for sx in (1, -1):
+        cap = []
+        for k in range(9):
+            a = math.pi * k / 8
+            cap.append((math.cos(a) * lid_r, lid_y + math.sin(a) * lid_r * 0.75))
+        parts.append(kit.prism("lidend", [(z, y) for z, y in cap], 0.04, wood_dark, centre=(sx * (hx - 0.02), 0, 0), plane="zy"))
+    # Metal: bands over the lid and down the body, corners, lid rim.
+    for bx in (-0.26, 0.26):
+        band = []
+        for k in range(9):
+            a = math.pi * k / 8
+            band.append((bx, lid_y + math.sin(a) * (lid_r * 0.75 + 0.02), math.cos(a) * (lid_r + 0.02)))
+        lb = kit.tube("lidband", band, 0.02, 6, metal, caps=False)
+        for v in lb.data.vertices:
+            v.co.x = bx + (v.co.x - bx) * 2.2
+        parts.append(lb)
+        for sz in (1, -1):
+            parts.append(kit.box("band", (bx, body_h / 2 + 0.02, sz * (hz + 0.005)), (0.07, body_h, 0.015), metal, bevel=0.004))
+        parts.append(kit.box("bandbottom", (bx, 0.03, 0), (0.07, 0.015, 2 * hz + 0.02), metal))
+    parts.append(kit.box("rim", (0, lid_y, 0), (2 * hx + 0.03, 0.04, 2 * hz + 0.03), metal_dark, bevel=0.006))
+    for sx in (1, -1):
+        for sz in (1, -1):
+            parts.append(kit.box("corner", (sx * (hx - 0.01), body_h / 2 + 0.02, sz * (hz - 0.01)), (0.07, body_h + 0.02, 0.07), metal, bevel=0.01))
+    # Studs along the bands.
+    for bx in (-0.26, 0.26):
+        for y in (0.1, 0.22, 0.34):
+            parts.append(kit.noink(kit.ellipsoid("stud", (bx, y, -hz - 0.018), (0.013, 0.013, 0.008), trim, rings=4, sectors=6), 0.3))
+    # Lock plate and keyhole on the front, a hasp from the lid.
+    parts.append(kit.box("lock", (0, body_h - 0.02, -hz - 0.02), (0.13, 0.15, 0.025), metal, bevel=0.01))
+    parts.append(kit.noink(kit.prism("keyhole", [(-0.012, -0.03), (0.012, -0.03), (0.006, 0.0), (0.014, 0.012), (0.0, 0.024), (-0.014, 0.012), (-0.006, 0.0)], 0.01, "121214", centre=(0, body_h - 0.04, -hz - 0.033), plane="xy")))
+    parts.append(kit.box("hasp", (0, body_h + 0.05, -hz - 0.02), (0.06, 0.1, 0.02), metal_dark, bevel=0.006))
+    # Handles on the ends.
+    for sx in (1, -1):
+        loop = [(sx * (hx + 0.03), body_h * 0.7 - 0.05 * math.sin(math.pi * t), -0.1 + 0.2 * t) for t in (0.0, 0.25, 0.5, 0.75, 1.0)]
+        parts.append(kit.tube("handle", loop, 0.012, 5, metal))
+        for z in (-0.1, 0.1):
+            parts.append(kit.box("handleplate", (sx * (hx + 0.012), body_h * 0.7, z), (0.015, 0.06, 0.04), metal_dark))
+    if tier == 2:
+        top = lid_y + lid_r * 0.75 + 0.02
+        parts.append(kit.ellipsoid("skull", (0, top + 0.03, -0.02), (0.07, 0.04, 0.065), "f4efe2", rings=6, sectors=8))
+        for a in (0.7, -0.7):
+            parts.append(kit.box("bone", (0, top + 0.01, -0.02), (0.2, 0.025, 0.03), "f4efe2", rot=(0, a, 0)))
+        for sx in (1, -1):
+            parts.append(kit.noink(kit.ellipsoid("socket", (sx * 0.025, top + 0.05, -0.065), (0.016, 0.012, 0.01), "1a1418", rings=4, sectors=6), 0.2))
+    return kit.join("chest_%d" % tier, parts)
+
+
 def main(names):
     builders = {
+        "chests": lambda: [chest(t) for t in range(3)],
         "supply_barrel": supply_barrel,
         "cutlass": cutlass,
         "flintlock": flintlock,
     }
     for name in names or builders:
         kit.reset()
-        builders[name]()
-        kit.export(name)
+        objs = builders[name]()
+        kit.export(name, objs if isinstance(objs, list) else None)
 
 
 if __name__ == "__main__":
