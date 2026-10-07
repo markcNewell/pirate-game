@@ -1,0 +1,50 @@
+class_name PlayerInput
+extends RefCounted
+## One tick of what a player is asking for. A human fills it from the keyboard and mouse;
+## a bot (tests) sets the fields directly.
+
+var wish := Vector2.ZERO
+var run := false
+var jump := false
+var interact := false
+## Radians to turn this tick: x = yaw left/right, y = pitch up/down.
+var look := Vector2.ZERO
+var is_bot := false
+
+var _mouse := Vector2.ZERO
+
+
+## Call from _unhandled_input with mouse motion while the mouse is captured.
+func add_mouse(relative: Vector2, sensitivity: float) -> void:
+	_mouse += relative * sensitivity
+
+
+## Fill this tick's fields. Bots skip this; their driver writes the fields itself.
+func poll() -> void:
+	if is_bot:
+		return
+	var playing := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	wish = Input.get_vector("move_left", "move_right", "move_back", "move_forward") if playing else Vector2.ZERO
+	run = playing and Input.is_action_pressed("run")
+	jump = playing and Input.is_action_just_pressed("jump")
+	interact = playing and Input.is_action_just_pressed("interact")
+	look = _mouse
+	_mouse = Vector2.ZERO
+
+
+## Register the key bindings once at start-up, so the project file stays small.
+static func register_actions() -> void:
+	var keys := {
+		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
+		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
+		"jump": [KEY_SPACE], "run": [KEY_SHIFT], "interact": [KEY_E],
+		"crew": [KEY_TAB], "menu": [KEY_ESCAPE],
+	}
+	for action in keys:
+		if InputMap.has_action(action):
+			continue
+		InputMap.add_action(action)
+		for key in keys[action]:
+			var event := InputEventKey.new()
+			event.physical_keycode = key
+			InputMap.action_add_event(action, event)
