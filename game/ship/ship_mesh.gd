@@ -307,7 +307,15 @@ static func sail(width: float, height: float) -> ArrayMesh:
 		front.append(f_row)
 		back.append(b_row)
 	var cream := _c("sail")
-	var shade := func(p: Vector3) -> Color: return cream
+	var tattered: bool = _pal.get("tattered", false)
+	# Cloth in vertical panels, every other one a shade darker; skeleton sails are torn,
+	# shown as dark ragged patches.
+	var shade := func(p: Vector3) -> Color:
+		var u := p.x / width + 0.5
+		var v := -p.y / height
+		if tattered and sin(u * 9.0 + v * 4.0 + 1.3) * sin(v * 7.5 - u * 3.0) > 0.62:
+			return Color("1c1a18")
+		return cream if int(floor(u * 7.0)) % 2 == 0 else cream.darkened(0.06)
 	var n_front := func(p: Vector3) -> Vector3: return _sail_normal(p, width, height, -1.0)
 	var n_back := func(p: Vector3) -> Vector3: return _sail_normal(p, width, height, 1.0)
 	b.grid(front, shade, n_front)

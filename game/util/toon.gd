@@ -41,6 +41,7 @@ const SKELETON := {
 	"rope": Color("8a8470"),
 	"trim": Color("121614"),
 	"sail": Color("9a9c90"),
+	"tattered": true,
 	"lantern": Color("9cff8a"),
 	"gold": Color("78c36d"),
 }
