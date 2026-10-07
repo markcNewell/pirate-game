@@ -15,7 +15,7 @@ const KEYS: Array[Dictionary] = [
 	{
 		"at": -0.42, "top": Color("0d1736"), "horizon": Color("24386b"), "ambient": Color("5a72b8"),
 		"ambient_energy": 0.42, "light": Color("a9bcff"), "energy": 0.32, "fog": Color("1e2f5c"),
-		"sea": Color(0.32, 0.38, 0.58), "cloud": Color(0.5, 0.52, 0.62), "glow": 0.0, "stars": 1.0, "lamps": 1.0,
+		"sea": Color(0.32, 0.38, 0.58), "cloud": Color(0.3, 0.31, 0.38), "glow": 0.0, "stars": 1.0, "lamps": 1.0,
 	},
 	{
 		"at": -0.14, "top": Color("2b3d82"), "horizon": Color("d27a8c"), "ambient": Color("8c7cb4"),
