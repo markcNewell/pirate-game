@@ -13,6 +13,7 @@ var crew := 1
 
 var _rigs: Array[Node3D] = []
 var _sails: Array[Array] = []
+var _furls: Array[Array] = []
 var _wheel: Node3D
 var _capstan: Node3D
 var _flag: Node3D
@@ -170,6 +171,7 @@ func _build_rig(mast: int) -> void:
 	add_child(rig)
 	_rigs.append(rig)
 	var sails: Array[MeshInstance3D] = []
+	var furls: Array[MeshInstance3D] = []
 	var specs := ShipMesh.sails_for(mast)
 	for k in specs.size():
 		var spec: Array = specs[k]
@@ -178,6 +180,12 @@ func _build_rig(mast: int) -> void:
 		yard.position = Vector3(0, top, -ShipShape.MAST_RADIUS - 0.2)
 		rig.add_child(yard)
 		var torn := "torn_" if kind == ShipState.Kind.SKELETON else ""
+		# The canvas rolled up on top of the yard, shown as the sail is taken in.
+		var bundle := Toon.instance(_part("furl_%d_%d" % [mast, k]))
+		bundle.position = yard.position
+		bundle.layers = Lantern.UNLIT_LAYER
+		rig.add_child(bundle)
+		furls.append(bundle)
 		var sail := Toon.instance(_part("sail_%s%d_%d" % [torn, mast, k]))
 		sail.position = Vector3(0, top - 0.1, -ShipShape.MAST_RADIUS - 0.3)
 		sail.layers = Lantern.UNLIT_LAYER
@@ -190,6 +198,7 @@ func _build_rig(mast: int) -> void:
 			badge.layers = Lantern.UNLIT_LAYER
 			sail.add_child(badge)
 	_sails.append(sails)
+	_furls.append(furls)
 
 
 ## Swimmers collide with this box; it rides along with the ship. On the world layer.
@@ -214,9 +223,16 @@ func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float)
 	visible = state.sink < 1.0
 	for m in _rigs.size():
 		_rigs[m].rotation.y = -state.sail_angle[m] * ShipPhysics.MAX_SAIL_ANGLE
+		var h: float = state.sail_height[m]
 		for i in _sails[m].size():
 			var sail: MeshInstance3D = _sails[m][i]
-			sail.scale.y = lerpf(FURLED, 1.0, state.sail_height[m])
+			sail.scale.y = lerpf(FURLED, 1.0, h)
+			# Furled, the sail is a bundle on the yard; it unrolls into canvas as it comes down.
+			sail.visible = h > 0.06
+			var bundle: MeshInstance3D = _furls[m][i]
+			var roll := clampf(1.0 - h / 0.4, 0.0, 1.0)
+			bundle.visible = roll > 0.02
+			bundle.scale = Vector3(1.0, maxf(roll, 0.05), maxf(roll, 0.05))
 			# The canvas breathes a little as gusts fill and spill it.
 			sail.scale.z = 1.0 + 0.07 * sin(_gust_clock * 1.3 + m * 1.7 + i * 0.9)
 	_wheel.rotation.z = -state.rudder * 2.6

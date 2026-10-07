@@ -262,6 +262,51 @@ def bulwark_inside(side):
     return parts
 
 
+def quarter_side(side):
+    """Dress the tall side of the quarterdeck: a row of cabin windows in gilded frames with
+    pilasters between them, a gilt moulding where the quarterdeck floor is, and sunk panels in
+    the bulwark above it."""
+    parts = []
+    gold = slot("gold")
+
+    def on_side(z, y, out, size, color, name):
+        n = Vector(S.side_normal(z, y, side))
+        at = Vector(hull_point(z, y, side, out))
+        rot = (0, math.atan2(-n.z, n.x) if side > 0 else math.atan2(n.z, -n.x), 0)
+        ob = kit.box(name, (0, 0, 0), size, color, bevel=min(0.015, size[0] * 0.3))
+        kit.place(ob, tuple(at), rot)
+        return ob
+
+    wy = (S.DECK_Y + S.QUARTER_Y) / 2 + 0.15
+    for z in (7.0, 8.3, 9.6, 10.75):
+        parts.append(on_side(z, wy, 0.02, (0.06, 0.78, 0.62), gold, "qwinframe"))
+        parts.append(on_side(z, wy, 0.05, (0.05, 0.6, 0.46), slot("trim"), "qwinpane"))
+        parts.append(on_side(z, wy, 0.08, (0.03, 0.6, 0.04), gold, "qwinbar"))
+        parts.append(on_side(z, wy, 0.08, (0.03, 0.04, 0.46), gold, "qwinbar"))
+    for z in (6.35, 7.65, 8.95, 10.2):
+        parts.append(on_side(z, wy, 0.02, (0.07, 1.5, 0.14), slot("hull_dark"), "pilaster"))
+    # Gilt moulding at the quarterdeck's floor level, and a lower one under the windows.
+    for y, h in ((S.QUARTER_Y + 0.02, 0.12), (S.DECK_Y + 0.62, 0.08)):
+        bm = bmesh.new()
+        rows = []
+        for z in z_samples(0.25, S.QUARTER_Z - 0.2, S.HALF_LENGTH - 0.02):
+            nn = Vector(S.side_normal(z, y, side))
+            base = Vector(hull_point(z, y, side, 0.0))
+            rows.append([bm.verts.new(V(tuple(base + Vector((0, dy, 0)) + nn * o))) for dy, o in ((-h / 2, 0.0), (-h / 2, 0.05), (h / 2, 0.05), (h / 2, 0.0))])
+        for r0, r1 in zip(rows, rows[1:]):
+            for j in range(3):
+                bm.faces.new((r0[j], r0[j + 1], r1[j + 1], r1[j]))
+        mould = kit.obj_from_bmesh("moulding", bm, gold)
+        kit.orient(mould, lambda x, y_, z_: S.side_normal(z_, y_, side))
+        parts.append(mould)
+    # Sunk panels in the bulwark above the quarterdeck.
+    py = S.QUARTER_Y + S.RAIL_HEIGHT * 0.5
+    for z in (6.9, 7.95, 9.0, 10.05, 11.1):
+        parts.append(on_side(z, py, 0.005, (0.03, 0.55, 0.85), slot("rail"), "qpanel"))
+        parts.append(on_side(z, py, 0.0, (0.02, 0.66, 0.96), slot("hull_dark"), "qpanelframe"))
+    return parts
+
+
 def end_walls():
     """The inside of the bulwark across the bow (behind the beakhead) and across the stern
     above the quarterdeck, so neither end is see-through from on deck."""
@@ -1027,6 +1072,7 @@ def hull(skeleton=False):
         for z in (-8.6, -5.6, 0.4, 3.4, 6.6, 9.6):
             parts += gunport(z, 1.6, side)
         parts += side_ladder(side)
+        parts += quarter_side(side)
     parts += hull_ends()
     parts += end_walls()
     parts += deck_planks()
@@ -1244,6 +1290,32 @@ def sail(name, width, height, torn=False, seed=0):
     return sail_ob
 
 
+def furl(name, width, torn=False):
+    """A sail furled on its yard: the canvas rolled into a lumpy bundle lying along the top of
+    the yard (at the origin, along X), lashed with rope gaskets."""
+    rng = random.Random(len(name) + int(width * 10))
+    pts, radii = [], []
+    n = 16
+    for i in range(n + 1):
+        t = i / n
+        x = (t - 0.5) * width * 0.96
+        pts.append((x, 0.2 + 0.02 * math.sin(t * 9), -0.12))
+        radii.append((0.12 + 0.12 * math.sin(math.pi * t) ** 0.5) * rng.uniform(0.9, 1.1))
+    bundle = kit.tube(name, pts, radii, 10, slot("sail"))
+    kit.smooth_by_angle(bundle, 60)
+    kit.paint(bundle, slot("sail"), 0.92 if torn else 1.0)
+    parts = [bundle]
+    for k in range(7):
+        t = (k + 0.5) / 7
+        x = (t - 0.5) * width * 0.9
+        r = (0.12 + 0.12 * math.sin(math.pi * t) ** 0.5) + 0.02
+        ring = [(x, 0.2 + r * math.sin(2 * math.pi * j / 10) * 0.95, -0.12 + r * math.cos(2 * math.pi * j / 10)) for j in range(11)]
+        parts.append(kit.noink(kit.tube("gasket", ring, 0.018, 4, slot("rope"), caps=False), 0.3))
+    ob = kit.join(name, parts)
+    ob["no_ao"] = True
+    return ob
+
+
 def yard(name, width):
     parts = [kit.tube(name, [(-width / 2 - 0.4, 0, 0), (0, 0, 0), (width / 2 + 0.4, 0, 0)], [0.1, 0.17, 0.1], 10, slot("mast"))]
     for sx in (1, -1):
@@ -1412,6 +1484,7 @@ def parts_model():
     for m in range(2):
         for k, (top, height, width) in enumerate(S.sails_for(m)):
             objs.append(yard("yard_%d_%d" % (m, k), width))
+            objs.append(furl("furl_%d_%d" % (m, k), width))
             objs.append(sail("sail_%d_%d" % (m, k), width, height))
             objs.append(sail("sail_torn_%d_%d" % (m, k), width, height, torn=True, seed=m * 2 + k + 1))
     objs.append(wheel())
