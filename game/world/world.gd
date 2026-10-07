@@ -166,11 +166,10 @@ func _sounds(camera_pos: Vector3, sea_time: float, delta: float) -> void:
 			Audio.play_at("gull", Vector3(spec.x + cos(a) * spec.radius, 20.0, spec.z + sin(a) * spec.radius), -6.0, 1.0, 0.15)
 
 
-## The merchant breathes, and turns to watch you when you come close.
-func _animate_merchant(camera_pos: Vector3, t: float) -> void:
+## The merchant (breathing in his idle animation) turns to watch you when you come close.
+func _animate_merchant(camera_pos: Vector3, _t: float) -> void:
 	if _merchant == null:
 		return
-	_merchant.scale = Vector3(1.0, 1.0 + 0.02 * sin(t * 2.2), 1.0)
 	var to := camera_pos - _merchant.global_position
 	var want := _merchant_rest
 	if Vector2(to.x, to.z).length() < 12.0:
@@ -241,8 +240,14 @@ func _island(spec: Dictionary) -> void:
 	var faces: PackedVector3Array = built.faces
 	if spec.outpost:
 		var port := Outpost.build()
-		root.add_child(Toon.instance(port.mesh))
-		var merchant := Toon.instance(port.merchant)
+		for prop: Array in port.props:
+			var piece := Toon.instance(Models.part(prop[0], prop[1]))
+			piece.transform = prop[2]
+			root.add_child(piece)
+		var merchant := Models.instance("merchant")
+		var player: AnimationPlayer = merchant.find_children("*", "AnimationPlayer", true, false)[0]
+		player.get_animation("idle").loop_mode = Animation.LOOP_LINEAR
+		player.play("idle")
 		merchant.position = Outpost.merchant_pos() - root.position
 		# Face out to sea: the model faces -z, so turn it toward the hut's outward direction.
 		merchant.rotation.y = -PI / 2.0 - Outpost.HUT_ANGLE
@@ -251,7 +256,12 @@ func _island(spec: Dictionary) -> void:
 		_merchant_rest = merchant.rotation.y
 		faces.append_array(port.faces)
 		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
-		root.add_child(Lantern.lit_panes(Outpost.tavern_windows(), Color("3a4250")))
+		var panes := Lantern.lit_panes(Models.part("tavern", "tavern_panes"), Color("3a4250"))
+		panes.transform = Outpost.tavern_windows()
+		root.add_child(panes)
+		var glass := Lantern.lit_panes(Models.part("lighthouse", "lighthouse_glass"), Color("fff3b0"))
+		glass.transform = Outpost.lighthouse_glass()
+		root.add_child(glass)
 		# The tavern's music drifts out of its door.
 		var tavern := Node3D.new()
 		tavern.position = Outpost.tavern_point(Vector3(3.5, 1.5, 0)) - root.position

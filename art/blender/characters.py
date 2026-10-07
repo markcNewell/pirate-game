@@ -808,6 +808,115 @@ def skeleton():
     return [arm, ob]
 
 
+def merchant():
+    """The outpost's merchant: stout, in a long green coat over a cream shirt and an apron, a
+    wide-brimmed hat, grey whiskers and little gold spectacles. Same rig as the pirates."""
+    arm = rig.build_armature("rig")
+    coat_c, coat_dark = "2f7a4f", "245f3d"
+    parts = []
+    # A big round belly under the shirt.
+    body = kit.loft("torso", [
+        (0.86, 0.19, 0.15, 0, 0.0),
+        (0.95, 0.215, 0.19, 0, -0.03),
+        (1.06, 0.235, 0.21, 0, -0.05),
+        (1.17, 0.24, 0.2, 0, -0.04),
+        (1.28, 0.24, 0.16, 0, -0.015),
+        (1.37, 0.235, 0.14, 0, 0.0),
+        (1.43, 0.2, 0.115, 0, 0.006),
+        (1.475, 0.13, 0.09, 0, 0.01),
+        (1.5, 0.078, 0.064, 0, 0.01),
+    ], "efe6d2", sides=22, power=2.2)
+    smooth_part(body)
+    rig.set_weights(body, rig.torso_weights)
+    parts.append(body)
+    # The coat: open at the front, falling to the knees.
+    coat = kit.loft("coat", [
+        (0.55, 0.25, 0.22, 0, 0.0),
+        (0.86, 0.215, 0.175, 0, -0.01),
+        (0.95, 0.235, 0.205, 0, -0.03),
+        (1.06, 0.255, 0.225, 0, -0.05),
+        (1.17, 0.26, 0.215, 0, -0.04),
+        (1.28, 0.258, 0.175, 0, -0.015),
+        (1.37, 0.252, 0.155, 0, 0.0),
+        (1.44, 0.21, 0.125, 0, 0.006),
+        (1.49, 0.14, 0.1, 0, 0.01),
+    ], coat_c, sides=22, power=2.2, cap_bottom=False, cap_top=False)
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(coat.data)
+    dead = [f for f in bm.faces if kit.G(f.calc_center_median())[2] < -0.1 and abs(kit.G(f.calc_center_median())[0]) < 0.08 + (kit.G(f.calc_center_median())[1] - 0.55) * 0.12]
+    bmesh.ops.delete(bm, geom=list(dict.fromkeys(dead)), context="FACES")
+    bm.to_mesh(coat.data)
+    bm.free()
+    sol = coat.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.015
+    kit.apply_all(coat)
+    smooth_part(coat)
+    kit.paint_where(coat, coat_dark, lambda x, y, z: y < 0.62)
+    rig.set_weights(coat, lambda p: rig.torso_weights(p) if p.y > 0.95 else rig.blend("hips", "thigh_" + ("r" if p.x > 0 else "l"), (0.8 - p.y) * 0.3, 0.2) if abs(p.x) > 0.05 else {"hips": 1.0})
+    parts.append(coat)
+    # Apron down the front, following the belly and hanging straight below it.
+    belly = [(0.86, 0.19, 0.15, -0.0), (0.95, 0.215, 0.19, -0.03), (1.06, 0.235, 0.21, -0.05),
+             (1.17, 0.24, 0.2, -0.04), (1.28, 0.24, 0.16, -0.015), (1.37, 0.235, 0.14, 0.0)]
+
+    def front_z(x, y):
+        y = max(0.86, min(1.37, y))
+        for (y0, rx0, rz0, z0), (y1, rx1, rz1, z1) in zip(belly, belly[1:]):
+            if y0 <= y <= y1:
+                t = (y - y0) / (y1 - y0)
+                rx, rz, zo = rx0 + (rx1 - rx0) * t, rz0 + (rz1 - rz0) * t, z0 + (z1 - z0) * t
+                k = min(0.999, abs(x) / rx) ** 2.2
+                return zo - rz * (1 - k) ** (1 / 2.2)
+        return -0.2
+
+    rows = []
+    for j in range(11):
+        y = 0.6 + 0.7 * j / 10
+        w = 0.19 if y < 1.1 else 0.19 - (y - 1.1) * 0.3
+        rows.append([(w * (i / 4 - 1), y, front_z(w * (i / 4 - 1), y) - 0.022) for i in range(9)])
+    apron = kit.grid_surface("apron", rows, "f4efe2")
+    kit.orient(apron, lambda x, y, z: (0, 0, -1))
+    sol = apron.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.012
+    kit.apply_all(apron)
+    kit.smooth_by_angle(apron, 60)
+    pocket = kit.box("pocket", (0.06, 0.82, front_z(0.06, 0.86) - 0.04), (0.16, 0.12, 0.02), "e4dccb")
+    for p in (apron, pocket):
+        rig.set_weights(p, lambda q: rig.torso_weights(q) if q.y > 0.95 else {"hips": 1.0})
+        parts.append(p)
+    for side in ("r", "l"):
+        inner, sh, el, wr = arm_points(side)
+        sl = kit.tube("sleeve", [tuple(inner), tuple(sh), tuple(el), tuple(wr - (wr - el).normalized() * 0.03)], [0.09, 0.095, 0.085, 0.088], 12, coat_c)
+        smooth_part(sl)
+        cuff = kit.tube("cuff", [tuple(wr - (wr - el).normalized() * 0.09), tuple(wr - (wr - el).normalized() * 0.03)], [0.092, 0.095], 12, coat_dark)
+        for p in (sl, cuff):
+            rig.set_weights(p, rig.limb_weights(side, "upper_arm", "forearm", "hand", start_parent="chest"))
+            parts.append(p)
+        parts += hand(side)
+    parts += neck()
+    parts += trousers("5b4636") + boots() + belt(buckle="c0c0c8", color="3a2a22")
+    # Head: grey whiskers, spectacles, a wide round hat.
+    hair = "c8c4bc"
+    head_bits = face(hair, gruff=-0.5)
+    head_bits += [kit.ellipsoid("beard", (0, 1.55, surface_z(0, 1.55) - 0.01), (0.1, 0.075, 0.06), hair, rings=8, sectors=12)]
+    head_bits += curly_moustache(hair)
+    head_bits += hair_back(hair, 0.0)
+    for sx in (1, -1):
+        ring = [(sx * 0.05 + 0.027 * math.cos(2 * math.pi * i / 12), 1.69 + 0.024 * math.sin(2 * math.pi * i / 12), surface_z(sx * 0.05, 1.69) - 0.025) for i in range(13)]
+        head_bits.append(kit.noink(kit.tube("specs", ring, 0.0045, 4, GOLD, caps=False), 0.3))
+    head_bits.append(kit.noink(kit.tube("bridge", [(-0.024, 1.695, surface_z(0, 1.69) - 0.03), (0.024, 1.695, surface_z(0, 1.69) - 0.03)], 0.004, 4, GOLD), 0.3))
+    hat = [kit.lathe("brim", [(0.0, 1.8), (0.32, 1.79), (0.34, 1.81), (0.3, 1.82), (0.0, 1.83)], 24, "6b4a2c"),
+           kit.lathe("crown", [(0.135, 1.8), (0.14, 1.9), (0.12, 1.98), (0.0, 2.0)], 20, "6b4a2c"),
+           kit.lathe("hatband", [(0.142, 1.82), (0.145, 1.86)], 20, "2f6a4f", caps=False)]
+    head_bits += hat
+    parts += head(head_bits)
+    ob = kit.join("merchant", parts)
+    rig.bind(ob, arm)
+    rig.animate(arm)
+    rig.rest(arm)
+    return [arm, ob]
+
+
 def fp_arm():
     """Your own right arm in first person: the fist round a grip at the origin (the grip runs
     along -Z, as weapons are made), the forearm and sleeve running back to the lower right."""
@@ -837,11 +946,11 @@ def fp_arm():
 
 
 def main(names):
-    builders = {"pirate": pirate, "skeleton": skeleton, "fp_arm": fp_arm}
+    builders = {"pirate": pirate, "skeleton": skeleton, "merchant": merchant, "fp_arm": fp_arm}
     for name in names or builders:
         kit.reset()
         objs = builders[name]()
-        kit.export(name, objs, animations=name in ("pirate", "skeleton"), ao_distance=0.12, ao_strength=0.8)
+        kit.export(name, objs, animations=name in ("pirate", "skeleton", "merchant"), ao_distance=0.12, ao_strength=0.8)
 
 
 if __name__ == "__main__":
