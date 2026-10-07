@@ -14,6 +14,7 @@ extends Node
 ##   --crew N                 ask for crew N (1-4); 0 or absent for any
 
 var _menu: Menu
+var _backdrop: MenuBackdrop
 var _args := {}
 
 
@@ -51,9 +52,18 @@ func _start() -> void:
 
 	_menu = Menu.new()
 	add_child(_menu)
-	Net.session_started.connect(func(_g: Game) -> void: _menu.visible = false)
-	Net.session_failed.connect(func(reason: String) -> void: _menu.show_status(reason))
-	Net.session_ended.connect(func(reason: String) -> void: _menu.show_status(reason))
+	_show_backdrop()
+	Net.session_started.connect(func(_g: Game) -> void:
+		_menu.visible = false
+		if _backdrop:
+			_backdrop.queue_free()
+			_backdrop = null)
+	Net.session_failed.connect(func(reason: String) -> void:
+		_menu.show_status(reason)
+		_show_backdrop())
+	Net.session_ended.connect(func(reason: String) -> void:
+		_menu.show_status(reason)
+		_show_backdrop())
 	var player_name: String = _args.get("name", Settings.name)
 	var crew := int(_args.get("crew", Settings.crew))
 	if _args.has("host"):
@@ -68,6 +78,12 @@ func _start() -> void:
 	if _args.has("screenshot"):
 		_screenshot.call_deferred(_args.screenshot, float(_args.get("shot-delay", 6.0)), _args.get("shot-view", "deck"))
 	_maybe_quit_later()
+
+
+func _show_backdrop() -> void:
+	if _backdrop == null:
+		_backdrop = MenuBackdrop.new()
+		add_child(_backdrop)
 
 
 func _parse(raw: PackedStringArray) -> Dictionary:

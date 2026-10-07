@@ -11,13 +11,10 @@ var _status: Label
 
 
 func _ready() -> void:
-	var sky := ColorRect.new()
-	sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sky.material = _sky_gradient()
-	add_child(sky)
-
+	# The menu card sits on the left; the live sea scene (MenuBackdrop) shows round it.
 	var centre := CenterContainer.new()
-	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	centre.offset_right = 620
 	add_child(centre)
 	var card := PanelContainer.new()
 	var style := StyleBoxFlat.new()
