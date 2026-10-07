@@ -45,6 +45,8 @@ const LADDER_GAP := 0.75
 
 const CAPSTAN := Vector3(0.0, DECK_Y, -3.2)
 const WHEEL := Vector3(0.0, QUARTER_Y, 9.0)
+## The map table on the quarterdeck, beside the wheel, where voyages are taken.
+const MAP_TABLE := Vector3(-2.1, QUARTER_Y, 9.4)
 
 ## Four deck cannons, a pair at each of these lengths, one each side.
 const CANNON_Z: Array[float] = [-1.2, 3.6]
@@ -230,6 +232,10 @@ static func ladder_top(side: int) -> Vector3:
 	return Vector3(side * (half_width(LADDER_Z, DECK_Y) - 1.0), DECK_Y, LADDER_Z)
 
 
+static func map_table_target() -> Vector3:
+	return MAP_TABLE + Vector3(0, 0.95, 0)
+
+
 ## Points you look at to use the hatch ladder from above and from below.
 static func hatch_top_target() -> Vector3:
 	return Vector3(0.0, DECK_Y + 0.3, (HATCH_Z0 + HATCH_Z1) * 0.5)
@@ -297,6 +303,7 @@ static func deck_faces() -> PackedVector3Array:
 		b.box(sail_post(m) + Vector3(0, 0.6, 0), Vector3(0.15, 0.6, 0.15), ink)
 	b.box(CAPSTAN + Vector3(0, 0.5, 0), Vector3(0.6, 0.5, 0.6), ink)
 	b.box(WHEEL + Vector3(0, 0.6, 0), Vector3(0.3, 0.6, 0.25), ink)
+	b.box(MAP_TABLE + Vector3(0, 0.45, 0), Vector3(0.6, 0.45, 0.4), ink)
 	for i in CANNON_Z.size():
 		for side: int in [-1, 1]:
 			var pivot := cannon_pivot(i, side)

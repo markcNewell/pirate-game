@@ -244,6 +244,15 @@ static func _fittings(b: MeshBuilder) -> void:
 		b.box(post + Vector3(0, 1.1, 0), Vector3(0.32, 0.05, 0.06), _c("rope"))
 	var w := ShipShape.WHEEL
 	b.box(w + Vector3(0, 0.6, 0), Vector3(0.25, 0.6, 0.22), _c("hull_dark"))
+	# The map table: a top on four legs with a chart and a red X on it.
+	var t := ShipShape.MAP_TABLE
+	b.box(t + Vector3(0, 0.88, 0), Vector3(0.6, 0.05, 0.4), _c("mast"))
+	for lx: float in [-0.5, 0.5]:
+		for lz: float in [-0.3, 0.3]:
+			b.box(t + Vector3(lx, 0.42, lz), Vector3(0.05, 0.42, 0.05), _c("hull_dark"))
+	b.box(t + Vector3(0, 0.94, 0), Vector3(0.42, 0.012, 0.3), Color("f2e2b8"), Basis(Vector3.UP, 0.15))
+	for a: float in [0.7, -0.7]:
+		b.box(t + Vector3(0.12, 0.955, 0.05), Vector3(0.09, 0.006, 0.018), Color("c8302a"), Basis(Vector3.UP, a))
 	var lamp := Vector3(0, ShipShape.QUARTER_Y + ShipShape.RAIL_HEIGHT, ShipShape.STERN_Z + 0.2)
 	b.cylinder(lamp, lamp + Vector3(0, 0.9, 0), 0.06, 0.06, 6, _c("trim"))
 	b.box(lamp + Vector3(0, 1.1, 0), Vector3(0.22, 0.05, 0.22), _c("trim"))

@@ -15,6 +15,8 @@ const LADDER_REACH := 3.5
 const HOLE_REACH := 2.4
 const HATCH_REACH := 2.4
 const PATCH_SEND_EVERY := 0.2
+const ITEM_REACH := 2.6
+const CARRY_SPEED := 0.7
 ## The cannon sights sit a little above the barrel, so aim a touch higher than the eye looks.
 const SIGHT_PITCH := 0.04
 
@@ -37,6 +39,8 @@ var pitch := 0.0
 var station := -1
 ## True while carrying a bucket of water (the server says).
 var bucket := false
+## The item in our arms (a chest), or -1.
+var carry := -1
 var teleport_seq := 0
 var swimming := false
 var sensitivity := 0.0025
@@ -122,7 +126,10 @@ func _move_on_ship(delta: float) -> void:
 	# Wading through a flooded lower deck is slow going.
 	var depth := game.view_ship.water - (local.y - ShipShape.LOWER_Y)
 	var scale := 0.55 if ShipShape.is_below_deck(local) and depth > 0.6 else 1.0
-	body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), input.jump, delta, scale)
+	if carry >= 0:
+		scale *= CARRY_SPEED
+	var jump := input.jump and carry < 0
+	body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), jump, delta, scale)
 	body.move_and_slide()
 	local = DeckProxy.from_proxy(body.global_position)
 	if not ShipShape.is_on_board(local):
@@ -133,10 +140,12 @@ func _move_in_world(delta: float) -> void:
 	var p := body.global_position
 	var surface := Waves.height(p.x, p.z, game.render_time)
 	swimming = PlayerMotor.is_swimming(p.y, surface)
+	var scale := CARRY_SPEED if carry >= 0 else 1.0
 	if swimming:
-		body.velocity = PlayerMotor.swim(body.velocity, input.wish, yaw, p.y, surface, delta)
+		body.velocity = PlayerMotor.swim(body.velocity, input.wish, yaw, p.y, surface, delta, scale * 0.85)
 	else:
-		body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), input.jump, delta)
+		var jump := input.jump and carry < 0
+		body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), jump, delta, scale)
 	body.move_and_slide()
 
 
@@ -156,11 +165,12 @@ func _interact(delta: float) -> void:
 	var target := current_target()
 	if target.is_empty():
 		return
-	if target.kind == "patch":
+	if target.kind == "patch" or target.kind == "dig":
+		# Held actions: keep telling the server while E is down.
 		_patch_timer -= delta
 		if input.interact_held and _patch_timer <= 0.0:
 			_patch_timer = PATCH_SEND_EVERY
-			game.send_request("patch", target.id)
+			game.send_request(target.kind, target.id)
 		return
 	if not input.interact:
 		return
@@ -175,15 +185,38 @@ func _interact(delta: float) -> void:
 			game.send_request("scoop", 0)
 		"throw":
 			game.send_request("throw", 0)
+		"sell", "drop", "voyage":
+			game.send_request(target.kind, 0)
+		"pickup", "open", "restock":
+			game.send_request(target.kind, target.id)
 
 
 ## What E would do right now: {kind, id, label}, or empty.
 func current_target() -> Dictionary:
 	if not active or station >= 0:
 		return {}
+	if carry >= 0:
+		var held: Loot = game.view_items.get(carry)
+		var what := held.label() if held else "chest"
+		if mode == Mode.WORLD and body.global_position.distance_to(Outpost.sell_spot()) < 3.5:
+			return {"kind": "sell", "id": 0, "label": "E  sell the %s (%d gold)" % [what, held.value if held else 0]}
+		if mode == Mode.WORLD and nearest_ladder() != 0:
+			return {"kind": "ladder", "id": nearest_ladder(), "label": "E  climb the ladder"}
+		return {"kind": "drop", "id": 0, "label": "E  put down the %s" % what}
+	var item := nearest_item()
+	if item:
+		var verb := "open the" if item.kind == Loot.Kind.BARREL else "pick up the"
+		return {"kind": "open" if item.kind == Loot.Kind.BARREL else "pickup", "id": item.id, "label": "E  %s %s" % [verb, item.label()]}
 	if mode == Mode.WORLD:
 		var side := nearest_ladder()
-		return {"kind": "ladder", "id": side, "label": "E  climb the ladder"} if side != 0 else {}
+		if side != 0:
+			return {"kind": "ladder", "id": side, "label": "E  climb the ladder"}
+		var barrel := nearest_outpost_barrel()
+		if barrel >= 0:
+			return {"kind": "restock", "id": barrel, "label": "E  load supplies onto the ship"}
+		if not game.voyage.is_empty() and not swimming and Islands.island_at(body.global_position.x, body.global_position.z) >= 0:
+			return {"kind": "dig", "id": 0, "label": "Hold E  dig"}
+		return {}
 	# Of everything in reach, use the thing we are looking at most directly.
 	var local := frame_position()
 	var eye := local + Vector3.UP * EYE_HEIGHT
@@ -203,6 +236,9 @@ func current_target() -> Dictionary:
 		candidates.append({"kind": "hatch", "id": 0, "label": "E  climb down the hatch", "at": ShipShape.hatch_top_target()})
 	if ShipShape.is_below_deck(local) and eye.distance_to(ShipShape.hatch_bottom_target()) < HATCH_REACH:
 		candidates.append({"kind": "hatch", "id": 1, "label": "E  climb up", "at": ShipShape.hatch_bottom_target()})
+	if _looking_at(eye, ShipShape.map_table_target(), 2.6, 0.3):
+		var map_label := "E  take a voyage" if game.voyage.is_empty() else "Hold M  read your map"
+		candidates.append({"kind": "voyage", "id": 0, "label": map_label, "at": ShipShape.map_table_target()})
 	for c in candidates:
 		var dot := look_direction().dot((c.at - eye).normalized())
 		if dot > best_dot:
@@ -259,6 +295,41 @@ func nearest_hole() -> Array:
 			best = h
 			best_dist = dist
 	return best
+
+
+## The loose chest or barrel we are looking at within reach, in our frame, or null.
+func nearest_item() -> Loot:
+	var eye := frame_position() + Vector3.UP * EYE_HEIGHT
+	var best: Loot = null
+	var best_dot := 0.55
+	for id in game.view_items:
+		var item: Loot = game.view_items[id]
+		var reachable := false
+		match item.state:
+			Loot.State.GROUND, Loot.State.FLOATING:
+				reachable = mode == Mode.WORLD
+			Loot.State.ON_SHIP:
+				reachable = mode == Mode.ON_SHIP
+		if not reachable:
+			continue
+		var centre := item.pos + Vector3.UP * 0.35
+		var to := centre - eye
+		if to.length() > ITEM_REACH + 0.6:
+			continue
+		var dot := look_direction().dot(to.normalized())
+		if dot > best_dot:
+			best = item
+			best_dot = dot
+	return best
+
+
+## The outpost's supply barrel within reach, or -1.
+func nearest_outpost_barrel() -> int:
+	var spots := Outpost.barrels()
+	for i in spots.size():
+		if body.global_position.distance_to(spots[i]) < ITEM_REACH:
+			return i
+	return -1
 
 
 ## The ladder (-1 port, 1 starboard) within reach of a swimmer, or 0.

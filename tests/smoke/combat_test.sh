@@ -42,6 +42,8 @@ check "hulls were holed ($(field holes "$r"))" '[ "$(field holes "$r")" -ge 3 ]'
 check "holes were patched ($(field patched "$r"))" '[ "$(field patched "$r")" -ge 1 ]'
 check "the skeleton ship was hit (most holes ${skel_holes:-0}, sunk $(field ai_sunk "$r"))" \
 	'[ "${skel_holes:-0}" -ge 1 ] || [ "$(field ai_sunk "$r")" -ge 1 ]'
+check "a sunk skeleton ship leaves loot" \
+	'[ "$(field ai_sunk "$r")" -eq 0 ] || [ "$(field loot_spawned "$r")" -ge 3 ]'
 
 # --- 2. the sinking ---
 SINK=70

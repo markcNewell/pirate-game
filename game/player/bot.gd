@@ -8,6 +8,8 @@ extends Node
 ##   swimmer - jump overboard through the ladder gap, then climb back up the ladder
 ##   gunner  - man a cannon on the side facing the skeleton ship and shoot at it
 ##   repair  - go below, patch holes and bail water out with a bucket
+##   treasure - take a voyage, swim ashore, dig up the chest and stow it aboard
+##   seller  - carry the chest on deck to the outpost merchant, sell it, then restock
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -22,6 +24,10 @@ var _working := false
 var _status_timer := 0.0
 var _gun_station := -1
 var _wrong_side := 0.0
+var _waypoints: Array[Vector3] = []
+var _stuck_check := Vector3.ZERO
+var _stuck_timer := 0.0
+var _sidestep := 0.0
 
 
 func setup(g: Game, r: String) -> void:
@@ -46,8 +52,8 @@ func _physics_process(delta: float) -> void:
 	_status_timer += delta
 	if _status_timer > 3.0:
 		_status_timer = 0.0
-		_say("phase=%s mode=%d station=%d at=%s next=%s" % [
-			_phase, _player.mode, _player.station, _player.frame_position().snappedf(0.01),
+		_say("phase=%s mode=%d station=%d carry=%d at=%s next=%s" % [
+			_phase, _player.mode, _player.station, _player.carry, _player.frame_position().snappedf(0.01),
 			_route[0] if not _route.is_empty() else "-",
 		])
 	if _phase == "start":
@@ -62,6 +68,10 @@ func _physics_process(delta: float) -> void:
 			_gunner(input)
 		"repair":
 			_repair(input)
+		"treasure":
+			_treasure(input)
+		"seller":
+			_seller(input)
 
 
 func _process(_delta: float) -> void:
@@ -251,6 +261,162 @@ func _repair(input: PlayerInput) -> void:
 			input.interact = true  # fill the bucket where we stand
 		return
 	_go(input, ShipShape.HATCH_BOTTOM + Vector3(0, 0, 1.5))
+
+
+## In the world, walk or swim straight for a point, side-stepping if something blocks us.
+## True once within `near` metres (horizontally).
+func _head_to(input: PlayerInput, target: Vector3, near := 1.0) -> bool:
+	var p := _player.body.global_position
+	var flat := Vector2(target.x - p.x, target.z - p.z)
+	if flat.length() < near:
+		return true
+	_player.yaw = atan2(-flat.x, -flat.y)
+	_player.pitch = 0.0
+	input.wish = Vector2(0, 1)
+	_stuck_timer += get_physics_process_delta_time()
+	if _sidestep > 0.0:
+		_sidestep -= get_physics_process_delta_time()
+		input.wish = Vector2(1.0, 0.4)
+	elif _stuck_timer > 1.0:
+		if p.distance_to(_stuck_check) < 0.3:
+			_sidestep = 1.2
+		_stuck_check = p
+		_stuck_timer = 0.0
+	return false
+
+
+## Walk out through the nearest rail gap. Call while on deck.
+func _go_overboard(input: PlayerInput) -> void:
+	var sx := 1.0 if _player.frame_position().x >= 0.0 else -1.0
+	if _phase.ends_with("_out") or _go(input, Vector3(sx * 2.6, ShipShape.DECK_Y, ShipShape.LADDER_Z)):
+		if not _phase.ends_with("_out"):
+			_phase += "_out"
+		_player.yaw = -PI / 2.0 * sx
+		input.wish = Vector2(0, 1)
+
+
+func _nearest_ladder_bottom() -> Vector3:
+	var p := _player.body.global_position
+	var best := Vector3.ZERO
+	var best_d := INF
+	for side: int in [-1, 1]:
+		var b: Vector3 = game.ship_view.global_transform * ShipShape.ladder_bottom(side)
+		var d := p.distance_to(b)
+		if d < best_d:
+			best = b
+			best_d = d
+	return best
+
+
+func _treasure(input: PlayerInput) -> void:
+	match _phase.trim_suffix("_out"):
+		"act":
+			# To the map table for a voyage.
+			if not game.voyage.is_empty():
+				_say("got a map to %s" % Islands.LAYOUT[game.voyage.island].name)
+				_phase = "leave"
+				return
+			if _go(input, ShipShape.MAP_TABLE + Vector3(0.95, 0, 0.7)):
+				_look_at(ShipShape.map_table_target())
+				if _every(0.5):
+					input.interact = true
+		"leave":
+			if _player.mode == LocalPlayer.Mode.WORLD:
+				_say("overboard, heading for the X")
+				_phase = "to_x"
+				return
+			_go_overboard(input)
+		"to_x":
+			var x := Vector3(game.voyage.x, 0, game.voyage.z)
+			if _head_to(input, x, 1.0):
+				_phase = "dig"
+				_timer = 0.0
+		"dig":
+			input.interact_held = true
+			for id in game.view_items:
+				var item: Loot = game.view_items[id]
+				if item.kind == Loot.Kind.CHEST and item.state == Loot.State.GROUND \
+						and item.pos.distance_to(_player.body.global_position) < 4.0:
+					_say("dug up the chest")
+					_phase = "pick"
+					_waypoints = [item.pos]
+		"pick":
+			if _player.carry >= 0:
+				_say("carrying the chest")
+				_phase = "return"
+				return
+			var at: Vector3 = _waypoints[0]
+			if _head_to(input, at, 1.2):
+				var to: Vector3 = at + Vector3.UP * 0.35 - (_player.body.global_position + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+				_player.yaw = atan2(-to.x, -to.z)
+				_player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+				if _every(0.5):
+					input.interact = true
+		"return":
+			if _player.mode == LocalPlayer.Mode.ON_SHIP:
+				_say("back aboard with the chest")
+				_phase = "stow"
+				return
+			if _head_to(input, _nearest_ladder_bottom(), 1.5) or _player.nearest_ladder() != 0:
+				if _every(0.5):
+					input.interact = true
+		"stow":
+			if _player.carry < 0:
+				_say("stowed the chest")
+				_phase = "done"
+				return
+			if _go(input, Vector3(-1.0, ShipShape.DECK_Y, 0.3)):
+				if _every(0.5):
+					input.interact = true
+
+
+func _seller(input: PlayerInput) -> void:
+	match _phase.trim_suffix("_out"):
+		"act":
+			if _player.carry >= 0:
+				_say("picked up the chest")
+				_phase = "leave"
+				return
+			for id in game.view_items:
+				var item: Loot = game.view_items[id]
+				if item.kind == Loot.Kind.CHEST and item.state == Loot.State.ON_SHIP:
+					if _go(input, item.pos + Vector3(0.9, 0, 0.6)):
+						_look_at(item.pos + Vector3.UP * 0.35)
+						if _every(0.5):
+							input.interact = true
+					return
+		"leave":
+			if _player.mode == LocalPlayer.Mode.WORLD:
+				_say("overboard with the chest, heading for the merchant")
+				_phase = "to_merchant"
+				return
+			_go_overboard(input)
+		"to_merchant":
+			if _player.carry < 0:
+				_say("sold the chest, gold %d" % game.purse)
+				var c := Outpost._centre()
+				var r: float = Outpost.spec().radius
+				_waypoints = [
+					c + Vector3(cos(0.45) * (r + 0.5), 0, sin(0.45) * (r + 0.5)),
+					c + Vector3(cos(0.15) * (r - 1.0), 0, sin(0.15) * (r - 1.0)),
+					c + Vector3(r - 5.0, 0, 0), Outpost.barrels()[0],
+				]
+				_phase = "restock"
+				return
+			if _head_to(input, Outpost.sell_spot(), 1.6):
+				_player.yaw = atan2(-(Outpost.merchant_pos().x - _player.body.global_position.x), -(Outpost.merchant_pos().z - _player.body.global_position.z))
+				if _every(0.5):
+					input.interact = true
+		"restock":
+			if _waypoints.size() > 1:
+				if _head_to(input, _waypoints[0], 1.0):
+					_waypoints.pop_front()
+				return
+			if _head_to(input, _waypoints[0], 1.6) and _every(0.5):
+				input.interact = true
+			if game.view_ship.cannonballs == ShipState.MAX_CANNONBALLS:
+				_say("restocked the ship")
+				_phase = "done"
 
 
 func _say(text: String) -> void:

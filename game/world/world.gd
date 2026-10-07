@@ -79,11 +79,21 @@ func _island(spec: Dictionary) -> void:
 	root.position = Vector3(spec.x, 0.0, spec.z)
 	root.add_child(Toon.instance(built.ground))
 	root.add_child(Toon.instance(built.decor))
+	var faces: PackedVector3Array = built.faces
+	if spec.outpost:
+		var port := Outpost.build()
+		root.add_child(Toon.instance(port.mesh))
+		var merchant := Toon.instance(port.merchant)
+		merchant.position = Outpost.merchant_pos() - root.position
+		# Face out to sea: the model faces -z, so turn it toward the hut's outward direction.
+		merchant.rotation.y = -PI / 2.0 - Outpost.HUT_ANGLE
+		root.add_child(merchant)
+		faces.append_array(port.faces)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
 	var shape := ConcavePolygonShape3D.new()
-	shape.set_faces(built.faces)
+	shape.set_faces(faces)
 	var holder := CollisionShape3D.new()
 	holder.shape = shape
 	body.add_child(holder)

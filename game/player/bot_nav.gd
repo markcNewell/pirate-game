@@ -34,6 +34,7 @@ static func _obstacles(lower: bool) -> Array[Rect2]:
 		Vector2(ShipShape.HATCH_X + 0.16, (ShipShape.HATCH_Z1 - ShipShape.HATCH_Z0) * 0.5 + 0.16)))
 	r.append(_centred(Vector2(0, ShipShape.CAPSTAN.z), Vector2(0.6, 0.6)))
 	r.append(_centred(Vector2(0, ShipShape.WHEEL.z), Vector2(0.3, 0.25)))
+	r.append(_centred(Vector2(ShipShape.MAP_TABLE.x, ShipShape.MAP_TABLE.z), Vector2(0.6, 0.4)))
 	for m in ShipShape.MAST_Z.size():
 		var post := ShipShape.sail_post(m)
 		r.append(_centred(Vector2(post.x, post.z), Vector2(0.15, 0.15)))

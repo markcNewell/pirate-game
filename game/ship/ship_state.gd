@@ -4,6 +4,8 @@ extends RefCounted
 
 const MASTS := 2
 const GUNS := 4
+const MAX_CANNONBALLS := 60
+const MAX_PLANKS := 30
 
 enum Kind { CREW, SKELETON }
 
@@ -35,6 +37,10 @@ var gun_yaw: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var gun_pitch: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var gun_reload: Array[float] = [0.0, 0.0, 0.0, 0.0]
 
+## Supplies aboard. Skeleton ships never run out.
+var cannonballs := 30
+var planks := 15
+
 ## Server only (never sent): the next hole's id.
 var next_hole_id := 1
 
@@ -51,7 +57,7 @@ func to_array() -> Array:
 	var a := [
 		kind, x, z, yaw, speed, rudder,
 		sail_height[0], sail_height[1], sail_angle[0], sail_angle[1],
-		1 if anchored else 0, anchor_progress, water, sink,
+		1 if anchored else 0, anchor_progress, water, sink, cannonballs, planks,
 	]
 	for g in GUNS:
 		a.append_array([gun_yaw[g], gun_pitch[g], gun_reload[g]])
@@ -75,7 +81,9 @@ static func from_array(a: Array) -> ShipState:
 	s.anchor_progress = a[11]
 	s.water = a[12]
 	s.sink = a[13]
-	var i := 14
+	s.cannonballs = a[14]
+	s.planks = a[15]
+	var i := 16
 	for g in GUNS:
 		s.gun_yaw[g] = a[i]
 		s.gun_pitch[g] = a[i + 1]

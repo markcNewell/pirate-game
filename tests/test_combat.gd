@@ -123,6 +123,8 @@ func test_state_round_trip_keeps_holes_and_guns() -> void:
 	s.gun_yaw = [0.1, -0.2, 0.3, 0.0]
 	s.gun_pitch = [0.05, 0.1, 0.0, 0.2]
 	s.gun_reload = [1.0, 0.0, 2.5, 0.0]
+	s.cannonballs = 12
+	s.planks = 3
 	check_eq(ShipState.from_array(s.to_array()).to_array(), s.to_array())
 
 

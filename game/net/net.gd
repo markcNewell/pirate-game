@@ -104,39 +104,55 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 # --- messages to clients (server side) ---
+# Every sender copes with having no network at all, so the server sim can run in unit tests.
+
+func _online() -> bool:
+	return is_inside_tree() and multiplayer.multiplayer_peer != null \
+		and not multiplayer.multiplayer_peer is OfflineMultiplayerPeer
+
+
+func _is_me(id: int) -> bool:
+	return not _online() or id == multiplayer.get_unique_id()
+
 
 func send_snapshot(data: Array) -> void:
-	_snapshot.rpc(data)
+	if _online():
+		_snapshot.rpc(data)
 
 
 func send_teleport(id: int, data: Array) -> void:
-	if id == multiplayer.get_unique_id():
-		game.client_on_teleport(data)
+	if _is_me(id):
+		if game:
+			game.client_on_teleport(data)
 	else:
 		_teleport.rpc_id(id, data)
 
 
 func send_roster(roster: Dictionary) -> void:
-	_roster.rpc(roster)
-	if game.has_view():
+	if _online():
+		_roster.rpc(roster)
+	if game and game.has_view():
 		game.client_on_roster(roster)
 
 
 ## A one-off happening for every client (a shot, an impact).
 func send_event(kind: String, data: Array) -> void:
-	_event.rpc(kind, data)
-	if game.has_view():
+	if _online():
+		_event.rpc(kind, data)
+	if game and game.has_view():
 		game.client_on_event(kind, data)
 
 
 ## id 0 means everyone.
 func send_message(id: int, text: String) -> void:
 	if id == 0:
-		_message.rpc(text)
-		if game.has_view():
+		if _online():
+			_message.rpc(text)
+		if game and game.has_view():
 			game.client_on_message(text)
-	elif id == multiplayer.get_unique_id():
-		game.client_on_message(text)
+	elif _is_me(id):
+		if game:
+			game.client_on_message(text)
 	else:
 		_message.rpc_id(id, text)
 

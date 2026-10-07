@@ -46,6 +46,27 @@ func place(pose: Transform3D, delta: float) -> void:
 	global_transform = pose
 
 
+## The outpost merchant: a stout figure in a green coat and apron with a wide hat.
+static func merchant_mesh() -> ArrayMesh:
+	var b := MeshBuilder.new()
+	var skin := Color("e8b48a")
+	var coat := Color("2f7a4f")
+	var dark := Color("2a2430")
+	for side: int in [-1, 1]:
+		b.box(Vector3(side * 0.16, 0.08, -0.04), Vector3(0.11, 0.08, 0.15), dark)
+		b.cylinder(Vector3(side * 0.15, 0.1, 0), Vector3(side * 0.15, 0.8, 0), 0.13, 0.15, 8, Color("5b4636"))
+		b.cylinder(Vector3(side * 0.42, 1.38, 0), Vector3(side * 0.5, 0.95, -0.12), 0.11, 0.09, 8, coat)
+		b.ellipsoid(Vector3(side * 0.5, 0.9, -0.15), 0.1, Vector3.ONE, 5, 8, skin)
+		b.ellipsoid(Vector3(side * 0.08, 1.7, -0.2), 0.035, Vector3(1, 1.3, 0.6), 4, 6, dark)
+	b.cylinder(Vector3(0, 0.78, 0), Vector3(0, 1.45, 0), 0.4, 0.36, 12, coat)
+	b.box(Vector3(0, 1.0, -0.36), Vector3(0.26, 0.3, 0.03), Color("f4efe2"))
+	b.ellipsoid(Vector3(0, 1.68, 0), 0.23, Vector3(1.0, 1.05, 1.0), 8, 12, skin)
+	b.ellipsoid(Vector3(0, 1.58, -0.18), 0.12, Vector3(1.2, 0.6, 0.6), 5, 8, Color("8a8a8a"))
+	b.cylinder(Vector3(0, 1.84, 0), Vector3(0, 1.88, 0), 0.5, 0.5, 14, Color("6b4a2c"))
+	b.cylinder(Vector3(0, 1.86, 0), Vector3(0, 2.1, 0), 0.24, 0.22, 12, Color("6b4a2c"))
+	return b.build()
+
+
 ## A pirate built from code: boots, trousers, shirt, belt, arms, head and a tricorn hat.
 static func pirate_mesh(shirt: Color) -> ArrayMesh:
 	var b := MeshBuilder.new()

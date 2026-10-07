@@ -40,8 +40,11 @@ static func walk(
 	return Vector3(flat.x, y, flat.z)
 
 
-static func swim(velocity: Vector3, wish: Vector2, yaw: float, feet_y: float, surface_y: float, dt: float) -> Vector3:
-	var target := wish_direction(wish, yaw) * SWIM
+static func swim(
+	velocity: Vector3, wish: Vector2, yaw: float, feet_y: float, surface_y: float, dt: float,
+	speed_scale := 1.0
+) -> Vector3:
+	var target := wish_direction(wish, yaw) * SWIM * speed_scale
 	var flat := Vector3(velocity.x, 0.0, velocity.z).move_toward(target, WATER_ACCEL * dt)
 	# Bob toward floating depth; the lerp soaks up the speed of a fall into the sea.
 	var rise := clampf((surface_y - FLOAT_DEPTH - feet_y) * 3.0, -4.0, 2.5)

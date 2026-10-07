@@ -125,6 +125,10 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var st: Dictionary = ShipShape.stations()[5]
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, st.stand, -PI / 2.0)
 		game.send_request("station", 5)
+	elif game and view == "map":
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6), 0.6)
+		game.send_request("voyage", 0)
+		Input.action_press("map")
 	elif game and view == "below":
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, Vector3(-0.8, ShipShape.LOWER_Y, 2.5), 0.25)
 	elif game and view == "enemy":
@@ -155,6 +159,10 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			var isl: Dictionary = Islands.LAYOUT[0]
 			var centre := Vector3(isl.x, 4.0, isl.z)
 			cam.look_at_from_position(centre + Vector3(60, 22, 75), centre)
+		elif view == "outpost":
+			var at := Outpost.merchant_pos() + Vector3(0, 1.5, 0)
+			var out := (Outpost.sell_spot() - Outpost.merchant_pos()).normalized()
+			cam.look_at_from_position(at + out * 16.0 + Vector3(-8, 5, 6), at - out * 2.0)
 		else:
 			var spec: Array = offsets.get(view, offsets.outside)
 			var follow := func() -> void:

@@ -14,6 +14,8 @@ var _toast_left := 0.0
 var _compass: Control
 var _gauges: Control
 var _damage: Control
+var _map: Control
+var _purse: Label
 var _gunner: Label
 var _enemy: Label
 var _crew: PanelContainer
@@ -89,6 +91,24 @@ func _ready() -> void:
 	_enemy.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_enemy.add_theme_color_override("font_color", Color("b8f5ae"))
 	root.add_child(_enemy)
+
+	_purse = _label(22)
+	_purse.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_purse.offset_left = -300
+	_purse.offset_right = -20
+	_purse.offset_top = 16
+	_purse.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	root.add_child(_purse)
+
+	_map = TreasureMap.new()
+	_map.hud = self
+	_map.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_map.offset_left = -260
+	_map.offset_right = 260
+	_map.offset_top = -230
+	_map.offset_bottom = 230
+	_map.visible = false
+	root.add_child(_map)
 
 	_crew = _panel()
 	_crew.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -189,6 +209,11 @@ func _process(delta: float) -> void:
 	_compass.queue_redraw()
 	_gauges.queue_redraw()
 	_damage.queue_redraw()
+	var ship := game.view_ship
+	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
+	_map.visible = Input.is_action_pressed("map") and not game.voyage.is_empty() and not _menu.visible
+	if _map.visible:
+		_map.queue_redraw()
 	var reload := game.local_player.cannon_reload()
 	_gunner.text = "" if reload < 0.0 else ("Loaded - left click to fire" if reload <= 0.0 else "Reloading %.1f s" % reload)
 	var enemy := game.nearest_enemy()
@@ -320,3 +345,51 @@ class Damage:
 		draw_string(font, Vector2(16, 80), leak_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("ffd23a") if leaks > 0 else PAPER)
 		if hud.game.local_player.bucket:
 			draw_string(font, Vector2(130, 80), "bucket full", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("4fb6f5"))
+
+
+
+## The treasure map (hold M): the voyage island's outline on parchment, its name, the X,
+## and where the island lies from the ship.
+class TreasureMap:
+	extends Control
+
+	const PARCHMENT := Color("f2e2b8")
+	const INKY := Color("5a3e22")
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var v: Dictionary = hud.game.voyage
+		if v.is_empty():
+			return
+		var spec: Dictionary = Islands.LAYOUT[v.island]
+		var font := get_theme_default_font()
+		draw_rect(Rect2(Vector2.ZERO, size), PARCHMENT)
+		draw_rect(Rect2(Vector2.ZERO, size), INKY, false, 4.0)
+		var centre := size * 0.5 + Vector2(0, 14)
+		var scale: float = (minf(size.x, size.y) * 0.36) / (spec.radius + 6.0)
+		var beach := PackedVector2Array()
+		var grass := PackedVector2Array()
+		for i in 64:
+			var a := TAU * i / 64.0
+			var wob := 1.0 + 0.04 * sin(5.0 * a)
+			var dir := Vector2(cos(a), sin(a))
+			beach.append(centre + dir * spec.radius * wob * scale)
+			# Walk in from the shore to where the grass starts.
+			var r: float = spec.radius
+			while r > 0.0 and not IslandMesh.is_grass(spec, cos(a) * r * wob, sin(a) * r * wob):
+				r -= 0.5
+			grass.append(centre + dir * r * wob * scale)
+		draw_colored_polygon(beach, Color("e8cf98"))
+		draw_colored_polygon(grass, Color("9cbf6e"))
+		beach.append(beach[0])
+		draw_polyline(beach, INKY, 3.0)
+		var x := centre + Vector2(v.x - spec.x, v.z - spec.z) * scale
+		for d: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
+			draw_line(x - d * 12.0, x + d * 12.0, Color("c8302a"), 6.0)
+		draw_string(font, Vector2(0, 40), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, INKY)
+		var ship := hud.game.view_ship
+		var to := Vector2(spec.x - ship.x, spec.z - ship.z)
+		var hint := "%d m to the %s" % [int(to.length()), ServerSim.compass_name(atan2(to.x, -to.y))]
+		draw_string(font, Vector2(0, size.y - 22), hint, HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, INKY)
+		draw_string(font, Vector2(size.x - 40, 40), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("c8302a"))

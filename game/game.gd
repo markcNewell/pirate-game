@@ -29,7 +29,11 @@ var render_time := 0.0
 var view_ships := {}  # ship id -> ShipState
 var view_ship := ShipState.new()  # the crew's ship
 var view_wind := Vector2(0, -1)
-var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket}
+var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket, carry}
+var view_items := {}  # item id -> Loot
+## The crew's gold and current treasure hunt ({island, x, z} or empty), as last heard.
+var purse := 0
+var voyage := {}
 
 var world: World
 var ship_views := {}  # ship id -> ShipView
@@ -39,6 +43,7 @@ var local_player: LocalPlayer
 var hud: Hud
 var effects: Effects
 var avatars := {}  # peer id -> Avatar
+var _item_views := {}  # item id -> LootView
 
 # --- server ---
 var sim: ServerSim
@@ -197,9 +202,16 @@ func client_on_snapshot(data: Array) -> void:
 	for p in data[2]:
 		snap_players[int(p[0])] = {
 			"mode": int(p[1]), "ship": int(p[2]), "pos": Vector3(p[3], p[4], p[5]), "yaw": float(p[6]),
-			"pitch": float(p[7]), "station": int(p[8]), "bucket": int(p[9]) == 1,
+			"pitch": float(p[7]), "station": int(p[8]), "bucket": int(p[9]) == 1, "carry": int(p[10]),
 		}
-	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players})
+	var snap_items := {}
+	for entry in data[3]:
+		var item := Loot.from_array(entry)
+		snap_items[item.id] = item
+	purse = int(data[4])
+	var hunt: Array = data[5]
+	voyage = {} if hunt.is_empty() else {"island": int(hunt[0]), "x": float(hunt[1]), "z": float(hunt[2])}
+	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players, "items": snap_items})
 	while _snaps.size() > 2 and _snaps[1].t < t - 1.0:
 		_snaps.pop_front()
 
@@ -283,6 +295,7 @@ func _process(delta: float) -> void:
 	if not me.is_empty():
 		local_player.station = me.station if local_player.mode == LocalPlayer.Mode.ON_SHIP else -1
 		local_player.bucket = me.bucket
+		local_player.carry = me.carry
 	local_player.update_view()
 	if local_player.station >= 0 and ShipShape.stations()[local_player.station].kind == ShipShape.Kind.CANNON:
 		# Our own cannon follows the mouse at once rather than waiting for the server.
@@ -301,8 +314,36 @@ func _process(delta: float) -> void:
 		avatar.set_bucket(p.bucket)
 
 	_update_balls()
+	_update_items()
 	var cam := get_viewport().get_camera_3d()
 	world.follow(cam.global_position if cam else Vector3.ZERO, render_time, view_ships)
+
+
+## Place every chest and barrel: on the ground, afloat, stowed aboard or in someone's arms.
+func _update_items() -> void:
+	for id in _item_views.keys():
+		if not view_items.has(id):
+			_item_views[id].queue_free()
+			_item_views.erase(id)
+	for id in view_items:
+		var item: Loot = view_items[id]
+		if not _item_views.has(id):
+			var v := LootView.new().setup(item.kind, item.value)
+			add_child(v)
+			_item_views[id] = v
+		var view: LootView = _item_views[id]
+		var at := Transform3D(Basis(Vector3.UP, item.yaw), item.pos)
+		match item.state:
+			Loot.State.ON_SHIP:
+				at = ship_view.global_transform * at
+			Loot.State.CARRIED:
+				if item.carrier == local_id:
+					# In our own arms: low in front of the camera.
+					var cam := local_player.camera.global_transform
+					at = Transform3D(cam.basis, cam * Vector3(0.0, -0.75, -0.85))
+				elif avatars.has(item.carrier):
+					at = avatars[item.carrier].global_transform * Transform3D(Basis.IDENTITY, Vector3(0, 0.75, -0.55))
+		view.global_transform = at
 
 
 func _update_balls() -> void:
@@ -359,6 +400,15 @@ func _interpolate(t: float) -> void:
 			s.z += f.y
 		view_ships[id] = s
 
+	view_items = {}
+	for id in b.items:
+		var ib: Loot = b.items[id]
+		var ia: Loot = a.items.get(id)
+		var item := Loot.from_array(ib.to_array())
+		if ia and ia.state == ib.state:
+			item.pos = ia.pos.lerp(ib.pos, w)
+		view_items[id] = item
+
 	view_players.clear()
 	for id in b.players:
 		var pb: Dictionary = b.players[id]
@@ -368,7 +418,7 @@ func _interpolate(t: float) -> void:
 		view_players[id] = {
 			"mode": pb.mode, "ship": pb.ship, "pos": pa.pos.lerp(pb.pos, w),
 			"yaw": lerp_angle(pa.yaw, pb.yaw, w), "pitch": lerpf(pa.pitch, pb.pitch, w),
-			"station": pb.station, "bucket": pb.bucket,
+			"station": pb.station, "bucket": pb.bucket, "carry": pb.carry,
 		}
 
 

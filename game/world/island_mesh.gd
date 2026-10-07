@@ -94,6 +94,9 @@ static func _palms(decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng
 		var y := ground(spec, x, z)
 		if y < SAND_TOP - 0.1:
 			continue
+		# Keep the outpost's pier and hut clear of palms.
+		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
+			continue
 		_palm(decor, Vector3(x, y - 0.2, z), rng.randf_range(6.0, 9.5), rng.randf() * TAU, rng.randf_range(1.0, 2.6))
 		solid.box(Vector3(x, y + 1.0, z), Vector3(0.35, 1.2, 0.35), Color.BLACK)
 		placed += 1

@@ -20,6 +20,15 @@ const AI_RESPAWN_DELAY := 90.0
 const AI_SPAWN_DISTANCE := 450.0
 ## Ships closer than this (between any of bow, middle and stern) are pushed apart.
 const SHIP_CONTACT := 6.5
+const ITEM_REACH := 3.0
+const DIG_REACH := 3.0
+const DIG_TIME := 2.0
+const SELL_REACH := 4.0
+const RESTOCK_SHIP_RANGE := 80.0
+const OPEN_SHIP_RANGE := 60.0
+const BARREL_BALLS := 15
+const BARREL_PLANKS := 8
+const MAP_TABLE_REACH := 3.0
 
 var time := 0.0
 var ships := {}  # ship id -> ShipState
@@ -32,7 +41,15 @@ var projectiles: Array[Dictionary] = []
 var stats := {
 	"max_speed": 0.0, "stations_taken": 0, "climbs": 0, "corrections": 0, "shots": 0,
 	"hits": 0, "holes": 0, "patched": 0, "bailed": 0, "ai_spawned": 0, "ai_sunk": 0, "crew_sunk": 0,
+	"voyages": 0, "dug": 0, "sold": 0, "restocked": 0, "loot_spawned": 0, "stowed": 0,
 }
+var items := {}  # item id -> Loot
+## The crew's shared gold, and the treasure hunt in progress ({} when none).
+var purse := 0
+var voyage := {}
+## Test hook: the island the next voyage goes to (-1 for random).
+var options_island := -1
+var _next_item := 1
 
 var ai_enabled := true
 var next_ai_time := AI_FIRST_DELAY
@@ -50,6 +67,17 @@ func _init(options: Dictionary = {}) -> void:
 	ai_enabled = not options.get("no-ai", false)
 	next_ai_time = float(options.get("ai-delay", AI_FIRST_DELAY))
 	ships[CREW] = ShipState.new()
+	# Test hooks: start near an island or the outpost, with a chest aboard.
+	if options.has("voyage-island"):
+		options_island = int(options["voyage-island"])
+	if options.has("start-near"):
+		var where := str(options["start-near"])
+		var spot := Outpost.anchorage() if where == "outpost" else _anchorage(int(where))
+		crew_ship().x = spot.x
+		crew_ship().z = spot.z
+		crew_ship().yaw = Captain.bearing(Vector2(spot.x, spot.z), _island_xz(where))
+	if options.has("test-chest"):
+		_new_item(Loot.Kind.CHEST, Loot.State.ON_SHIP, Vector3(-1.2, ShipShape.DECK_Y, -2.2), 250)
 	# Test hook: start with this many holes in the crew's ship.
 	for i in int(options.get("test-holes", 0)):
 		var h := ShipShape.hole_point(Vector3(1.0 if i % 2 == 0 else -1.0, 0.0, -6.0 + i * 1.5))
@@ -86,6 +114,7 @@ func tick(dt: float) -> void:
 	_separate_ships()
 	_step_projectiles()
 	_handle_sinking()
+	_step_items(dt)
 
 
 func _crew_controls() -> ShipControls:
@@ -116,8 +145,14 @@ func snapshot() -> Array:
 	var list := []
 	for id in players:
 		var r: Dictionary = players[id]
-		list.append([id, r.mode, r.ship, r.pos.x, r.pos.y, r.pos.z, r.yaw, r.pitch, r.station, 1 if r.bucket else 0])
-	return [time, ship_list, list]
+		list.append([id, r.mode, r.ship, r.pos.x, r.pos.y, r.pos.z, r.yaw, r.pitch, r.station, 1 if r.bucket else 0, r.carry])
+	var item_list := []
+	for id in items:
+		var item: Loot = items[id]
+		if item.state != Loot.State.BURIED:
+			item_list.append(item.to_array())
+	var hunt := [] if voyage.is_empty() else [voyage.island, voyage.x, voyage.z]
+	return [time, ship_list, list, item_list, purse, hunt]
 
 
 func log_line() -> String:
@@ -202,6 +237,7 @@ func _handle_sinking() -> void:
 				if _crew_respawn_at < 0.0:
 					_crew_respawn_at = time + CREW_RESPAWN_DELAY
 			else:
+				_drop_wreck_loot(s)
 				ships.erase(id)
 				captains.erase(id)
 				_evacuated.erase(id)
@@ -213,6 +249,12 @@ func _handle_sinking() -> void:
 ## Everyone aboard a sinking ship goes into the sea where they stood.
 func _evacuate(ship_id: int) -> void:
 	var pose := ShipPhysics.pose_of(ships[ship_id], time)
+	if ship_id == CREW:
+		# Anything stowed aboard floats up where it was.
+		for iid in items:
+			var item: Loot = items[iid]
+			if item.state == Loot.State.ON_SHIP:
+				_set_floating(item, pose * item.pos)
 	for id in players:
 		var r: Dictionary = players[id]
 		if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != ship_id:
@@ -362,7 +404,7 @@ func add_player(id: int, player_name: String) -> void:
 	players[id] = {
 		"name": clean, "mode": LocalPlayer.Mode.ON_SHIP, "ship": CREW, "pos": Vector3.ZERO,
 		"yaw": 0.0, "pitch": 0.0, "station": -1, "seq": 0, "time": time, "bucket": false,
-		"last_patch": -1.0,
+		"last_patch": -1.0, "carry": -1, "dig": 0.0, "last_dig": -1.0,
 	}
 	roster[id] = clean
 	print("[server] %s joined (peer %d)" % [clean, id])
@@ -380,6 +422,7 @@ func remove_player(id: int) -> String:
 	if not players.has(id):
 		return ""
 	_free_station_of(id)
+	_drop_carried(id)
 	var who: String = players[id].name
 	print("[server] %s left (peer %d)" % [who, id])
 	players.erase(id)
@@ -462,12 +505,29 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_throw(r)
 		"fire":
 			_player_fire(r, arg, data)
+		"voyage":
+			_take_voyage(r)
+		"dig":
+			_dig(r)
+		"pickup":
+			_pickup(id, r, arg)
+		"drop":
+			_drop_carried(id)
+		"sell":
+			_sell(r)
+		"restock":
+			_restock(r, arg)
+		"open":
+			_open_barrel(r, arg)
 
 
 func _take_station(id: int, r: Dictionary, station: int) -> void:
 	if station < 0 or station >= _stations.size() or r.mode != LocalPlayer.Mode.ON_SHIP:
 		return
 	if crew_ship().is_sinking() or r.station == station:
+		return
+	if r.carry >= 0:
+		Net.send_message(id, "Put the chest down first")
 		return
 	var st: Dictionary = _stations[station]
 	if station_owner.has(station) and station_owner[station] != id:
@@ -523,8 +583,13 @@ func _patch(r: Dictionary, hole_id: int) -> void:
 		# same however often the client asks.
 		var gap: float = time - r.last_patch if r.last_patch >= 0.0 else 0.2
 		r.last_patch = time
-		h[4] = float(h[4]) + clampf(gap, 0.0, 0.35) / PATCH_TIME
+		h[4] = minf(float(h[4]) + clampf(gap, 0.0, 0.35) / PATCH_TIME, 1.0)
 		if h[4] >= 1.0:
+			if s.planks <= 0:
+				h[4] = 0.95
+				Net.send_message(players.find_key(r), "No planks left! Restock at Port Merrow.")
+				return
+			s.planks -= 1
 			s.holes.erase(h)
 			stats.patched += 1
 			print("[server] %s patched hole %d" % [r.name, hole_id])
@@ -555,6 +620,10 @@ func _player_fire(r: Dictionary, station: int, aim: Array) -> void:
 		return
 	if crew_ship().gun_reload[st.gun] > 0.0:
 		return
+	if crew_ship().cannonballs <= 0:
+		Net.send_message(players.find_key(r), "Out of cannonballs! Restock at Port Merrow.")
+		return
+	crew_ship().cannonballs -= 1
 	_fire(CREW, st.gun, float(aim[0]), float(aim[1]), PLAYER_RELOAD)
 
 
@@ -594,3 +663,224 @@ func _teleport(id: int, mode: int, pos: Vector3, yaw: float) -> void:
 static func compass_name(heading: float) -> String:
 	var names := ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"]
 	return names[int(round(fposmod(rad_to_deg(heading), 360.0) / 45.0)) % 8]
+
+
+# =====================================================================================
+# Treasure and supplies
+# =====================================================================================
+
+func _new_item(kind: int, state: int, pos: Vector3, value := 0) -> Loot:
+	var item := Loot.new()
+	item.id = _next_item
+	_next_item += 1
+	item.kind = kind
+	item.state = state
+	item.pos = pos
+	item.value = value
+	item.born = time
+	items[item.id] = item
+	return item
+
+
+func _island_xz(where: String) -> Vector2:
+	var index := Islands.outpost_index() if where == "outpost" else int(where)
+	var spec: Dictionary = Islands.LAYOUT[index]
+	return Vector2(spec.x, spec.z)
+
+
+## A spot 40 m off an island's shore, on the side facing the start (for tests).
+func _anchorage(index: int) -> Vector3:
+	var spec: Dictionary = Islands.LAYOUT[index]
+	var dir := -Vector2(spec.x, spec.z).normalized()
+	var p: Vector2 = Vector2(spec.x, spec.z) + dir * (spec.radius + 40.0)
+	return Vector3(p.x, 0.0, p.y)
+
+
+func _set_floating(item: Loot, world: Vector3) -> void:
+	item.state = Loot.State.FLOATING
+	item.carrier = -1
+	item.pos = Vector3(world.x, Waves.height(world.x, world.z, time) - 0.15, world.z)
+	item.born = time
+
+
+func _step_items(dt: float) -> void:
+	var gone := []
+	for id in items:
+		var item: Loot = items[id]
+		match item.state:
+			Loot.State.FLOATING:
+				item.pos.y = Waves.height(item.pos.x, item.pos.z, time) - 0.15
+				item.yaw += 0.05 * dt
+				if time - item.born > Loot.FLOAT_LIFE:
+					gone.append(id)
+			Loot.State.CARRIED:
+				if players.has(item.carrier):
+					item.pos = players[item.carrier].pos
+				else:
+					gone.append(id)
+	for id in gone:
+		items.erase(id)
+
+
+## Where a player is in the world (converting from the ship frame when aboard).
+func _world_pos(r: Dictionary) -> Vector3:
+	if r.mode == LocalPlayer.Mode.ON_SHIP:
+		return ShipPhysics.pose_of(crew_ship(), time) * r.pos
+	return r.pos
+
+
+func _take_voyage(r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.ON_SHIP or not voyage.is_empty():
+		return
+	if r.pos.distance_to(ShipShape.map_table_target()) > MAP_TABLE_REACH + 1.0:
+		return
+	var choices: Array[int] = []
+	for i in Islands.LAYOUT.size():
+		if not Islands.LAYOUT[i].outpost:
+			choices.append(i)
+	var index: int = choices[_rng.randi() % choices.size()]
+	if options_island >= 0:
+		index = options_island
+	var spot := Islands.dig_spot(index, _rng)
+	var ground := Islands.ground_at(index, spot.x, spot.y)
+	var gold := _rng.randi_range(80, 320)
+	var chest := _new_item(Loot.Kind.CHEST, Loot.State.BURIED, Vector3(spot.x, ground, spot.y), gold)
+	voyage = {"island": index, "x": spot.x, "z": spot.y, "item": chest.id}
+	stats.voyages += 1
+	print("[server] voyage to %s, X at (%.0f, %.0f)" % [Islands.LAYOUT[index].name, spot.x, spot.y])
+	Net.send_message(0, "A treasure map! Hold M to read it.")
+
+
+func _dig(r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or r.carry >= 0:
+		return
+	var island := Islands.island_at(r.pos.x, r.pos.z)
+	if island < 0 or r.pos.y < Waves.height(r.pos.x, r.pos.z, time):
+		return
+	var gap: float = time - r.last_dig if r.last_dig >= 0.0 else 0.2
+	r.last_dig = time
+	if gap > 0.6:
+		r.dig = 0.0
+	r.dig += clampf(gap, 0.0, 0.35) / DIG_TIME
+	if r.dig < 1.0:
+		return
+	r.dig = 0.0
+	for id in items:
+		var item: Loot = items[id]
+		if item.state == Loot.State.BURIED and Vector2(item.pos.x - r.pos.x, item.pos.z - r.pos.z).length() < DIG_REACH:
+			item.state = Loot.State.GROUND
+			item.pos.y = Islands.ground_at(island, item.pos.x, item.pos.z) + 0.05
+			stats.dug += 1
+			print("[server] %s dug up a %s" % [r.name, item.label()])
+			Net.send_message(0, "%s dug up a %s!" % [r.name, item.label()])
+			return
+	Net.send_message(players.find_key(r), "Nothing here.")
+
+
+func _pickup(id: int, r: Dictionary, item_id: int) -> void:
+	if r.carry >= 0 or r.station >= 0 or not items.has(item_id):
+		return
+	var item: Loot = items[item_id]
+	if item.kind != Loot.Kind.CHEST:
+		return
+	var close := false
+	match item.state:
+		Loot.State.GROUND, Loot.State.FLOATING:
+			close = r.mode == LocalPlayer.Mode.WORLD and r.pos.distance_to(item.pos) < ITEM_REACH + 1.0
+		Loot.State.ON_SHIP:
+			close = r.mode == LocalPlayer.Mode.ON_SHIP and r.pos.distance_to(item.pos) < ITEM_REACH + 1.0
+	if not close:
+		return
+	item.state = Loot.State.CARRIED
+	item.carrier = id
+	r.carry = item_id
+	print("[server] %s picked up a %s" % [r.name, item.label()])
+
+
+func _drop_carried(id: int) -> void:
+	if not players.has(id):
+		return
+	var r: Dictionary = players[id]
+	if r.carry < 0 or not items.has(r.carry):
+		r.carry = -1
+		return
+	var item: Loot = items[r.carry]
+	r.carry = -1
+	item.carrier = -1
+	var ahead := Basis(Vector3.UP, r.yaw) * Vector3(0, 0, -0.8)
+	if r.mode == LocalPlayer.Mode.ON_SHIP and not crew_ship().is_sinking():
+		item.state = Loot.State.ON_SHIP
+		var p: Vector3 = r.pos + ahead
+		item.pos = Vector3(p.x, r.pos.y, p.z)
+		item.yaw = r.yaw
+		stats.stowed += 1
+		print("[server] %s stowed a %s aboard" % [r.name, item.label()])
+		return
+	var world: Vector3 = _world_pos(r) + ahead
+	var island := Islands.island_at(world.x, world.z)
+	var ground := Islands.ground_at(island, world.x, world.z) if island >= 0 else -99.0
+	if ground > Waves.height(world.x, world.z, time):
+		item.state = Loot.State.GROUND
+		item.pos = Vector3(world.x, ground + 0.05, world.z)
+		item.yaw = r.yaw
+	else:
+		_set_floating(item, world)
+
+
+func _sell(r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or r.carry < 0 or not items.has(r.carry):
+		return
+	if r.pos.distance_to(Outpost.sell_spot()) > SELL_REACH + 1.0:
+		return
+	var item: Loot = items[r.carry]
+	purse += item.value
+	stats.sold += 1
+	items.erase(item.id)
+	r.carry = -1
+	if not voyage.is_empty() and voyage.item == item.id:
+		voyage = {}
+	print("[server] %s sold a %s for %d gold (purse %d)" % [r.name, item.label(), item.value, purse])
+	Net.send_message(0, "Sold a %s for %d gold!" % [item.label(), item.value])
+
+
+func _restock(r: Dictionary, barrel: int) -> void:
+	var spots := Outpost.barrels()
+	if r.mode != LocalPlayer.Mode.WORLD or barrel < 0 or barrel >= spots.size():
+		return
+	if r.pos.distance_to(spots[barrel]) > ITEM_REACH + 1.0:
+		return
+	var ship := crew_ship()
+	if Vector2(ship.x - r.pos.x, ship.z - r.pos.z).length() > RESTOCK_SHIP_RANGE:
+		Net.send_message(players.find_key(r), "Bring the ship closer to load supplies.")
+		return
+	ship.cannonballs = ShipState.MAX_CANNONBALLS
+	ship.planks = ShipState.MAX_PLANKS
+	stats.restocked += 1
+	Net.send_message(0, "Supplies loaded: %d cannonballs, %d planks." % [ship.cannonballs, ship.planks])
+
+
+func _open_barrel(r: Dictionary, item_id: int) -> void:
+	if not items.has(item_id) or r.mode != LocalPlayer.Mode.WORLD:
+		return
+	var item: Loot = items[item_id]
+	if item.kind != Loot.Kind.BARREL or r.pos.distance_to(item.pos) > ITEM_REACH + 1.0:
+		return
+	var ship := crew_ship()
+	if Vector2(ship.x - r.pos.x, ship.z - r.pos.z).length() > OPEN_SHIP_RANGE:
+		Net.send_message(players.find_key(r), "Too far from the ship to stow these supplies.")
+		return
+	ship.cannonballs = mini(ShipState.MAX_CANNONBALLS, ship.cannonballs + BARREL_BALLS)
+	ship.planks = mini(ShipState.MAX_PLANKS, ship.planks + BARREL_PLANKS)
+	items.erase(item_id)
+	stats.restocked += 1
+	Net.send_message(0, "Supplies stowed: %d cannonballs, %d planks." % [ship.cannonballs, ship.planks])
+
+
+## A sunk skeleton ship leaves a captain's chest and two supply barrels floating behind.
+func _drop_wreck_loot(s: ShipState) -> void:
+	var at := Vector3(s.x, 0.0, s.z)
+	_set_floating(_new_item(Loot.Kind.CHEST, Loot.State.FLOATING, at, _rng.randi_range(480, 720)), at)
+	for dx: float in [-6.0, 6.0]:
+		var p := at + Vector3(dx, 0.0, _rng.randf_range(-5.0, 5.0))
+		_set_floating(_new_item(Loot.Kind.BARREL, Loot.State.FLOATING, p), p)
+	stats.loot_spawned += 3
