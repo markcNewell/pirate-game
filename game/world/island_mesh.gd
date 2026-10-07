@@ -2,7 +2,20 @@ class_name IslandMesh
 extends RefCounted
 ## Builds one island from its layout entry: a sandy beach shelving into the sea, a grass mound
 ## (plus a hill on the big one), palms and rocks. Island-local coordinates: centre at the
-## origin, waterline at y = 0. Returns the model and the walkable collision triangles.
+## origin, waterline at y = 0. Returns the ground model, where each piece of scenery stands
+## (Blender models, art/blender/nature.py, drawn by World in batches) and the walkable
+## collision triangles.
+
+## Which model file each scenery piece comes from.
+const PROP_FILES := {
+	"palm_0": "palms", "palm_1": "palms", "palm_2": "palms",
+	"rock_0": "rocks", "rock_1": "rocks", "rock_2": "rocks", "rock_3": "rocks",
+	"bush_0": "bushes", "bush_1": "bushes", "bush_2": "bushes",
+	"flowers_0": "flowers", "flowers_1": "flowers", "flowers_2": "flowers", "flowers_3": "flowers",
+	"tuft_0": "tufts", "tuft_1": "tufts", "camp": "camp", "wreck": "wreck", "mast_log": "wreck",
+}
+## Heights the three palm models are built to (art/blender/nature.py).
+const PALM_HEIGHTS: Array[float] = [6.5, 8.0, 9.5]
 
 const BEACH_SLOPE := 0.33
 const SAND_TOP := 1.2
@@ -30,10 +43,15 @@ static func is_grass(spec: Dictionary, x: float, z: float) -> bool:
 	return ground(spec, x, z) > SAND_TOP + 0.08
 
 
+## Scenery pieces placed while building: [model name, Transform3D]. Reset per build().
+static var _props: Array = []
+
+
 static func build(spec: Dictionary) -> Dictionary:
 	var ground_b := MeshBuilder.new()
 	var decor := MeshBuilder.new()
 	var solid := MeshBuilder.new()
+	_props = []
 	_ground(ground_b, spec)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = spec.seed
@@ -50,9 +68,14 @@ static func build(spec: Dictionary) -> Dictionary:
 			_arch(decor, solid, spec, rng)
 		"stacks":
 			_stacks(decor, solid, spec, rng)
+	_tufts(spec)
 	var faces := ground_b.faces()
 	faces.append_array(solid.faces())
-	return {"ground": ground_b.build(), "decor": decor.build(), "faces": faces, "fire": fire}
+	return {"ground": ground_b.build(), "decor": decor.build(), "props": _props, "faces": faces, "fire": fire}
+
+
+static func _prop(model: String, at: Transform3D) -> void:
+	_props.append([model, at])
 
 
 static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
@@ -93,7 +116,7 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 	b.grid(rows, color_at, normal_at)
 
 
-static func _palms(decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+static func _palms(_decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
 	var count := int(radius / 4.0)
 	var placed := 0
@@ -110,55 +133,17 @@ static func _palms(decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng
 		# Keep the outpost's pier and hut clear of palms.
 		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
 			continue
-		_palm(decor, Vector3(x, y - 0.2, z), rng.randf_range(6.0, 9.5), rng.randf() * TAU, rng.randf_range(1.0, 2.6))
+		var height := rng.randf_range(6.0, 9.5)
+		var turn := rng.randf() * TAU
+		rng.randf_range(1.0, 2.6)
+		var kind := 0 if height < 7.2 else (1 if height < 8.7 else 2)
+		var grow := height / PALM_HEIGHTS[kind]
+		_prop("palm_%d" % kind, Transform3D(Basis(Vector3.UP, turn).scaled(Vector3(grow, grow, grow)), Vector3(x, y - 0.2, z)))
 		solid.box(Vector3(x, y + 1.0, z), Vector3(0.35, 1.2, 0.35), Color.BLACK)
 		placed += 1
 
 
-static func _palm(b: MeshBuilder, base: Vector3, height: float, turn: float, lean: float) -> void:
-	var bend := Basis(Vector3.UP, turn)
-	var segments := 6
-	var prev := base
-	for i in segments:
-		var t := float(i + 1) / segments
-		var p := base + bend * Vector3(lean * t * t, height * t, 0)
-		var shade := Toon.color("trunk") if i % 2 == 0 else Toon.color("trunk").darkened(0.12)
-		b.cylinder(prev, p, 0.42 - 0.04 * i, 0.38 - 0.04 * i, 8, shade)
-		prev = p
-	var crown := prev
-	for i in 7:
-		var dir := Basis(Vector3.UP, turn + TAU * i / 7.0)
-		var leaf_centre := crown + dir * Vector3(2.0, -0.55, 0)
-		var tilt := dir * Basis(Vector3.BACK, -0.42)
-		_leaf(b, leaf_centre, tilt)
-	for i in 3:
-		var nut := crown + Basis(Vector3.UP, TAU * i / 3.0) * Vector3(0.35, -0.35, 0)
-		b.ellipsoid(nut, 0.24, Vector3.ONE, 5, 7, Toon.color("hull_dark"))
-
-
-static func _leaf(b: MeshBuilder, centre: Vector3, basis: Basis) -> void:
-	# A flattened ellipsoid, rotated to droop away from the crown.
-	var rings := 4
-	var sectors := 8
-	var stretch := Vector3(2.4, 0.16, 0.6)
-	var point := func(r: int, s: int) -> Vector3:
-		var lat := PI * r / rings - PI / 2.0
-		var lon := TAU * s / sectors
-		return Vector3(cos(lat) * cos(lon), sin(lat), cos(lat) * sin(lon))
-	for r in rings:
-		for s in sectors:
-			var u: Array[Vector3] = [point.call(r, s), point.call(r, s + 1), point.call(r + 1, s + 1), point.call(r + 1, s)]
-			var p: Array[Vector3] = []
-			var n := PackedVector3Array()
-			for v in u:
-				p.append(centre + basis * (v * stretch))
-				n.append((basis * (v / stretch)).normalized())
-			var out := basis * (u[0] + u[2]).normalized()
-			b.tri(p[0], p[1], p[2], Toon.color("leaf"), out, PackedVector3Array([n[0], n[1], n[2]]))
-			b.tri(p[0], p[2], p[3], Toon.color("leaf"), out, PackedVector3Array([n[0], n[2], n[3]]))
-
-
-static func _rocks(decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+static func _rocks(_decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
 	for i in int(radius / 6.0) + 2:
 		var a := rng.randf() * TAU
@@ -168,13 +153,13 @@ static func _rocks(decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng
 		var size := rng.randf_range(0.8, 2.2)
 		var centre := Vector3(x, ground(spec, x, z) + size * 0.3, z)
 		var spin := Basis(Vector3.UP, rng.randf() * TAU)
-		for target: MeshBuilder in [decor, solid]:
-			_rock(target, centre, size, spin)
+		_rock(solid, centre, size, spin)
+		_rock_prop(centre, size, spin, i)
 
 
 ## An old wreck run aground on the beach: the bare ribs of a hull lying over on its side, a
 ## few planks still on, half sunk in the sand, with its snapped mast lying beside it.
-static func _wreck(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+static func _wreck(_b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
 	var a := rng.randf() * TAU
 	var r := radius - 4.0
@@ -182,39 +167,22 @@ static func _wreck(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: Ra
 	at.y = ground(spec, at.x, at.z) - 0.6
 	# Keel along the shore, heeled over toward the sea and bow-down into the sand.
 	var frame := Basis(Vector3.UP, -a) * Basis(Vector3.FORWARD, 0.55) * Basis(Vector3.RIGHT, 0.12)
-	var wood := Color("8a6a4a")
-	var dark := Color("5e4630")
 	var w := 3.3
 	var h := 3.6
-	b.box(at + frame * Vector3(0, 0.1, 0), Vector3(0.3, 0.26, 6.8), dark, frame)
+	_prop("wreck", Transform3D(frame, at))
 	for i in 9:
-		var z := -6.0 + i * 1.5
-		var narrow := 1.0 - absf(z) / 12.0
-		# Each rib is a U of short straight pieces; some are snapped short on one side.
-		var broken_at := rng.randi_range(4, 8) if rng.randf() < 0.5 else 8
-		var prev := Vector3(w * narrow, h, z)
-		for k in range(1, 9):
-			var t := PI * k / 8.0
-			var p := Vector3(w * narrow * cos(t), h * (1.0 - sin(t)), z)
-			if k <= broken_at:
-				b.cylinder(at + frame * prev, at + frame * p, 0.15, 0.15, 5, wood)
-			prev = p
-	# Planks still nailed to the low side.
-	for j in 3:
-		var t := PI * (0.62 + j * 0.1)
-		var p := Vector3(w * 0.85 * cos(t), h * (1.0 - sin(t)), 0.0)
-		var plank_basis := frame * Basis(Vector3.BACK, t - PI / 2.0)
-		b.box(at + frame * p, Vector3(0.08, 0.25, 4.5 - j * 0.8), wood.darkened(0.1 * j), plank_basis)
+		if rng.randf() < 0.5:
+			rng.randi_range(4, 8)
 	# The mast, snapped off and lying in the sand.
 	var foot := at + frame * Vector3(0, 0.5, 1.4)
 	var tip := foot + Basis(Vector3.UP, -a + 0.4) * Vector3(0, 0, 9.5)
 	tip.y = ground(spec, tip.x, tip.z) + 0.25
-	b.cylinder(foot, tip, 0.3, 0.24, 7, dark)
+	_prop("mast_log", Transform3D(Basis.looking_at(foot - tip), foot))
 	solid.box(at + frame * Vector3(0, h * 0.35, 0), Vector3(w * 0.8, h * 0.4, 6.2), Color.BLACK, frame)
 
 
 ## A rock arch standing on the beach: two pillars of piled boulders joined by a curve of them.
-static func _arch(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+static func _arch(_b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
 	# Facing south-east, so ships coming from the outpost see through it.
 	var a := 0.9
@@ -228,18 +196,18 @@ static func _arch(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: Ran
 		var y := 0.0
 		while y < height:
 			var size := rng.randf_range(1.25, 1.6)
-			_rock(b, foot + Vector3(rng.randf_range(-0.2, 0.2), y + size * 0.5, rng.randf_range(-0.2, 0.2)), size, Basis(Vector3.UP, rng.randf() * TAU))
+			_rock_prop(foot + Vector3(rng.randf_range(-0.2, 0.2), y + size * 0.5, rng.randf_range(-0.2, 0.2)), size, Basis(Vector3.UP, rng.randf() * TAU), int(y * 3.0))
 			y += size * 0.95
 		solid.box(foot + Vector3(0, height * 0.5, 0), Vector3(1.3, height * 0.5, 1.3), Color.BLACK)
 	var top := mid + Vector3(0, ground(spec, mid.x, mid.z) + height, 0)
 	for k in 9:
 		var t := PI * k / 8.0
 		var p := top + along * (-cos(t) * span) + Vector3(0, sin(t) * 2.2, 0)
-		_rock(b, p, rng.randf_range(1.1, 1.4), Basis(Vector3.UP, rng.randf() * TAU))
+		_rock_prop(p, rng.randf_range(1.1, 1.4), Basis(Vector3.UP, rng.randf() * TAU), k)
 
 
 ## Tall rocks standing in the shallows, each topped with a tuft of grass.
-static func _stacks(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+static func _stacks(_b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
 	var a0 := rng.randf() * TAU
 	for i in 3:
@@ -250,14 +218,39 @@ static func _stacks(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: R
 		var y := 0.0
 		var size := 2.2
 		while y < height - foot.y:
-			_rock(b, foot + Vector3(0, y, 0), size, Basis(Vector3.UP, rng.randf() * TAU))
+			_rock_prop(foot + Vector3(0, y, 0), size, Basis(Vector3.UP, rng.randf() * TAU), int(y))
 			y += size * 0.9
 			size = maxf(1.0, size * 0.88)
-		b.ellipsoid(foot + Vector3(0, y - size * 0.1, 0), size * 0.9, Vector3(1.1, 0.4, 1.0), 5, 8, Toon.color("grass"))
+		_prop("bush_%d" % (i % 2), Transform3D(Basis.IDENTITY.scaled(Vector3(size, size * 0.6, size)), foot + Vector3(0, y - size * 0.5, 0)))
 		solid.box(foot + Vector3(0, (y) * 0.5, 0), Vector3(1.6, y * 0.5, 1.6), Color.BLACK)
 
 
-## A faceted lump: a coarse ellipsoid with flat faces.
+## Tufts of long grass over the grass, from their own random sequence (so adding them moved
+## nothing else).
+static func _tufts(spec: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(spec.seed) * 31 + 7
+	var radius: float = spec.radius
+	for i in int(radius * 3.0):
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * (radius - 3.0)
+		var x := cos(a) * r
+		var z := sin(a) * r
+		if not is_grass(spec, x, z):
+			continue
+		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
+			continue
+		var grow := rng.randf_range(0.7, 1.4)
+		_prop("tuft_%d" % (i % 2), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(grow, grow, grow)), Vector3(x, ground(spec, x, z) - 0.03, z)))
+
+
+## A Blender rock standing where _rock's lump would be (its centre `centre`), half buried.
+static func _rock_prop(centre: Vector3, size: float, spin: Basis, variant: int) -> void:
+	var base := centre - Vector3(0, size * 0.75, 0)
+	_prop("rock_%d" % (variant % 4), Transform3D(spin.scaled(Vector3(size, size, size)), base))
+
+
+## A faceted lump: a coarse ellipsoid with flat faces (now only for collision).
 static func _rock(b: MeshBuilder, centre: Vector3, size: float, spin: Basis) -> void:
 	var rings := 3
 	var sectors := 6
@@ -279,9 +272,9 @@ static func _rock(b: MeshBuilder, centre: Vector3, size: float, spin: Basis) -> 
 
 
 ## Round toon bushes and little clumps of flowers on the grass.
-static func _bushes(b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+static func _bushes(_b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
-	var flowers: Array[Color] = [Color("ff6b6b"), Color("ffd84a"), Color("f2f2ff"), Color("ff9ad5")]
+	var flowers := [0, 1, 2, 3]
 	for i in int(radius / 2.5):
 		var a := rng.randf() * TAU
 		var r := rng.randf_range(0.1, 0.85) * (radius - 4.0)
@@ -293,48 +286,35 @@ static func _bushes(b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator
 			continue
 		var y := ground(spec, x, z)
 		if i % 3 == 0:
-			var c: Color = flowers[rng.randi() % flowers.size()]
+			var colour := rng.randi() % flowers.size()
 			for k in 5:
-				var p := Vector3(x + rng.randf_range(-0.6, 0.6), y + 0.12, z + rng.randf_range(-0.6, 0.6))
-				b.cylinder(p - Vector3(0, 0.12, 0), p, 0.02, 0.02, 4, Color("2f6b26"), false)
-				b.ellipsoid(p + Vector3(0, 0.05, 0), 0.09, Vector3(1, 0.6, 1), 3, 6, c)
+				rng.randf_range(-0.6, 0.6)
+				rng.randf_range(-0.6, 0.6)
+			_prop("flowers_%d" % colour, Transform3D(Basis(Vector3.UP, x * 7.0 + z), Vector3(x, y - 0.02, z)))
 			continue
 		var size := rng.randf_range(0.6, 1.1)
-		var green := Color("3f8a35") if i % 2 == 0 else Color("4a9a3a")
 		for k in 3:
-			var off := Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5)) * size
-			b.ellipsoid(Vector3(x, y + 0.35 * size, z) + off, 0.55 * size, Vector3(1, 0.8, 1), 5, 8, green)
+			rng.randf_range(-0.5, 0.5)
+			rng.randf_range(-0.5, 0.5)
+		var grow := size * 1.3
+		_prop("bush_%d" % (i % 3), Transform3D(Basis(Vector3.UP, x * 3.0 - z).scaled(Vector3(grow, grow, grow)), Vector3(x, y - 0.1, z)))
 
 
 ## A skeleton camp: a tattered tent, a ring of stones round a fire (lit at night), and a few
 ## bones. Returns where the fire is, relative to the island's centre.
-static func _camp(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> Vector3:
+static func _camp(_b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> Vector3:
 	var radius: float = spec.radius
 	var a := rng.randf() * TAU
 	var r := 0.35 * radius
 	var at := Vector3(cos(a) * r, 0, sin(a) * r)
 	at.y = ground(spec, at.x, at.z)
-	var cloth := Color("8a7f6a")
 	var turn := Basis(Vector3.UP, a + PI / 2.0)
-	# Tent: a ridge pole on two posts with sloping cloth sides.
+	# The camp model: its fire at the origin, the tent 3 m out along its own x.
+	_prop("camp", Transform3D(turn, at))
 	var tent := at + turn * Vector3(3.0, 0, 0)
-	for s: float in [-1.2, 1.2]:
-		b.cylinder(tent + turn * Vector3(0, 0, s), tent + turn * Vector3(0, 1.8, s), 0.06, 0.06, 5, Color("5e4630"))
-	b.cylinder(tent + turn * Vector3(0, 1.8, -1.3), tent + turn * Vector3(0, 1.8, 1.3), 0.05, 0.05, 5, Color("5e4630"))
-	for side: float in [-1.0, 1.0]:
-		var c := turn * Basis(Vector3.BACK, side * 0.75)
-		b.box(tent + turn * Vector3(side * 0.62, 0.95, 0), Vector3(0.03, 1.1, 1.25), cloth if side < 0 else cloth.darkened(0.15), c)
 	solid.box(tent + Vector3(0, 0.9, 0), Vector3(0.9, 0.9, 0.9), Color.BLACK, turn)
-	# Fire ring and charred logs.
-	for k in 8:
-		var ang := TAU * k / 8.0
-		b.ellipsoid(at + Vector3(cos(ang) * 0.75, 0.1, sin(ang) * 0.75), 0.18, Vector3(1.2, 0.7, 1), 3, 5, Color("7d7a76"))
 	for k in 3:
-		var ang := TAU * k / 3.0 + 0.4
-		b.box(at + Vector3(0, 0.12, 0), Vector3(0.45, 0.07, 0.07), Color("2b2018"), Basis(Vector3.UP, ang))
-	# Scattered bones.
-	for k in 3:
-		var p := at + Vector3(rng.randf_range(-2.5, 2.5), 0, rng.randf_range(-2.5, 2.5))
-		p.y = ground(spec, p.x, p.z) + 0.05
-		b.box(p, Vector3(0.25, 0.035, 0.035), Color("efe8d2"), Basis(Vector3.UP, rng.randf() * TAU))
+		rng.randf_range(-2.5, 2.5)
+		rng.randf_range(-2.5, 2.5)
+		rng.randf()
 	return at

@@ -237,6 +237,7 @@ func _island(spec: Dictionary) -> void:
 	root.position = Vector3(spec.x, 0.0, spec.z)
 	root.add_child(Toon.instance(built.ground))
 	root.add_child(Toon.instance(built.decor))
+	_scenery(root, built.props)
 	var faces: PackedVector3Array = built.faces
 	if spec.outpost:
 		var port := Outpost.build()
@@ -281,6 +282,32 @@ func _island(spec: Dictionary) -> void:
 	body.add_child(holder)
 	root.add_child(body)
 	add_child(root)
+
+
+## The island's palms, rocks, bushes and the rest: one batch (MultiMesh) per model, so a
+## hundred tufts of grass cost one draw.
+static func _scenery(root: Node3D, props: Array) -> void:
+	var groups := {}
+	for prop: Array in props:
+		if not groups.has(prop[0]):
+			groups[prop[0]] = []
+		groups[prop[0]].append(prop[1])
+	var names := groups.keys()
+	names.sort()
+	for name: String in names:
+		var list: Array = groups[name]
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.mesh = Models.part(IslandMesh.PROP_FILES[name], name)
+		multi.instance_count = list.size()
+		for i in list.size():
+			multi.set_instance_transform(i, list[i])
+		var batch := MultiMeshInstance3D.new()
+		batch.multimesh = multi
+		batch.material_override = Models.material()
+		if name.begins_with("tuft") or name.begins_with("flowers"):
+			batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(batch)
 
 
 ## A lazy column of smoke from the tavern chimney.
