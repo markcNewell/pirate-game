@@ -5,9 +5,11 @@ extends Node3D
 
 static var _body: ArrayMesh
 static var _arm: ArrayMesh
+static var _leg: ArrayMesh
 
 var _model: Node3D
 var _arm_pivot: Node3D
+var _legs: Array[Node3D] = []
 var _material: ShaderMaterial
 var _swing := 0.0
 var _flash := 0.0
@@ -19,6 +21,7 @@ func _ready() -> void:
 	if _body == null:
 		_body = _build_body()
 		_arm = _build_arm()
+		_leg = _build_leg()
 	_material = ShaderMaterial.new()
 	_material.shader = load("res://art/shaders/toon.gdshader")
 	_material.next_pass = Toon.object_material().next_pass
@@ -29,6 +32,12 @@ func _ready() -> void:
 	_arm_pivot.position = Vector3(0.3, 1.4, 0)
 	_model.add_child(_arm_pivot)
 	_arm_pivot.add_child(Toon.instance(_arm, _material))
+	for side: float in [-1.0, 1.0]:
+		var hip := Node3D.new()
+		hip.position = Vector3(side * 0.12, 0.95, 0)
+		hip.add_child(Toon.instance(_leg, _material))
+		_model.add_child(hip)
+		_legs.append(hip)
 
 
 func swing() -> void:
@@ -45,6 +54,9 @@ func place(pose: Transform3D, walking: bool, fallen: bool, delta: float) -> void
 	if walking:
 		_bob += delta * 9.0
 	_model.position.y = absf(sin(_bob)) * 0.07 if walking else 0.0
+	var stride := sin(_bob) * 0.6 if walking else 0.0
+	_legs[0].rotation.x = stride
+	_legs[1].rotation.x = -stride
 	_swing = maxf(0.0, _swing - delta * 2.5)
 	_arm_pivot.rotation.x = -sin(_swing * PI) * 1.9
 	_flash = maxf(0.0, _flash - delta * 4.0)
@@ -59,13 +71,7 @@ static func _build_body() -> ArrayMesh:
 	var b := MeshBuilder.new()
 	var bone := Color("efe8d2")
 	var dark := Color("1a1714")
-	# Legs and feet.
-	for side: int in [-1, 1]:
-		b.cylinder(Vector3(side * 0.13, 0.05, 0), Vector3(side * 0.12, 0.48, 0), 0.05, 0.05, 6, bone)
-		b.cylinder(Vector3(side * 0.12, 0.5, 0), Vector3(side * 0.12, 0.92, 0), 0.055, 0.05, 6, bone)
-		b.ellipsoid(Vector3(side * 0.12, 0.49, 0), 0.07, Vector3.ONE, 4, 6, bone)
-		b.box(Vector3(side * 0.13, 0.04, -0.07), Vector3(0.06, 0.04, 0.12), bone)
-	# Pelvis, spine and ribs.
+	# Pelvis, spine and ribs (the legs hang from hip joints; see _build_leg).
 	b.ellipsoid(Vector3(0, 0.95, 0), 0.17, Vector3(1.2, 0.5, 0.8), 5, 8, bone)
 	b.cylinder(Vector3(0, 0.95, 0.04), Vector3(0, 1.55, 0.04), 0.045, 0.045, 6, bone)
 	for k in 4:
@@ -84,6 +90,17 @@ static func _build_body() -> ArrayMesh:
 		b.ellipsoid(Vector3(side * 0.065, 1.8, -0.15), 0.045, Vector3(1, 1.2, 0.5), 4, 6, dark)
 	b.cylinder(Vector3(0, 1.9, 0), Vector3(0, 1.93, 0), 0.32, 0.3, 3, Color("2b2622"))
 	b.cylinder(Vector3(0, 1.92, 0), Vector3(0, 2.05, 0), 0.16, 0.13, 8, Color("2b2622"))
+	return b.build()
+
+
+## A bony leg hanging from the hip joint at the origin.
+static func _build_leg() -> ArrayMesh:
+	var b := MeshBuilder.new()
+	var bone := Color("efe8d2")
+	b.cylinder(Vector3(0, -0.03, 0), Vector3(0.0, -0.45, 0), 0.055, 0.05, 6, bone)
+	b.ellipsoid(Vector3(0, -0.46, 0), 0.07, Vector3.ONE, 4, 6, bone)
+	b.cylinder(Vector3(0, -0.47, 0), Vector3(0.0, -0.9, 0), 0.05, 0.05, 6, bone)
+	b.box(Vector3(0.0, -0.91, -0.07), Vector3(0.06, 0.04, 0.12), bone)
 	return b.build()
 
 

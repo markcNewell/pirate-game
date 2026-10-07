@@ -288,6 +288,9 @@ func client_on_event(kind: String, data: Array) -> void:
 		"hurt_skeleton":
 			if _skeleton_views.has(int(data[0])):
 				_skeleton_views[int(data[0])].hurt()
+		"attack":
+			if avatars.has(int(data[0])):
+				avatars[int(data[0])].attack()
 		"impact":
 			var id: int = data[0]
 			var end := {"kind": int(data[1]), "pos": Vector3(data[2], data[3], data[4]), "ship": int(data[5]), "t": float(data[6])}
@@ -343,6 +346,7 @@ func _process(delta: float) -> void:
 		avatar.place(ship_views[p.ship].global_transform * feet if on_ship else feet, delta)
 		avatar.set_bucket(p.bucket)
 		avatar.set_hostile(p.crew != own_crew)
+		avatar.set_weapon(p.weapon)
 		avatar.visible = not p.dead
 
 	_update_balls()

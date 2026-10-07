@@ -1,19 +1,39 @@
 class_name Avatar
 extends Node3D
 ## Another player as you see them: a toon pirate with a name tag, drawn where the snapshots say.
+## Legs and arms hang from hip and shoulder joints so they swing as the pirate walks; the right
+## hand holds the cutlass or pistol and swings it when they attack.
 
 const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0")]
+const HIP := Vector3(0.14, 0.86, 0.0)
+const SHOULDER := Vector3(0.36, 1.42, 0.0)
+## Walk-cycle radians per metre: about one step every 0.9 m.
+const STEP_RATE := 3.4
 
-var _model: MeshInstance3D
+var _model: Node3D
 var _label: Label3D
 var _bucket: MeshInstance3D
+var _legs: Array[Node3D] = []
+var _arms: Array[Node3D] = []
+var _cutlass: MeshInstance3D
+var _pistol: MeshInstance3D
 var _last := Vector3.ZERO
-var _bob := 0.0
+var _phase := 0.0
+var _stride := 0.0
+var _swing := 0.0
 
 
 func _init(player_name: String, index: int) -> void:
-	_model = Toon.instance(pirate_mesh(SHIRTS[index % SHIRTS.size()], index))
+	var shirt := SHIRTS[index % SHIRTS.size()]
+	_model = Node3D.new()
 	add_child(_model)
+	_model.add_child(Toon.instance(body_mesh(shirt, index)))
+	for side: int in [-1, 1]:
+		_legs.append(_joint(Vector3(side * HIP.x, HIP.y, HIP.z), leg_mesh()))
+		_arms.append(_joint(Vector3(side * SHOULDER.x, SHOULDER.y, SHOULDER.z), arm_mesh(shirt, side)))
+	# The weapons sit in the right hand, pointing forward and a little down.
+	_cutlass = _in_hand(WeaponView.cutlass_mesh(), -0.35)
+	_pistol = _in_hand(WeaponView.pistol_mesh(), -0.2)
 	_label = Label3D.new()
 	_label.text = player_name
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -27,9 +47,26 @@ func _init(player_name: String, index: int) -> void:
 	b.cylinder(Vector3(0, 0, 0), Vector3(0, 0.32, 0), 0.15, 0.2, 10, Color("8a5a32"))
 	b.cylinder(Vector3(0, 0.27, 0), Vector3(0, 0.29, 0), 0.19, 0.19, 10, Color("4fb6f5"))
 	_bucket = Toon.instance(b.build())
-	_bucket.position = Vector3(0.45, 0.62, -0.1)
+	_bucket.position = Vector3(-0.09, -0.8, -0.1)
 	_bucket.visible = false
-	_model.add_child(_bucket)
+	_arms[0].add_child(_bucket)
+	set_weapon(Weapons.Kind.CUTLASS)
+
+
+func _joint(at: Vector3, mesh: ArrayMesh) -> Node3D:
+	var joint := Node3D.new()
+	joint.position = at
+	joint.add_child(Toon.instance(mesh))
+	_model.add_child(joint)
+	return joint
+
+
+func _in_hand(mesh: ArrayMesh, tilt: float) -> MeshInstance3D:
+	var held := Toon.instance(mesh)
+	held.position = Vector3(0.09, -0.56, -0.08)
+	held.rotation.x = tilt
+	_arms[1].add_child(held)
+	return held
 
 
 func set_bucket(full: bool) -> void:
@@ -41,13 +78,31 @@ func set_hostile(hostile: bool) -> void:
 	_label.modulate = Color("ff8a7a") if hostile else Color.WHITE
 
 
+func set_weapon(kind: int) -> void:
+	_cutlass.visible = kind == Weapons.Kind.CUTLASS
+	_pistol.visible = kind == Weapons.Kind.PISTOL
+
+
+## Swings the sword arm up and forward (or raises the pistol) for a moment.
+func attack() -> void:
+	_swing = 1.0
+
+
 ## `pose` is where the feet are and which way the pirate faces, in world space.
 func place(pose: Transform3D, delta: float) -> void:
 	var moved := (pose.origin - _last).length() / maxf(delta, 1e-3)
 	_last = pose.origin
-	if moved > 0.5 and moved < 20.0:
-		_bob += delta * moved * 2.2
-	_model.position.y = absf(sin(_bob)) * 0.08
+	var walking := moved > 0.5 and moved < 20.0
+	_stride = move_toward(_stride, 1.0 if walking else 0.0, delta * 5.0)
+	if walking:
+		_phase += delta * moved * STEP_RATE
+	var leg := sin(_phase) * 0.6 * _stride
+	_legs[0].rotation.x = leg
+	_legs[1].rotation.x = -leg
+	_arms[0].rotation.x = -leg * 0.7
+	_swing = maxf(0.0, _swing - delta * 3.0)
+	_arms[1].rotation.x = leg * 0.7 + sin(_swing * PI) * 1.9
+	_model.position.y = absf(sin(_phase)) * 0.06 * _stride
 	global_transform = pose
 
 
@@ -72,22 +127,21 @@ static func merchant_mesh() -> ArrayMesh:
 	return b.build()
 
 
-## A pirate built from code: boots, trousers, shirt, belt, arms and head, plus one of four
-## looks: tricorn and beard, bandana and eyepatch, captain's hat and moustache, or headscarf.
-static func pirate_mesh(shirt: Color, look := 0) -> ArrayMesh:
+## The torso, belt and head, plus one of four looks: tricorn and beard, bandana and eyepatch,
+## captain's hat and moustache, or headscarf. The legs and arms are separate (leg_mesh, arm_mesh).
+static func body_mesh(shirt: Color, look := 0) -> ArrayMesh:
 	var b := MeshBuilder.new()
 	var skin := Color("f2c49b")
 	var dark := Color("2a2430")
-	var trousers := Color("3b3550")
 	for side: int in [-1, 1]:
-		b.box(Vector3(side * 0.14, 0.08, -0.04), Vector3(0.1, 0.08, 0.15), dark)
-		b.cylinder(Vector3(side * 0.14, 0.1, 0), Vector3(side * 0.13, 0.86, 0), 0.11, 0.13, 8, trousers)
-		b.cylinder(Vector3(side * 0.36, 1.42, 0), Vector3(side * 0.44, 0.92, -0.05), 0.1, 0.08, 8, shirt)
-		b.ellipsoid(Vector3(side * 0.45, 0.86, -0.06), 0.09, Vector3.ONE, 5, 8, skin)
 		b.ellipsoid(Vector3(side * 0.08, 1.72, -0.19), 0.035, Vector3(1, 1.3, 0.6), 4, 6, dark)
+		# Rounded shoulders hide the joint as the arm swings.
+		b.ellipsoid(Vector3(side * 0.33, 1.42, 0), 0.12, Vector3.ONE, 5, 8, shirt)
 	b.cylinder(Vector3(0, 0.82, 0), Vector3(0, 1.48, 0), 0.3, 0.35, 12, shirt)
 	b.cylinder(Vector3(0, 0.84, 0), Vector3(0, 0.96, 0), 0.315, 0.315, 12, Color("4a2c1c"))
 	b.box(Vector3(0, 0.9, -0.31), Vector3(0.07, 0.06, 0.02), Toon.color("gold"))
+	# Hips, so the tops of the legs don't show a gap mid-stride.
+	b.ellipsoid(Vector3(0, 0.84, 0), 0.3, Vector3(1.0, 0.45, 0.85), 5, 10, Color("3b3550"))
 	b.ellipsoid(Vector3(0, 1.68, 0), 0.22, Vector3(1.0, 1.1, 1.0), 8, 12, skin)
 	b.ellipsoid(Vector3(0, 1.65, -0.22), 0.05, Vector3(1, 1, 1.2), 4, 6, skin)
 	match look % 4:
@@ -111,4 +165,20 @@ static func pirate_mesh(shirt: Color, look := 0) -> ArrayMesh:
 		_:
 			# A knotted headscarf in the shirt's colour.
 			b.ellipsoid(Vector3(0, 1.79, 0.01), 0.235, Vector3(1.0, 0.8, 1.02), 6, 10, shirt.darkened(0.25))
+	return b.build()
+
+
+## A trouser leg and boot hanging from the hip joint at the origin.
+static func leg_mesh() -> ArrayMesh:
+	var b := MeshBuilder.new()
+	b.cylinder(Vector3(0, 0.02, 0), Vector3(0.0, -0.76, 0), 0.13, 0.11, 8, Color("3b3550"))
+	b.box(Vector3(0, -0.78, -0.04), Vector3(0.1, 0.08, 0.15), Color("2a2430"))
+	return b.build()
+
+
+## A sleeve and hand hanging from the shoulder joint at the origin.
+static func arm_mesh(shirt: Color, side: int) -> ArrayMesh:
+	var b := MeshBuilder.new()
+	b.cylinder(Vector3.ZERO, Vector3(side * 0.08, -0.5, -0.05), 0.1, 0.08, 8, shirt)
+	b.ellipsoid(Vector3(side * 0.09, -0.56, -0.06), 0.09, Vector3.ONE, 5, 8, Color("f2c49b"))
 	return b.build()
