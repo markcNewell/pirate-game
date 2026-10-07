@@ -49,7 +49,8 @@ func _ready() -> void:
 	var palette: Dictionary = Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew)
 	ShipMesh.use_palette(palette)
 	_paint = Models.palette_recolor(palette)
-	add_child(Toon.instance(Models.mesh("ship_hull", _paint)))
+	var hull := "ship_wreck" if kind == ShipState.Kind.SKELETON else "ship_hull"
+	add_child(Toon.instance(Models.mesh(hull, _paint)))
 	for m in ShipShape.MAST_Z.size():
 		_build_rig(m)
 

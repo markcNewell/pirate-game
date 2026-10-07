@@ -48,3 +48,31 @@ func test_avatar_builds_and_takes_states() -> void:
 	avatar.set_bucket(true)
 	avatar.set_pitch(0.4)
 	avatar.free()
+
+
+## The Blender scripts build the ship on a copy of ShipShape's numbers (art/blender/
+## shipshape.py); if one changes without the other the model drifts off the decks you walk on.
+func test_blender_ship_layout_matches_the_game() -> void:
+	var text := FileAccess.get_file_as_string("res://art/blender/shipshape.py")
+	check(text != "", "shipshape.py is readable")
+	var game := {
+		"HALF_LENGTH": ShipShape.HALF_LENGTH, "BEAM": ShipShape.BEAM, "KEEL_Y": ShipShape.KEEL_Y,
+		"DECK_Y": ShipShape.DECK_Y, "BOW_DECK_Z": ShipShape.BOW_DECK_Z, "STERN_Z": ShipShape.STERN_Z,
+		"RAIL_HEIGHT": ShipShape.RAIL_HEIGHT, "RAIL_THICKNESS": ShipShape.RAIL_THICKNESS,
+		"QUARTER_Z": ShipShape.QUARTER_Z, "QUARTER_Y": ShipShape.QUARTER_Y,
+		"STAIR_BOTTOM_Z": ShipShape.STAIR_BOTTOM_Z, "STAIR_HALF_WIDTH": ShipShape.STAIR_HALF_WIDTH,
+		"LOWER_Y": ShipShape.LOWER_Y, "LOWER_Z0": ShipShape.LOWER_Z0, "LOWER_Z1": ShipShape.LOWER_Z1,
+		"WALL_INSET": ShipShape.WALL_INSET, "HATCH_Z0": ShipShape.HATCH_Z0,
+		"HATCH_Z1": ShipShape.HATCH_Z1, "HATCH_X": ShipShape.HATCH_X, "COAMING": ShipShape.COAMING,
+		"MAST_RADIUS": ShipShape.MAST_RADIUS, "LADDER_Z": ShipShape.LADDER_Z,
+		"LADDER_GAP": ShipShape.LADDER_GAP, "CANNON_PIVOT_INSET": ShipShape.CANNON_PIVOT_INSET,
+		"CANNON_HEIGHT": ShipShape.CANNON_HEIGHT, "BARREL_LENGTH": ShipShape.BARREL_LENGTH
+	}
+	var re := RegEx.create_from_string("(?m)^([A-Z_0-9]+) = (-?[0-9.]+)$")
+	var found := {}
+	for m in re.search_all(text):
+		found[m.get_string(1)] = float(m.get_string(2))
+	for name: String in game:
+		var ours: float = game[name]
+		check(found.has(name) and absf(found[name] - ours) < 1e-6, "%s: game %s, Blender %s" % [name, ours, found.get(name, "missing")])
+	check(text.contains("0.92 * max(0.0, -t) ** 2 - 0.25 * max(0.0, t) ** 4"), "half_width's formula is the game's")

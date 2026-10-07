@@ -46,6 +46,21 @@ def z_samples(step=0.25, z0=-S.HALF_LENGTH, z1=S.HALF_LENGTH, cuts=()):
 
 GAP_CUTS = (S.LADDER_Z - S.LADDER_GAP, S.LADDER_Z + S.LADDER_GAP, S.QUARTER_Z)
 
+# Set while building the skeleton ship: its bulwarks are smashed through in places.
+WRECK = False
+BROKEN = {1: [(-9.0, -7.7), (4.3, 5.4)], -1: [(-10.6, -9.6), (0.9, 1.9), (8.0, 9.2)]}
+
+
+def rail(z, side):
+    """The bulwark's top at z on one side: ShipShape's, or broken down on the skeleton ship."""
+    top = S.rail_top(z)
+    if WRECK:
+        for z0, z1 in BROKEN[side]:
+            if z0 <= z <= z1:
+                floor = S.QUARTER_Y if z >= S.QUARTER_Z else S.DECK_Y
+                return floor + 0.18 + 0.16 * abs(math.sin(z * 23.0)) + 0.25 * max(0.0, 1 - min(z - z0, z1 - z) / 0.3)
+    return top
+
 
 # ---------------------------------------------------------------------------------------------
 # Hull
@@ -81,7 +96,7 @@ def hull_side(side):
         rows = []
         for z in zs:
             if isinstance(a, tuple):
-                top = S.rail_top(z)
+                top = rail(z, side)
                 k = a[1]
                 y0 = S.DECK_Y + (top - S.DECK_Y) * k / 2
                 y1 = S.DECK_Y + (top - S.DECK_Y) * (k + 1) / 2
@@ -105,7 +120,7 @@ def hull_side(side):
         band = None
         for a, b, name, shade in bands:
             if isinstance(a, tuple):
-                top = S.rail_top(z)
+                top = rail(z, side)
                 lo = S.DECK_Y + (top - S.DECK_Y) * a[1] / 2
                 hi = S.DECK_Y + (top - S.DECK_Y) * (a[1] + 1) / 2
             else:
@@ -207,7 +222,7 @@ def bulwark_inside(side):
     for z in zs:
         w = S.half_width(z, S.DECK_Y)
         floor = S.QUARTER_Y if z >= S.QUARTER_Z else S.DECK_Y
-        top = S.rail_top(z)
+        top = rail(z, side)
         rows.append([bm.verts.new(V(side * (w - t), y, z)) for y in (floor, floor + (top - floor) * 0.5, top)])
     for r0, r1 in zip(rows, rows[1:]):
         for j in range(2):
@@ -222,7 +237,7 @@ def bulwark_inside(side):
     rows = []
     for z in zs:
         w = S.half_width(z, S.DECK_Y)
-        top = S.rail_top(z)
+        top = rail(z, side)
         xo, xi = side * (w + 0.04), side * (w - t - 0.04)
         rows.append([bm.verts.new(V(x, y, z)) for x, y in ((xo, top - 0.05), (xo, top + 0.04), ((xo + xi) / 2, top + 0.075), (xi, top + 0.04), (xi, top - 0.05))])
     for r0, r1 in zip(rows, rows[1:]):
@@ -241,7 +256,7 @@ def bulwark_inside(side):
         if abs(z - S.LADDER_Z) > S.LADDER_GAP + 0.1 and abs(z - S.QUARTER_Z) > 0.2:
             w = S.half_width(z, S.DECK_Y)
             floor = S.QUARTER_Y if z >= S.QUARTER_Z else S.DECK_Y
-            top = S.rail_top(z)
+            top = rail(z, side)
             parts.append(kit.box("stanchion", (side * (w - t - 0.04), (floor + top) / 2, z), (0.08, top - floor, 0.1), slot("rail"), bevel=0.012, segments=1))
         z += 1.05
     return parts
@@ -337,11 +352,14 @@ def rigging(feet, top, ratlines=True):
     return parts
 
 
-def mast(m, with_nest):
+def mast(m, with_nest, snapped=False):
     z = S.MAST_Z[m]
     h = S.MAST_HEIGHT[m]
     base = S.LOWER_Y
     top = S.DECK_Y + h
+    if snapped:
+        # Broken off above the highest yard, the stump splintered.
+        top = S.DECK_Y + 0.92 * h
     parts = []
     # The lower mast, the top platform, and the topmast above it, tapering all the way.
     lower_top = S.DECK_Y + 0.62 * h
@@ -360,8 +378,17 @@ def mast(m, with_nest):
     parts.append(kit.box("top", (0, lower_top + 0.4, z), (2.4, 0.12, 1.6), slot("hull_dark"), bevel=0.03))
     for dz in (-0.55, 0.55):
         parts.append(kit.box("crosstree", (0, lower_top + 0.26, z + dz), (2.6, 0.14, 0.14), slot("mast"), bevel=0.02))
-    # The cap at the masthead and a truck on the very top.
-    parts.append(kit.lathe("cap", [(0.26, top - 0.25), (0.28, top), (0.0, top + 0.06)], 10, slot("hull_dark"), centre=(0, 0, z)))
+    # The cap at the masthead and a truck on the very top (or splinters, if snapped).
+    if snapped:
+        rng = random.Random(m + 11)
+        for k in range(7):
+            a = 2 * math.pi * k / 7
+            r = 0.15
+            base_p = (math.cos(a) * r * 0.8, top - 0.05, z + math.sin(a) * r * 0.8)
+            tip_p = (math.cos(a) * r * 0.5, top + rng.uniform(0.15, 0.55), z + math.sin(a) * r * 0.5)
+            parts.append(kit.tube("splinter", [base_p, tip_p], [0.06, 0.008], 4, slot("mast")))
+    else:
+        parts.append(kit.lathe("cap", [(0.26, top - 0.25), (0.28, top), (0.0, top + 0.06)], 10, slot("hull_dark"), centre=(0, 0, z)))
     if with_nest:
         nest = S.DECK_Y + 0.72 * h
         parts.append(kit.lathe("nest", [(0.95, nest - 0.05), (1.05, nest + 0.3), (1.18, nest + 1.0), (1.1, nest + 1.0), (0.98, nest + 0.3), (0.0, nest + 0.05)], 16, slot("hull_dark"), centre=(0, 0, z)))
@@ -1007,7 +1034,7 @@ def hull(skeleton=False):
     parts += hatch()
     tops = []
     for m in range(2):
-        mp, top = mast(m, with_nest=(m == 1))
+        mp, top = mast(m, with_nest=(m == 1), snapped=(skeleton and m == 0))
         parts += mp
         tops.append(top)
         for side in (1, -1):
@@ -1016,7 +1043,7 @@ def hull(skeleton=False):
             parts += rigging(feet, top + Vector((side * 0.3, 0, 0)))
     sprit, tip = bowsprit()
     parts += sprit
-    head_top = Vector((0, S.DECK_Y + S.MAST_HEIGHT[0], S.MAST_Z[0]))
+    head_top = Vector((0, S.DECK_Y + S.MAST_HEIGHT[0] * (0.92 if skeleton else 1.0), S.MAST_Z[0]))
     main_top = Vector((0, S.DECK_Y + S.MAST_HEIGHT[1], S.MAST_Z[1]))
     parts.append(kit.tube("forestay", [tuple(head_top), tuple(tip)], ROPE_R, 5, slot("rope"), caps=False))
     parts.append(kit.tube("mainstay", [tuple(main_top), tuple(tops[0] + Vector((0, 0.3, 0)))], ROPE_R, 5, slot("rope"), caps=False))
@@ -1035,7 +1062,56 @@ def hull(skeleton=False):
     parts += map_table()
     parts += clutter()
     parts += lower_deck()
+    if skeleton:
+        parts += wreckage()
     return kit.join("hull", parts)
+
+
+def wreckage():
+    """What years on the sea bed did to the skeleton ship: holes stove in its sides, barnacles
+    and weed along the waterline, and bones about its deck."""
+    rng = random.Random(21)
+    parts = []
+    for side in (1, -1):
+        for z, y in ((-6.8, 1.9), (2.6, 1.2), (7.8, 2.0), (-10.2, 1.4)):
+            if side < 0:
+                z += 1.3
+            n = Vector(S.side_normal(z, y, side))
+            at = Vector(hull_point(z, y, side, 0.01))
+            outline = []
+            for i in range(12):
+                a = 2 * math.pi * i / 12
+                r = rng.uniform(0.18, 0.36)
+                outline.append((math.cos(a) * r, math.sin(a) * r))
+            hole = kit.prism("stove", [(w_, u) for u, w_ in outline], 0.05, "121614", plane="zy")
+            kit.place(hole, tuple(at), (0, math.atan2(-n.z, n.x) if side > 0 else math.atan2(n.z, -n.x), 0))
+            kit.noink(hole, 0.4)
+            parts.append(hole)
+            for i in range(6):
+                a = 2 * math.pi * i / 6 + rng.uniform(-0.3, 0.3)
+                base_p = at + Vector((0, math.sin(a) * 0.3, math.cos(a) * 0.3))
+                tip = base_p - n * rng.uniform(0.0, 0.08) + Vector((0, math.sin(a), math.cos(a))) * rng.uniform(0.08, 0.2)
+                parts.append(kit.tube("plankend", [tuple(base_p), tuple(tip)], [0.035, 0.006], 4, slot("hull")))
+        # Barnacles in clusters near the waterline, and weed hanging off the lower wale.
+        for k in range(26):
+            z = rng.uniform(-11.0, 12.0)
+            y = rng.uniform(-0.3, 0.45)
+            at = hull_point(z, y, side, 0.01)
+            parts.append(kit.lathe("barnacle", [(0.0, 0.0), (0.05, 0.0), (0.035, 0.05 * side), (0.015, 0.06 * side), (0.0, 0.055 * side)], 6, "c9c4b0", centre=at, axis="x"))
+        for k in range(16):
+            z = -10.5 + k * 1.45 + rng.uniform(-0.3, 0.3)
+            top_p = Vector(hull_point(z, 0.88, side, 0.07))
+            length = rng.uniform(0.5, 1.1)
+            pts = [tuple(top_p + Vector((side * 0.02 * math.sin(i), -length * i / 4, 0.05 * math.sin(i * 1.7)))) for i in range(5)]
+            parts.append(kit.tube("weed", pts, [0.035, 0.03, 0.025, 0.018, 0.008], 5, "3a6a3a"))
+    # A skull and some bones lying about the deck.
+    for x, z, a in ((-1.4, -1.8, 0.4), (2.2, 2.0, 1.2), (-2.5, 4.2, 2.0)):
+        parts.append(kit.ellipsoid("deckskull", (x, S.DECK_Y + 0.1, z), (0.11, 0.1, 0.12), slot("bone"), rings=6, sectors=10))
+        for b in range(2):
+            ang = a + b * 1.1
+            d = Vector((math.cos(ang), 0, math.sin(ang))) * 0.25
+            parts.append(kit.tube("deckbone", [(x + 0.3 - d.x, S.DECK_Y + 0.04, z - d.z), (x + 0.3 + d.x, S.DECK_Y + 0.04, z + d.z)], 0.03, 6, slot("bone")))
+    return parts
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1048,36 +1124,58 @@ SAIL_THICKNESS = 0.08
 
 def sail(name, width, height, torn=False, seed=0):
     """A sail hanging from its yard at y = 0, bellied toward the bow (-Z): a thin closed slab
-    in cloth panels, with a reef band of little ties and a bolt rope round the edge."""
-    cols, rows = 14, 10
+    in cloth panels, with a reef band of little ties and a bolt rope round the edge. A torn
+    sail (the skeleton ship's) has ragged rents and a frayed foot."""
+    cols, rows = (28, 20) if torn else (14, 10)
     bm = bmesh.new()
     front, back = [], []
+    rng = random.Random(seed)
+    # How much shorter each column's foot is, for a frayed hem.
+    fray = [0.0] * (cols + 1)
+    if torn:
+        for c in range(cols + 1):
+            fray[c] = max(0.0, rng.uniform(-0.04, 0.12))
     for r in range(rows + 1):
         v = r / rows
         fr, br = [], []
         for c in range(cols + 1):
             u = c / cols
-            belly = SAIL_BELLY * math.sin(math.pi * u) * (0.45 + 0.55 * math.sin(math.pi * min(1.0, v * 1.1)))
-            # The foot curves up a little at the middle, like canvas does.
-            y = -v * height + (0.25 * math.sin(math.pi * u) if r == rows else 0.0)
-            x = (u - 0.5) * width * (1 - 0.06 * v)
+            vv = v * (1 - fray[c]) if r == rows else v
+            belly = SAIL_BELLY * math.sin(math.pi * u) * (0.45 + 0.55 * math.sin(math.pi * min(1.0, vv * 1.1)))
+            y = -vv * height + (0.25 * math.sin(math.pi * u) if r == rows else 0.0)
+            x = (u - 0.5) * width * (1 - 0.06 * vv)
             fr.append(bm.verts.new(V(x, y, -belly - SAIL_THICKNESS / 2)))
             br.append(bm.verts.new(V(x, y, -belly + SAIL_THICKNESS / 2)))
         front.append(fr)
         back.append(br)
-    rng = random.Random(seed)
     holes = set()
     if torn:
-        for _ in range(5):
-            cc, rr = rng.randrange(1, cols - 1), rng.randrange(1, rows - 1)
-            for dc in range(-1, 2):
-                for dr in range(-1, 1):
-                    if rng.random() < 0.75:
-                        holes.add((cc + dc, rr + dr))
-        # A ragged foot: the bottom row torn in places.
-        for c in range(cols):
-            if rng.random() < 0.5:
-                holes.add((c, rows - 1))
+        blobs = [(rng.uniform(0.12, 0.88), rng.uniform(0.15, 0.85), rng.uniform(0.06, 0.13)) for _ in range(6)]
+        for r in range(rows):
+            for c in range(cols):
+                u, v = (c + 0.5) / cols, (r + 0.5) / rows
+                wobble = 0.35 * math.sin(u * 37 + v * 11 + seed) * math.sin(v * 29 - u * 7)
+                for bu, bv, br_ in blobs:
+                    d = math.hypot((u - bu) * width / height, v - bv) / br_
+                    if d + wobble < 1.0:
+                        holes.add((c, r))
+                # Rents along the foot.
+                if r == rows - 1 and math.sin(u * 23 + seed) > 0.55:
+                    holes.add((c, r))
+    if holes:
+        # Fray the rents: nudge every grid point on a hole's edge so the edges wander instead
+        # of following the grid. Front and back move together.
+        cw, ch = width / cols, height / rows
+        for r in range(1, rows):
+            for c in range(1, cols):
+                around = [(c - 1, r - 1), (c, r - 1), (c - 1, r), (c, r)]
+                n_holes = sum(1 for cell in around if cell in holes)
+                if 0 < n_holes < 4:
+                    dx = rng.uniform(-0.45, 0.45) * cw
+                    dy = rng.uniform(-0.45, 0.45) * ch
+                    for grid in (front, back):
+                        grid[r][c].co.x += dx
+                        grid[r][c].co.z += dy
     for r in range(rows):
         for c in range(cols):
             if (c, r) in holes:
@@ -1109,7 +1207,10 @@ def sail(name, width, height, torn=False, seed=0):
         p = int(u * 7)
         shade = 1.0 if p % 2 == 0 else 0.94
         if torn:
-            shade *= 0.9 + 0.1 * math.sin(x * 3 + y * 2)
+            # Old stains: broad and soft, not a patchwork.
+            stain = math.sin(x * 0.7 + seed) * math.sin(y * 0.9 - seed * 0.5)
+            k = min(1.0, max(0.0, (stain - 0.3) / 0.5))
+            shade *= 1.0 - 0.1 * k * k * (3 - 2 * k)
         poly.material_index = kit._slot(ob, slot("sail"), round(shade, 2))
     kit.smooth_by_angle(ob, 70)
     parts = [ob]
@@ -1294,14 +1395,23 @@ def parts_model():
 
 
 def main(names):
+    def wreck():
+        global WRECK
+        WRECK = True
+        try:
+            return [hull(skeleton=True)]
+        finally:
+            WRECK = False
+
     builders = {
         "ship_hull": lambda: [hull()],
+        "ship_wreck": wreck,
         "ship_parts": parts_model,
     }
     for name in names or builders:
         kit.reset()
         objs = builders[name]()
-        kit.export(name, objs, ao_distance=0.5 if name == "ship_hull" else 0.2, ao_strength=0.9)
+        kit.export(name, objs, ao_distance=0.2 if name == "ship_parts" else 0.5, ao_strength=0.9)
 
 
 if __name__ == "__main__":
