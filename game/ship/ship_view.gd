@@ -101,7 +101,9 @@ func _build_rig(mast: int) -> void:
 	add_child(rig)
 	_rigs.append(rig)
 	var sails: Array[MeshInstance3D] = []
-	for spec in ShipMesh.sails_for(mast):
+	var specs := ShipMesh.sails_for(mast)
+	for k in specs.size():
+		var spec: Array = specs[k]
 		var top: float = spec[0]
 		var yard := Toon.instance(ShipMesh.yard(spec[2]))
 		yard.position = Vector3(0, top, -ShipShape.MAST_RADIUS - 0.2)
@@ -110,6 +112,11 @@ func _build_rig(mast: int) -> void:
 		sail.position = Vector3(0, top - 0.1, -ShipShape.MAST_RADIUS - 0.3)
 		rig.add_child(sail)
 		sails.append(sail)
+		if mast == 1 and k == 0:
+			# The crew's emblem on the main course, furling with the sail.
+			var badge := Toon.instance(ShipMesh.emblem())
+			badge.position = Vector3(0, -spec[1] * 0.5, 0)
+			sail.add_child(badge)
 	_sails.append(sails)
 
 

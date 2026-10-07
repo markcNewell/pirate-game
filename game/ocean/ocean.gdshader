@@ -18,11 +18,13 @@ uniform vec3 mid_color : source_color = vec3(0.137, 0.537, 0.890);
 uniform vec3 light_color : source_color = vec3(0.337, 0.741, 0.969);
 uniform vec3 foam_color : source_color = vec3(1.0);
 uniform vec3 far_color : source_color = vec3(0.137, 0.537, 0.890);
+uniform vec3 shallow_color : source_color = vec3(0.30, 0.82, 0.86);
+uniform vec3 beach_color : source_color = vec3(0.62, 0.93, 0.90);
 
 uniform vec4 islands[MAX_ISLANDS];  // x, z, waterline radius, unused
 uniform int island_count = 0;
 uniform vec4 ships[MAX_SHIPS];  // x, z, heading, unused
-uniform vec4 ships_b[MAX_SHIPS];  // sinking progress, unused...
+uniform vec4 ships_b[MAX_SHIPS];  // sinking progress, water inside, speed (m/s), unused
 uniform int ship_count = 0;
 
 varying vec3 world_pos;
@@ -70,8 +72,8 @@ void fragment() {
 
 	float foam = 0.0;
 	// White caps: only the highest crests, broken up by noise.
-	float caps = noise(world_pos.xz * 0.9 - sea_time * 0.3);
-	if (wave_height > 0.7 && caps > 0.62) {
+	float caps = noise(world_pos.xz * 1.1 - sea_time * 0.3);
+	if (wave_height > 0.74 && caps > 0.66) {
 		foam = 1.0;
 	}
 
@@ -82,6 +84,13 @@ void fragment() {
 		vec2 d = world_pos.xz - islands[i].xy;
 		float r = length(d);
 		float a = atan(d.y, d.x);
+		// Bright shallows shelving away from the beach, in two flat toon steps.
+		float shore = r - islands[i].z * (1.0 + 0.04 * sin(a * 5.0));
+		if (shore < 6.0) {
+			col = beach_color;
+		} else if (shore < 16.0 + 3.0 * sin(a * 3.0 + 1.0)) {
+			col = shallow_color;
+		}
 		float edge = islands[i].z * (1.0 + 0.04 * sin(a * 5.0)) + 0.8 * sin(sea_time * 0.9 + a * 3.0);
 		float ring1 = step(abs(r - edge - 0.6), 0.9);
 		float ring2 = step(abs(r - edge - 4.0 - 1.2 * sin(sea_time * 0.7 + a * 4.0)), 0.35);
@@ -102,15 +111,46 @@ void fragment() {
 		float s = sin(ships[i].z);
 		vec2 local = vec2(c * d.x - s * d.y, s * d.x + c * d.y);
 		float sinking = ships_b[i].x;
+		float speed = ships_b[i].z;
 		if (sinking < 0.3 && abs(local.y) < 13.0 && abs(local.x) < hull_half_width(local.y, wave_height) - 0.05) {
 			discard;
 		}
 		if (sinking < 0.2) {
 			float e = length(vec2(local.x / 4.4, local.y / 13.6));
 			foam = max(foam, step(abs(e - 1.0), 0.05 + 0.03 * noise(local * 0.8 + sea_time)));
+			if (speed > 0.5) {
+				// A V of foam spreading behind the stern, broken up and fading with distance,
+				// and a churned trail straight behind.
+				float behind = local.y - 12.0;
+				float len = 25.0 + speed * 9.0;
+				if (behind > 0.0 && behind < len) {
+					float fade = 1.0 - behind / len;
+					float arm = abs(abs(local.x) - (2.2 + behind * 0.3));
+					float broken = noise(vec2(behind * 0.5 - sea_time * speed * 0.4, local.x * 0.7));
+					foam = max(foam, step(arm, 0.25 + behind * 0.012) * step(0.3, broken * fade + 0.1));
+					float churn = noise(local * 0.9 + vec2(0.0, -sea_time * speed * 0.6));
+					foam = max(foam, step(abs(local.x), 1.2 + behind * 0.04) * step(1.15 - fade * 0.5, churn + 0.45));
+				}
+				// Bow wave curling off both sides of the bow.
+				if (local.y > -14.0 && local.y < -6.0) {
+					float hw = hull_half_width(local.y, wave_height);
+					float curl = abs(abs(local.x) - hw - 0.3 - (local.y + 14.0) * 0.08);
+					foam = max(foam, step(curl, 0.18 * min(speed, 6.0) / 6.0 + 0.05));
+				}
+			}
 		}
 	}
 
+	// A few glints of sun on the near sea.
+	float near = length(world_pos - CAMERA_POSITION_WORLD);
+	if (near < 120.0) {
+		vec2 cell = floor(world_pos.xz * 1.2);
+		float glint = hash(cell);
+		float twinkle = sin(sea_time * 4.0 + glint * 40.0);
+		if (glint > 0.992 && twinkle > 0.7 && wave_height > 0.05) {
+			foam = 1.0;
+		}
+	}
 	col = mix(col, foam_color, foam);
 	// Calm the bands far out so the horizon is a clean line, not a stripe of noise.
 	float dist = length(world_pos - CAMERA_POSITION_WORLD);

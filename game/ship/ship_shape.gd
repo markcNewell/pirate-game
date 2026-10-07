@@ -47,6 +47,16 @@ const CAPSTAN := Vector3(0.0, DECK_Y, -3.2)
 const WHEEL := Vector3(0.0, QUARTER_Y, 9.0)
 ## The map table on the quarterdeck, beside the wheel, where voyages are taken.
 const MAP_TABLE := Vector3(-2.1, QUARTER_Y, 9.4)
+## Things stowed on the main deck: [centre, half size, "barrel" | "crate" | "rope"].
+const CLUTTER := [
+	[Vector3(-2.35, DECK_Y + 0.45, -7.8), Vector3(0.38, 0.45, 0.38), "barrel"],
+	[Vector3(-1.75, DECK_Y + 0.45, -8.55), Vector3(0.38, 0.45, 0.38), "barrel"],
+	[Vector3(2.0, DECK_Y + 0.35, -8.2), Vector3(0.4, 0.35, 0.4), "crate"],
+	[Vector3(2.05, DECK_Y + 0.95, -8.2), Vector3(0.3, 0.25, 0.3), "crate"],
+	[Vector3(-2.7, DECK_Y + 0.1, 1.6), Vector3(0.45, 0.1, 0.45), "rope"],
+	[Vector3(2.7, DECK_Y + 0.1, 0.6), Vector3(0.45, 0.1, 0.45), "rope"],
+]
+
 ## The banana barrel on the lower deck, toward the stern.
 const BANANA_BARREL := Vector3(1.0, LOWER_Y, 4.6)
 
@@ -326,6 +336,9 @@ static func deck_faces() -> PackedVector3Array:
 	b.box(CAPSTAN + Vector3(0, 0.5, 0), Vector3(0.6, 0.5, 0.6), ink)
 	b.box(WHEEL + Vector3(0, 0.6, 0), Vector3(0.3, 0.6, 0.25), ink)
 	b.box(MAP_TABLE + Vector3(0, 0.45, 0), Vector3(0.6, 0.45, 0.4), ink)
+	for c in CLUTTER:
+		if c[2] != "rope":
+			b.box(c[0], c[1], ink)
 	for i in CANNON_Z.size():
 		for side: int in [-1, 1]:
 			var pivot := cannon_pivot(i, side)

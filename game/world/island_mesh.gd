@@ -39,6 +39,9 @@ static func build(spec: Dictionary) -> Dictionary:
 	rng.seed = spec.seed
 	_palms(decor, solid, spec, rng)
 	_rocks(decor, solid, spec, rng)
+	_bushes(decor, spec, rng)
+	if not spec.get("outpost", false):
+		_camp(decor, solid, spec, rng)
 	var faces := ground_b.faces()
 	faces.append_array(solid.faces())
 	return {"ground": ground_b.build(), "decor": decor.build(), "faces": faces}
@@ -70,7 +73,9 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 		if p.y < 0.25:
 			return Toon.color("wet_sand")
 		if is_grass(spec, p.x, p.z):
-			return Toon.color("grass") if p.y < 0.6 * radius * 0.25 + 2.0 else Toon.color("grass_dark")
+			# Two-tone patches, like brush strokes on a cartoon background.
+			var patch := sin(p.x * 0.21 + sin(p.z * 0.17) * 2.0) * sin(p.z * 0.19 + sin(p.x * 0.13) * 2.0)
+			return Toon.color("grass_dark") if patch > 0.25 else Toon.color("grass")
 		return Toon.color("sand")
 	var normal_at := func(p: Vector3) -> Vector3:
 		var e := 0.2
@@ -177,3 +182,64 @@ static func _rock(b: MeshBuilder, centre: Vector3, size: float, spin: Basis) -> 
 			var out := spin * (u[0] + u[2])
 			b.tri(p[0], p[1], p[2], Toon.color("rock"), out)
 			b.tri(p[0], p[2], p[3], Toon.color("rock"), out)
+
+
+
+## Round toon bushes and little clumps of flowers on the grass.
+static func _bushes(b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+	var radius: float = spec.radius
+	var flowers: Array[Color] = [Color("ff6b6b"), Color("ffd84a"), Color("f2f2ff"), Color("ff9ad5")]
+	for i in int(radius / 2.5):
+		var a := rng.randf() * TAU
+		var r := rng.randf_range(0.1, 0.85) * (radius - 4.0)
+		var x := cos(a) * r
+		var z := sin(a) * r
+		if not is_grass(spec, x, z):
+			continue
+		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
+			continue
+		var y := ground(spec, x, z)
+		if i % 3 == 0:
+			var c: Color = flowers[rng.randi() % flowers.size()]
+			for k in 5:
+				var p := Vector3(x + rng.randf_range(-0.6, 0.6), y + 0.12, z + rng.randf_range(-0.6, 0.6))
+				b.cylinder(p - Vector3(0, 0.12, 0), p, 0.02, 0.02, 4, Color("2f6b26"), false)
+				b.ellipsoid(p + Vector3(0, 0.05, 0), 0.09, Vector3(1, 0.6, 1), 3, 6, c)
+			continue
+		var size := rng.randf_range(0.6, 1.1)
+		var green := Color("3f8a35") if i % 2 == 0 else Color("4a9a3a")
+		for k in 3:
+			var off := Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5)) * size
+			b.ellipsoid(Vector3(x, y + 0.35 * size, z) + off, 0.55 * size, Vector3(1, 0.8, 1), 5, 8, green)
+
+
+## A skeleton camp: a tattered tent, a ring of stones round a dead fire, and a few bones.
+static func _camp(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+	var radius: float = spec.radius
+	var a := rng.randf() * TAU
+	var r := 0.35 * radius
+	var at := Vector3(cos(a) * r, 0, sin(a) * r)
+	at.y = ground(spec, at.x, at.z)
+	var cloth := Color("8a7f6a")
+	var turn := Basis(Vector3.UP, a + PI / 2.0)
+	# Tent: a ridge pole on two posts with sloping cloth sides.
+	var tent := at + turn * Vector3(3.0, 0, 0)
+	for s: float in [-1.2, 1.2]:
+		b.cylinder(tent + turn * Vector3(0, 0, s), tent + turn * Vector3(0, 1.8, s), 0.06, 0.06, 5, Color("5e4630"))
+	b.cylinder(tent + turn * Vector3(0, 1.8, -1.3), tent + turn * Vector3(0, 1.8, 1.3), 0.05, 0.05, 5, Color("5e4630"))
+	for side: float in [-1.0, 1.0]:
+		var c := turn * Basis(Vector3.BACK, side * 0.75)
+		b.box(tent + turn * Vector3(side * 0.62, 0.95, 0), Vector3(0.03, 1.1, 1.25), cloth if side < 0 else cloth.darkened(0.15), c)
+	solid.box(tent + Vector3(0, 0.9, 0), Vector3(0.9, 0.9, 0.9), Color.BLACK, turn)
+	# Fire ring and charred logs.
+	for k in 8:
+		var ang := TAU * k / 8.0
+		b.ellipsoid(at + Vector3(cos(ang) * 0.75, 0.1, sin(ang) * 0.75), 0.18, Vector3(1.2, 0.7, 1), 3, 5, Color("7d7a76"))
+	for k in 3:
+		var ang := TAU * k / 3.0 + 0.4
+		b.box(at + Vector3(0, 0.12, 0), Vector3(0.45, 0.07, 0.07), Color("2b2018"), Basis(Vector3.UP, ang))
+	# Scattered bones.
+	for k in 3:
+		var p := at + Vector3(rng.randf_range(-2.5, 2.5), 0, rng.randf_range(-2.5, 2.5))
+		p.y = ground(spec, p.x, p.z) + 0.05
+		b.box(p, Vector3(0.25, 0.035, 0.035), Color("efe8d2"), Basis(Vector3.UP, rng.randf() * TAU))

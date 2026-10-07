@@ -6,6 +6,54 @@ extends CanvasLayer
 const INK := Color("1b1a24")
 const PAPER := Color("fff8ea")
 
+static var _display: Font
+
+
+static var _theme: Theme
+
+
+## Wooden buttons with gold edges and parchment fields, for the menus.
+static func ui_theme() -> Theme:
+	if _theme:
+		return _theme
+	_theme = Theme.new()
+	var wood := Color("8a4a26")
+	var gold := Color("e0b04a")
+	var make := func(bg: Color, border: Color, width: int) -> StyleBoxFlat:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = border
+		sb.set_border_width_all(width)
+		sb.set_corner_radius_all(8)
+		sb.set_content_margin_all(10)
+		return sb
+	_theme.set_stylebox("normal", "Button", make.call(wood, gold, 3))
+	_theme.set_stylebox("hover", "Button", make.call(wood.lightened(0.12), Color("ffd86a"), 3))
+	_theme.set_stylebox("pressed", "Button", make.call(wood.darkened(0.2), gold, 3))
+	_theme.set_stylebox("focus", "Button", make.call(Color(0, 0, 0, 0), Color("ffd86a"), 2))
+	_theme.set_color("font_color", "Button", PAPER)
+	_theme.set_color("font_hover_color", "Button", Color("fff2c0"))
+	_theme.set_font_size("font_size", "Button", 20)
+	for cls in ["OptionButton"]:
+		_theme.set_stylebox("normal", cls, make.call(Color("f2e2b8"), wood, 2))
+		_theme.set_stylebox("hover", cls, make.call(Color("f7ebc8"), wood, 2))
+		_theme.set_stylebox("pressed", cls, make.call(Color("e8d6a6"), wood, 2))
+		_theme.set_color("font_color", cls, INK)
+		_theme.set_color("font_hover_color", cls, INK)
+	_theme.set_stylebox("normal", "LineEdit", make.call(Color("f2e2b8"), wood, 2))
+	_theme.set_stylebox("focus", "LineEdit", make.call(Color("f7ebc8"), gold, 2))
+	_theme.set_color("font_color", "LineEdit", INK)
+	_theme.set_color("font_placeholder_color", "LineEdit", Color(INK, 0.45))
+	_theme.set_color("caret_color", "LineEdit", INK)
+	return _theme
+
+
+## The pirate display face (Pirata One, SIL Open Font Licence) for titles and big messages.
+static func display_font() -> Font:
+	if _display == null:
+		_display = load("res://art/fonts/PirataOne-Regular.ttf")
+	return _display
+
 var game: Game
 
 var _prompt: Label
@@ -47,7 +95,8 @@ func _ready() -> void:
 	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	root.add_child(_prompt)
 
-	_toast = _label(24)
+	_toast = _label(34)
+	_toast.add_theme_font_override("font", display_font())
 	_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_toast.offset_top = 70
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -110,7 +159,8 @@ func _ready() -> void:
 	_hurt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_hurt)
 
-	_ghost = _label(34)
+	_ghost = _label(48)
+	_ghost.add_theme_font_override("font", display_font())
 	_ghost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_ghost.visible = false
@@ -151,12 +201,14 @@ func _ready() -> void:
 
 func _build_menu(root: Control) -> void:
 	_menu = _panel()
+	_menu.theme = ui_theme()
 	_menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_menu.visible = false
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	_menu.add_child(box)
-	var title := _label(32)
+	var title := _label(44)
+	title.add_theme_font_override("font", display_font())
 	title.text = "Paused"
 	box.add_child(title)
 
@@ -431,7 +483,7 @@ class TreasureMap:
 		var x := centre + Vector2(v.x - spec.x, v.z - spec.z) * scale
 		for d: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
 			draw_line(x - d * 12.0, x + d * 12.0, Color("c8302a"), 6.0)
-		draw_string(font, Vector2(0, 40), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, INKY)
+		draw_string(Hud.display_font(), Vector2(0, 46), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 40, INKY)
 		var ship := hud.game.view_ship
 		var to := Vector2(spec.x - ship.x, spec.z - ship.z)
 		var hint := "%d m to the %s" % [int(to.length()), ServerSim.compass_name(atan2(to.x, -to.y))]

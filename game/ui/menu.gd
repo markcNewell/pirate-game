@@ -27,6 +27,7 @@ func _ready() -> void:
 	style.set_corner_radius_all(14)
 	style.set_content_margin_all(28)
 	card.add_theme_stylebox_override("panel", style)
+	card.theme = Hud.ui_theme()
 	centre.add_child(card)
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(420, 0)
@@ -34,15 +35,17 @@ func _ready() -> void:
 	card.add_child(box)
 
 	var title := Label.new()
-	title.text = "PIRATE GAME"
+	title.text = "Pirate Game"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_font_override("font", Hud.display_font())
+	title.add_theme_font_size_override("font_size", 84)
 	title.add_theme_color_override("font_color", Hud.PAPER)
 	title.add_theme_color_override("font_outline_color", Hud.INK)
 	title.add_theme_constant_override("outline_size", 16)
 	box.add_child(title)
 	var sub := Label.new()
-	sub.text = "milestone 1: sail together"
+	sub.text = "Crew a galleon with your friends. Hunt treasure, sink skeletons, rob rivals."
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_color_override("font_color", Hud.INK)
 	box.add_child(sub)

@@ -35,6 +35,11 @@ static func _obstacles(lower: bool) -> Array[Rect2]:
 	r.append(_centred(Vector2(0, ShipShape.CAPSTAN.z), Vector2(0.6, 0.6)))
 	r.append(_centred(Vector2(0, ShipShape.WHEEL.z), Vector2(0.3, 0.25)))
 	r.append(_centred(Vector2(ShipShape.MAP_TABLE.x, ShipShape.MAP_TABLE.z), Vector2(0.6, 0.4)))
+	for c in ShipShape.CLUTTER:
+		if c[2] != "rope":
+			var centre: Vector3 = c[0]
+			var half: Vector3 = c[1]
+			r.append(_centred(Vector2(centre.x, centre.z), Vector2(half.x, half.z)))
 	for m in ShipShape.MAST_Z.size():
 		var post := ShipShape.sail_post(m)
 		r.append(_centred(Vector2(post.x, post.z), Vector2(0.15, 0.15)))

@@ -20,6 +20,7 @@ func _ready() -> void:
 	_clouds = Node3D.new()
 	add_child(_clouds)
 	_make_clouds()
+	add_child(Gulls.new())
 
 
 func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:

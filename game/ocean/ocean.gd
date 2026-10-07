@@ -38,7 +38,7 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:
 		if a.size() >= MAX_SHIPS:
 			break
 		a.append(Vector4(s.x, s.z, s.yaw, 0.0))
-		b.append(Vector4(s.sink, s.water, 0.0, 0.0))
+		b.append(Vector4(s.sink, s.water, s.speed, 0.0))
 	var count := a.size()
 	while a.size() < MAX_SHIPS:
 		a.append(Vector4.ZERO)

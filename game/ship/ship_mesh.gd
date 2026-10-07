@@ -44,6 +44,8 @@ static func hull() -> ArrayMesh:
 	_hatch(b)
 	_lower_deck(b)
 	_cannon_carriages(b)
+	_clutter(b)
+	_bow_and_stern(b)
 	return b.build()
 
 
@@ -92,7 +94,10 @@ static func _hull_side(b: MeshBuilder, zs: Array[float], side: int) -> void:
 				row.append(Vector3(side * ShipShape.half_width(z, y), y, z))
 			rows.append(row)
 		var c := _c(band[2])
-		b.grid(rows, func(_p: Vector3) -> Color: return c, func(p: Vector3) -> Vector3: return _side_normal(p, side))
+		# Planking: every other strake a shade darker.
+		var plank := func(p: Vector3) -> Color:
+			return c if int(floor((p.y + 3.0) / 0.42)) % 2 == 0 else c.darkened(0.07)
+		b.grid(rows, plank, func(p: Vector3) -> Vector3: return _side_normal(p, side))
 
 
 ## Inner face and top cap of the bulwark.
@@ -503,3 +508,69 @@ static func flood_mesh() -> ArrayMesh:
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return m
+
+
+
+## Barrels, crates and coils of rope stowed along the main deck.
+static func _clutter(b: MeshBuilder) -> void:
+	for c in ShipShape.CLUTTER:
+		var centre: Vector3 = c[0]
+		var half: Vector3 = c[1]
+		match c[2]:
+			"barrel":
+				var foot := centre - Vector3(0, half.y, 0)
+				b.cylinder(foot, foot + Vector3(0, half.y, 0), half.x * 0.9, half.x, 10, _c("trunk"))
+				b.cylinder(foot + Vector3(0, half.y, 0), foot + Vector3(0, half.y * 2.0, 0), half.x, half.x * 0.9, 10, _c("trunk"))
+				for h: float in [0.25, 0.75]:
+					b.cylinder(foot + Vector3(0, half.y * 2.0 * h, 0), foot + Vector3(0, half.y * 2.0 * h + 0.06, 0), half.x + 0.01, half.x + 0.01, 10, _c("trim"))
+			"crate":
+				b.box(centre, half, _c("deck").darkened(0.1))
+				for s: float in [-1.0, 1.0]:
+					b.box(centre + Vector3(0, 0, s * (half.z + 0.005)), Vector3(half.x * 0.95, 0.04, 0.01), _c("hull_dark"), Basis(Vector3.BACK, 0.7))
+			"rope":
+				for k in 3:
+					var r := half.x - k * 0.12
+					b.cylinder(centre + Vector3(0, -0.08 + k * 0.06, 0), centre + Vector3(0, -0.02 + k * 0.06, 0), r, r, 14, _c("rope").darkened(0.05 * k), true)
+
+
+## A golden figurehead under the bowsprit, an anchor hung at the bow, and a name board on
+## the stern.
+static func _bow_and_stern(b: MeshBuilder) -> void:
+	var gold := _c("gold")
+	var head := Vector3(0, ShipShape.DECK_Y - 0.1, -13.15)
+	b.ellipsoid(head, 0.45, Vector3(0.5, 1.4, 0.6), 6, 8, gold)
+	b.ellipsoid(head + Vector3(0, 0.75, -0.3), 0.26, Vector3.ONE, 6, 8, gold)
+	for side: float in [-1.0, 1.0]:
+		b.box(head + Vector3(side * 0.3, 0.35, 0.15), Vector3(0.05, 0.4, 0.35), gold, Basis(Vector3.RIGHT, -0.5) * Basis(Vector3.BACK, side * 0.4))
+	# Anchor on the starboard bow: shank, stock, curved arms and a ring.
+	var iron := _c("iron")
+	var top := Vector3(ShipShape.half_width(-10.5, 2.0) + 0.15, 2.4, -10.5)
+	b.cylinder(top, top + Vector3(0, -1.6, 0), 0.07, 0.07, 6, iron)
+	b.box(top + Vector3(0, -0.1, 0), Vector3(0.05, 0.05, 0.45), iron)
+	b.cylinder(top + Vector3(0, 0.15, 0), top + Vector3(0, 0.22, 0), 0.14, 0.14, 8, iron)
+	for s: float in [-1.0, 1.0]:
+		b.box(top + Vector3(0, -1.45, s * 0.3), Vector3(0.05, 0.05, 0.32), iron, Basis(Vector3.RIGHT, s * 0.6))
+		b.box(top + Vector3(0, -1.2, s * 0.55), Vector3(0.06, 0.12, 0.08), iron)
+	# Name board under the stern windows.
+	var board := Vector3(0, ShipShape.DECK_Y + 0.1, ShipShape.HALF_LENGTH + 0.06)
+	b.box(board, Vector3(1.6, 0.18, 0.03), _c("hull_dark"))
+	b.box(board + Vector3(0, 0, 0.02), Vector3(1.5, 0.1, 0.02), gold)
+
+
+## A round skull-and-bones emblem for the main course sail: one disc just in front of the
+## sail's bulge and one just behind it, so it shows from both sides. Centred on the sail's
+## middle (the bulge is deepest there, SAIL_BELLY).
+static func emblem() -> ArrayMesh:
+	var b := MeshBuilder.new()
+	var depth := SAIL_BELLY * 0.99
+	for side: float in [-1.0, 1.0]:
+		# Front (bow side, -z) sits beyond the bulge; back (+z) sits inside the hollow.
+		var z := -depth - 0.08 if side < 0.0 else -depth + 0.15
+		var face := Vector3(0, 0, z)
+		b.cylinder(face, face + Vector3(0, 0, side * 0.01), 1.15, 1.15, 20, _c("flag"), true)
+		b.ellipsoid(face + Vector3(0, 0.15, side * 0.015), 0.42, Vector3(1.0, 1.0, 0.08), 6, 10, _c("bone"))
+		for k in 2:
+			b.ellipsoid(face + Vector3((k - 0.5) * 0.3, 0.2, side * 0.035), 0.09, Vector3(1, 1.2, 0.2), 4, 6, _c("flag"))
+		for a: float in [0.7, -0.7]:
+			b.box(face + Vector3(0, -0.45, side * 0.015), Vector3(0.6, 0.07, 0.015), _c("bone"), Basis(Vector3.BACK, a))
+	return b.build()
