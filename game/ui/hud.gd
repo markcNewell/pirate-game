@@ -5,6 +5,9 @@ extends CanvasLayer
 
 const INK := Color("1b1a24")
 const PAPER := Color("fff8ea")
+const GOLD := Color("e0b04a")
+
+static var _panel_styles := {}
 
 static var _display: Font
 
@@ -116,7 +119,7 @@ func _ready() -> void:
 	_gauges.hud = self
 	_gauges.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	_gauges.offset_top = -150
-	_gauges.offset_right = 260
+	_gauges.offset_right = 300
 	_gauges.offset_bottom = -20
 	_gauges.offset_left = 20
 	root.add_child(_gauges)
@@ -358,6 +361,37 @@ func _panel() -> PanelContainer:
 
 
 ## A strip showing 90 degrees either side of where you look.
+## A HUD panel: dark see-through wood with a thin gold edge and rounded corners.
+static func panel(ci: CanvasItem, rect: Rect2, radius := 12) -> void:
+	if not _panel_styles.has(radius):
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(Color("24160e"), 0.62)
+		sb.border_color = Color(GOLD, 0.8)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(radius)
+		sb.shadow_color = Color(0, 0, 0, 0.25)
+		sb.shadow_size = 4
+		sb.anti_aliasing = true
+		_panel_styles[radius] = sb
+	(_panel_styles[radius] as StyleBoxFlat).draw(ci.get_canvas_item(), rect)
+
+
+## A rounded bar filled to `frac` in `fill` over a dark track.
+static func bar(ci: CanvasItem, rect: Rect2, frac: float, fill: Color) -> void:
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(INK, 0.6)
+	track.set_corner_radius_all(int(rect.size.y))
+	track.border_color = Color(GOLD, 0.6)
+	track.set_border_width_all(1)
+	track.draw(ci.get_canvas_item(), rect.grow(3))
+	if frac <= 0.0:
+		return
+	var full := StyleBoxFlat.new()
+	full.bg_color = fill
+	full.set_corner_radius_all(int(rect.size.y * 0.5))
+	full.draw(ci.get_canvas_item(), Rect2(rect.position, Vector2(maxf(rect.size.y, rect.size.x * frac), rect.size.y)))
+
+
 class Compass:
 	extends Control
 
@@ -367,22 +401,29 @@ class Compass:
 		var w := size.x
 		var mid := w * 0.5
 		var h := hud.heading()
-		draw_rect(Rect2(Vector2.ZERO, size), Color(INK, 0.45))
-		var font := get_theme_default_font()
+		Hud.panel(self, Rect2(Vector2.ZERO, size), int(size.y * 0.5))
+		var font := Hud.display_font()
 		for deg in range(0, 360, 15):
 			var off := wrapf(deg - h, -180.0, 180.0)
 			if absf(off) > 90.0:
 				continue
 			var x := mid + off / 90.0 * mid
+			# Fade out toward the rounded ends of the strip.
+			var fade := clampf((mid - absf(x - mid) - 18.0) / 40.0, 0.0, 1.0)
+			if fade <= 0.0:
+				continue
 			var names := {0: "N", 45: "NE", 90: "E", 135: "SE", 180: "S", 225: "SW", 270: "W", 315: "NW"}
 			if names.has(deg):
 				var text: String = names[deg]
 				var col := Toon.color("stripe") if deg == 0 else PAPER
-				var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-				draw_string(font, Vector2(x - width * 0.5, 30), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, col)
+				col.a *= fade
+				var size_px := 26 if text.length() == 1 else 21
+				var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
+				draw_string(font, Vector2(x - width * 0.5, 32), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col)
 			else:
-				draw_line(Vector2(x, 30), Vector2(x, 40), Color(PAPER, 0.7), 2.0)
-		draw_line(Vector2(mid, 36), Vector2(mid, 46), Toon.color("stripe"), 3.0)
+				draw_line(Vector2(x, 26), Vector2(x, 36), Color(PAPER, 0.6 * fade), 2.0)
+		# A gold pointer at the top marks where you are facing.
+		draw_colored_polygon(PackedVector2Array([Vector2(mid - 8, 0), Vector2(mid + 8, 0), Vector2(mid, 10)]), GOLD)
 
 
 ## Wind arrow (relative to where you look), ship speed in knots and the anchor.
@@ -393,10 +434,11 @@ class Gauges:
 
 	func _draw() -> void:
 		var game := hud.game
-		draw_rect(Rect2(Vector2.ZERO, size), Color(INK, 0.45))
+		Hud.panel(self, Rect2(Vector2.ZERO, size))
 		var font := get_theme_default_font()
 		var centre := Vector2(64, size.y * 0.5)
-		draw_circle(centre, 46, Color(PAPER, 0.15))
+		draw_circle(centre, 46, Color(PAPER, 0.12))
+		draw_arc(centre, 46, 0.0, TAU, 40, Color(GOLD, 0.7), 2.0, true)
 		var wind := game.view_wind
 		var wind_heading := rad_to_deg(atan2(wind.x, -wind.y))
 		var rel := deg_to_rad(wind_heading - hud.heading())
@@ -408,7 +450,7 @@ class Gauges:
 		draw_colored_polygon(PackedVector2Array([tip + dir * 6, tip - dir * 12 + side * 11, tip - dir * 12 - side * 11]), PAPER)
 		draw_string(font, Vector2(16, size.y - 8), "wind", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(PAPER, 0.8))
 		var knots := game.view_ship.speed * 1.944
-		draw_string(font, Vector2(130, 46), "%.0f kn" % knots, HORIZONTAL_ALIGNMENT_LEFT, -1, 34, PAPER)
+		draw_string(Hud.display_font(), Vector2(130, 48), "%.0f knots" % knots, HORIZONTAL_ALIGNMENT_LEFT, -1, 38, PAPER)
 		var anchor := "anchor down" if game.view_ship.anchored else "anchor up"
 		if game.view_ship.anchored and game.view_ship.anchor_progress > 0.0:
 			anchor = "winching %d%%" % int(game.view_ship.anchor_progress * 100.0)
@@ -429,13 +471,11 @@ class Damage:
 		var leaks := ship.leaks()
 		if ship.water < 0.01 and leaks == 0 and not hud.game.local_player.bucket:
 			return
-		draw_rect(Rect2(Vector2.ZERO, size), Color(INK, 0.45))
+		Hud.panel(self, Rect2(Vector2.ZERO, size))
 		var font := get_theme_default_font()
 		var frac := clampf(ship.water / ShipPhysics.SINK_LEVEL, 0.0, 1.0)
-		var bar := Rect2(Vector2(16, 40), Vector2(size.x - 32, 16))
-		draw_rect(bar, Color(PAPER, 0.2))
 		var fill := Color("4fb6f5") if frac < 0.6 else Color("ff5a4a")
-		draw_rect(Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y)), fill)
+		Hud.bar(self, Rect2(Vector2(16, 40), Vector2(size.x - 32, 14)), frac, fill)
 		draw_string(font, Vector2(16, 28), "water below: %d cm" % int(ship.water * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)
 		var leak_text := "no leaks" if leaks == 0 else ("1 leak!" if leaks == 1 else "%d leaks!" % leaks)
 		draw_string(font, Vector2(16, 80), leak_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("ffd23a") if leaks > 0 else PAPER)
@@ -501,9 +541,9 @@ class Health:
 	func _draw() -> void:
 		var lp := hud.game.local_player
 		var font := get_theme_default_font()
+		Hud.panel(self, Rect2(Vector2(-14, -6), size + Vector2(28, 10)))
 		var bar := Rect2(Vector2(0, 22), Vector2(size.x, 14))
-		draw_rect(bar.grow(3), Color(INK, 0.6))
-		draw_rect(Rect2(bar.position, Vector2(bar.size.x * lp.hp / 100.0, bar.size.y)), Color("e04a3a") if lp.hp < 35 else Color("63c25a"))
+		Hud.bar(self, bar, lp.hp / 100.0, Color("e04a3a") if lp.hp < 35 else Color("63c25a"))
 		var names := ["1 cutlass", "2 pistol"]
 		for i in 2:
 			var col := Toon.color("stripe") if lp.weapon == i else Color(PAPER, 0.6)
