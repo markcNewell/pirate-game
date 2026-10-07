@@ -11,6 +11,7 @@ extends Node3D
 ##   --sheet-focus LO,HI   frame only heights LO..HI (metres), e.g. 1.4,2.1 for a head
 ##   --sheet-recolor 1     paint the shirt red and the skin a light tone (player models)
 ##   --sheet-only A,B      show only the meshes with these names (e.g. body,look0)
+##   --sheet-weapon cutlass|pistol   put one in the right hand (people and skeletons)
 ##   --sheet-palette N     ship slot colours: 0 plain, 1-4 a crew's, 5 the skeleton ship's
 ##   --sheet-cam X,Y,Z --sheet-look X,Y,Z [--sheet-fov DEG]   one close-up, camera placed by hand
 ##   --sheet-tilt DEG      how far the camera looks down (default 12)
@@ -180,10 +181,23 @@ func _make(model: String, recolor: Dictionary) -> Node3D:
 			var m: ShaderMaterial = mi.material_override.duplicate()
 			m.next_pass = null
 			mi.material_override = m
+	if _args.has("sheet-weapon"):
+		# A cutlass (or "pistol") in the right fist, as Avatar holds it.
+		var skeleton: Skeleton3D = inst.find_children("*", "Skeleton3D", true, false)[0]
+		var attach := BoneAttachment3D.new()
+		attach.bone_name = "hand_r"
+		skeleton.add_child(attach)
+		var rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_r"))
+		var turn := Basis(Vector3.BACK, deg_to_rad(Avatar.ARM_A))
+		var held := Toon.instance(Models.mesh("flintlock" if _args["sheet-weapon"] == "pistol" else "cutlass"))
+		held.name = "weapon"
+		held.transform = rest.affine_inverse() * Transform3D(turn, rest.origin + turn * Avatar.GRIP)
+		attach.add_child(held)
 	if _args.has("sheet-normals"):
 		Models.outline_material(true).set_shader_parameter("normal_source", int(_args["sheet-normals"]))
 	if _args.has("sheet-only"):
 		var keep: PackedStringArray = str(_args["sheet-only"]).split(",")
+		keep.append("weapon")
 		for mi: MeshInstance3D in inst.find_children("*", "MeshInstance3D", true, false):
 			if not keep.has(String(mi.name)):
 				mi.free()

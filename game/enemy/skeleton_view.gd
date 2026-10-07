@@ -26,12 +26,12 @@ func _ready() -> void:
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
 		mi.material_override = _material
 	_player = _model.find_children("*", "AnimationPlayer", true, false)[0]
-	for name: String in ["idle", "walk"]:
+	for name: String in ["idle_blade", "walk_blade"]:
 		var a := _player.get_animation(name)
 		if a.loop_mode == Animation.LOOP_NONE:
 			a.loop_mode = Animation.LOOP_LINEAR
-	_player.animation_finished.connect(func(_name: StringName) -> void: _player.play("walk" if _moving else "idle", 0.2))
-	_player.play("idle")
+	_player.animation_finished.connect(func(_name: StringName) -> void: _player.play("walk_blade" if _moving else "idle_blade", 0.2))
+	_player.play("idle_blade")
 	# A skeleton never stands quite in step with the next one.
 	_player.seek(randf() * _player.current_animation_length)
 	var skeleton: Skeleton3D = _model.find_children("*", "Skeleton3D", true, false)[0]
@@ -77,8 +77,8 @@ func place(pose: Transform3D, walking: bool, fallen: bool, delta: float) -> void
 	global_transform = pose
 	if walking != _moving and not fallen:
 		_moving = walking
-		if _player.current_animation in ["idle", "walk"]:
-			_player.play("walk" if walking else "idle", 0.25)
+		if _player.current_animation in ["idle_blade", "walk_blade"]:
+			_player.play("walk_blade" if walking else "idle_blade", 0.25)
 	_flash = maxf(0.0, _flash - delta * 4.0)
 	_material.set_shader_parameter("tint", Color(1.0, 1.0 - _flash * 0.6, 1.0 - _flash * 0.6))
 	if fallen:

@@ -435,28 +435,68 @@ def anim_bucket(arm):
     return action(arm, "bucket", [(0.0, pose), (1.0, pose)])
 
 
+# How a cutlass is carried: the sword arm bent up in front, the blade standing up and leaning a
+# little forward. And a pistol, held up at the shoulder, barrel to the sky.
+HOLD_BLADE = {"upper_arm_r": (22, -8, 14), "forearm_r": (78, 0, 0), "hand_r": (8, 0, -12)}
+HOLD_PISTOL = {"upper_arm_r": (12, 0, 16), "forearm_r": (95, 0, 0), "hand_r": (-10, 0, -8)}
+
+
+def anim_hold_blade(arm):
+    """Right arm only: the cutlass carried up (layered over walking, standing, swimming...)."""
+    return action(arm, "hold_blade", [(0.0, HOLD_BLADE), (1.0, HOLD_BLADE)])
+
+
+def anim_hold_pistol(arm):
+    return action(arm, "hold_pistol", [(0.0, HOLD_PISTOL), (1.0, HOLD_PISTOL)])
+
+
+def anim_idle_blade(arm):
+    """Standing and walking with the cutlass carried up (the skeletons, which always have one)."""
+    def at(p):
+        pose = gait(32, 22, 6, 34, 0.05, 55, elbow=18, sway=3.5)(p)
+        pose.update(HOLD_BLADE)
+        pose["upper_arm_r"] = (HOLD_BLADE["upper_arm_r"][0] + 4 * c(p), HOLD_BLADE["upper_arm_r"][1], HOLD_BLADE["upper_arm_r"][2])
+        return pose
+    action(arm, "walk_blade", cycle(0.62, at))
+
+    def stand(p):
+        b = s(p)
+        pose = merge(ARMS_DOWN, {
+            "chest": (-2 + 1.5 * b, 0, 0), "spine": (0.5 * b, 0, 0), "head": (2 - 1.5 * b, 0, 0),
+            "upper_arm_l": (2 * b, 0, -5 - 1.5 * b), "thigh_r": (0, 0, 2), "thigh_l": (0, 0, -2),
+            "_root": (0, -0.006 + 0.006 * b, 0),
+        })
+        pose.update(HOLD_BLADE)
+        pose["forearm_r"] = (HOLD_BLADE["forearm_r"][0] + 3 * b, 0, 0)
+        return pose
+    return action(arm, "idle_blade", cycle(2.4, stand))
+
+
 def anim_slash(arm):
-    """Upper body only: a cutlass cut from the right shoulder across to the left hip."""
-    ready = merge(ARMS_DOWN, {"upper_arm_r": (35, 0, 10), "forearm_r": (45, 0, 0)})
+    """Upper body only: a cutlass cut from the carry, drawn back past the right shoulder and
+    swept across to the left hip, then back up."""
+    ready = merge(ARMS_DOWN, HOLD_BLADE)
     wind = merge(ARMS_DOWN, {
         "upper_arm_r": (120, 20, 60), "forearm_r": (70, 0, 0), "hand_r": (-30, 0, 0),
         "chest": (4, 30, 0), "spine": (0, 12, 0),
     })
     cut = merge(ARMS_DOWN, {
-        "upper_arm_r": (55, -50, 5), "forearm_r": (10, 0, 0), "hand_r": (25, 0, 0),
+        "upper_arm_r": (50, -50, 5), "forearm_r": (20, 0, 0), "hand_r": (-70, -10, 0),
         "chest": (-6, -30, 0), "spine": (-4, -15, 0), "upper_arm_l": (10, 0, -20),
     })
-    return action(arm, "slash", [(0.0, ready), (0.12, wind), (0.24, cut), (0.5, ready)], loop=False)
+    return action(arm, "slash", [(0.0, ready), (0.14, wind), (0.26, cut), (0.36, cut), (0.6, ready)], loop=False)
 
 
 def anim_shoot(arm):
     """Upper body only: pistol raised at arm's length, a kick, and back."""
+    # The wrist turned down so the barrel points ahead along the outstretched arm.
     aim = merge(ARMS_DOWN, {
-        "upper_arm_r": (85, 0, 12), "forearm_r": (5, 0, 0), "hand_r": (0, 0, 0),
+        "upper_arm_r": (85, 0, 12), "forearm_r": (5, 0, 0), "hand_r": (-85, 0, 0),
         "chest": (0, -12, 0), "head": (0, 10, 0),
     })
-    kick = merge(aim, {"upper_arm_r": (100, 0, 12), "forearm_r": (20, 0, 0), "hand_r": (-25, 0, 0)})
-    return action(arm, "shoot", [(0.0, aim), (0.06, kick), (0.3, aim), (0.5, aim)], loop=False)
+    kick = merge(aim, {"upper_arm_r": (100, 0, 12), "forearm_r": (20, 0, 0), "hand_r": (-55, 0, 0)})
+    held = merge(ARMS_DOWN, HOLD_PISTOL)
+    return action(arm, "shoot", [(0.0, held), (0.1, aim), (0.14, kick), (0.36, aim), (0.6, held)], loop=False)
 
 
 def anim_hurt(arm):
@@ -516,7 +556,8 @@ def anim_bail(arm):
 
 ANIMATIONS = [anim_idle, anim_walk, anim_run, anim_jump, anim_swim, anim_wheel, anim_haul,
               anim_push, anim_cannon, anim_carry, anim_bucket, anim_slash, anim_shoot,
-              anim_hurt, anim_dig, anim_hammer, anim_bail]
+              anim_hurt, anim_dig, anim_hammer, anim_bail, anim_hold_blade, anim_hold_pistol,
+              anim_idle_blade]
 
 
 def animate(arm):

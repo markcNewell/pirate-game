@@ -1169,32 +1169,51 @@ def fp_rig():
     return [arm, built]
 
 
+# How you hold the cutlass when not cutting: the blade up, leaning a little forward and in
+# across the view, the fist at the right of the screen (a hand's +x tips the blade up, +y
+# swings it to the left, +z leans it in toward the middle).
+FP_READY = {"fp_upper": (0, 2, 0), "fp_fore": (14, 0, 0), "fp_hand": (42, 4, -30)}
+
+
 def fp_animations(arm):
     a = rig.action
 
+    def with_pose(pose, extra):
+        out = dict(pose)
+        for bone, rot in extra.items():
+            base = out.get(bone, (0, 0, 0))
+            out[bone] = tuple(b + r for b, r in zip(base, rot))
+        return out
+
     def sway(p):
         return {"fp_upper": (1.5 * rig.s(p), 1.0 * rig.s(p, 0.3), 0.8 * rig.s(p, 0.6)), "fp_hand": (-1.0 * rig.s(p), 0, 0)}
-    a(arm, "fp_idle", rig.cycle(3.2, sway))
 
     def bob(p):
         return {"fp_upper": (3.0 * abs(rig.s(p)) - 1.5, 2.5 * rig.s(p), 1.5 * rig.s(p)), "fp_hand": (-2.0 * abs(rig.s(p)), 0, 0)}
+    # Empty-handed or with the pistol (held forward, low), and with the cutlass held up.
+    a(arm, "fp_idle", rig.cycle(3.2, sway))
     a(arm, "fp_walk", rig.cycle(0.62, bob))
+    a(arm, "fp_idle_blade", rig.cycle(3.2, lambda p: with_pose(FP_READY, sway(p))))
+    a(arm, "fp_walk_blade", rig.cycle(0.62, lambda p: with_pose(FP_READY, bob(p))))
     rest = {}
-    # Signs here: a hand's +x tips the blade up, +y swings it to the left.
-    # A cut from up on the right across and down to the left...
-    wind = {"fp_upper": (22, -12, -18), "fp_fore": (30, 0, 0), "fp_hand": (45, -30, 10)}
+    ready = FP_READY
+    # A cut from the raised guard: the blade drawn back over the right shoulder, then swept
+    # across and down to the left, and back up to guard...
+    wind = {"fp_upper": (16, -12, -12), "fp_fore": (36, 0, 0), "fp_hand": (80, -24, 0)}
     cut = {"fp_upper": (-6, 30, 12), "fp_fore": (0, 0, 0), "fp_hand": (-28, 38, -10)}
-    a(arm, "fp_slash", [(0.0, rest), (0.09, wind), (0.2, cut), (0.42, rest)], loop=False)
+    a(arm, "fp_slash", [(0.0, ready), (0.09, wind), (0.2, cut), (0.46, ready)], loop=False)
     # ...and the backhand, from up on the left across and down to the right.
-    wind2 = {"fp_upper": (15, 28, 12), "fp_fore": (25, 0, 0), "fp_hand": (40, 45, -15)}
+    wind2 = {"fp_upper": (0, 30, 10), "fp_fore": (2, 0, 0), "fp_hand": (52, 36, -12)}
     cut2 = {"fp_upper": (-4, -14, -8), "fp_fore": (8, 0, 0), "fp_hand": (-18, -28, 15)}
-    a(arm, "fp_slash2", [(0.0, rest), (0.08, wind2), (0.2, cut2), (0.42, rest)], loop=False)
+    a(arm, "fp_slash2", [(0.0, ready), (0.08, wind2), (0.2, cut2), (0.46, ready)], loop=False)
     # The pistol comes up toward the middle of the view, kicks muzzle-up and settles.
     aim = {"fp_upper": (14, 16, 0), "fp_fore": (-6, 0, 0), "fp_hand": (8, 6, 0)}
     kick = {"fp_upper": (24, 16, 0), "fp_fore": (8, 0, 0), "fp_hand": (32, 6, 0)}
     a(arm, "fp_shoot", [(0.0, rest), (0.06, aim), (0.1, kick), (0.32, aim), (0.5, rest)], loop=False)
+    # Bringing a weapon up from below the view: to the pistol's rest or the cutlass's guard.
     low = {"fp_upper": (-40, -10, 20), "fp_fore": (-30, 0, 0), "fp_hand": (20, 0, 0)}
     a(arm, "fp_equip", [(0.0, low), (0.3, rest)], loop=False)
+    a(arm, "fp_equip_blade", [(0.0, low), (0.3, ready)], loop=False)
 
 
 def fp_arm():

@@ -1,8 +1,8 @@
 class_name WeaponView
 extends Node3D
 ## Your own arm in first person (a rigged arm from art/blender/characters.py, fp_rig) holding
-## the cutlass or pistol: it sways while you stand, bobs as you walk, cuts left and right in
-## turn with the blade (a white swoosh following), kicks with a flash for the pistol and brings
+## the cutlass up in guard or the pistol low: it sways while you stand, bobs as you walk, cuts
+## left and right in turn from the guard with the blade (a white swoosh following), kicks with a flash for the pistol and brings
 ## a weapon up when you change to it. While you dig, patch or carry water it holds the spade,
 ## hammer or bucket instead, working them.
 ##
@@ -10,7 +10,7 @@ extends Node3D
 ## round a grip at GRIP, where every held thing goes (its grip at its origin, running forward).
 
 const GRIP := Vector3(0.3, -0.33, -0.52)
-const BASES := ["fp_idle", "fp_walk"]
+const BASES := ["fp_idle", "fp_walk", "fp_idle_blade", "fp_walk_blade"]
 const SWOOSH_TIME := 0.36
 
 ## A cutlass, grip at the origin, blade forward along -Z (art/blender/props.py).
@@ -174,7 +174,7 @@ func show_weapon(kind: int, visible_now: bool) -> void:
 	# Bring a weapon up when you change to it.
 	if visible_now and tool == "" and kind != _shown_weapon:
 		if _shown_weapon != -1 and _player:
-			_player.play("fp_equip", 0.05)
+			_player.play("fp_equip_blade" if kind == Weapons.Kind.CUTLASS else "fp_equip", 0.05)
 		_shown_weapon = kind
 
 
@@ -199,8 +199,11 @@ func attack() -> void:
 		_flash_left = 0.07
 
 
+## The resting animation: walking or standing, with the cutlass held up in guard when it is
+## the weapon in hand.
 func _base() -> String:
-	return "fp_walk" if moving else "fp_idle"
+	var name := "fp_walk" if moving else "fp_idle"
+	return name + "_blade" if weapon == Weapons.Kind.CUTLASS and tool == "" else name
 
 
 func _process(delta: float) -> void:

@@ -28,7 +28,7 @@ func test_every_model_loads() -> void:
 func test_pirate_has_what_avatars_use() -> void:
 	var root := Models.instance("pirate")
 	var player: AnimationPlayer = root.find_children("*", "AnimationPlayer", true, false)[0]
-	for name: String in Avatar.BASES + Avatar.LOOPS + ["slash", "shoot", "hurt"]:
+	for name: String in Avatar.BASES + Avatar.LOOPS + ["slash", "shoot", "hurt", "idle_blade", "walk_blade"]:
 		check(player.has_animation(name), "pirate has the %s animation" % name)
 	var skeleton: Skeleton3D = root.find_children("*", "Skeleton3D", true, false)[0]
 	for bone: String in Avatar.UPPER + ["root", "hips", "thigh_r", "shin_l", "foot_r"]:

@@ -18,7 +18,9 @@ const RUN_SPEED := 7.0
 const UPPER := ["spine", "chest", "neck", "head", "upper_arm_r", "forearm_r", "hand_r",
 	"upper_arm_l", "forearm_l", "hand_l"]
 const LOOPS := ["idle", "walk", "run", "swim", "wheel", "haul", "push", "cannon", "dig", "hammer",
-	"bail", "carry", "bucket", "jump"]
+	"bail", "carry", "bucket", "jump", "hold_blade", "hold_pistol"]
+## The bones that carry a weapon up (hold_blade, hold_pistol), over whatever the legs do.
+const SWORD_ARM := ["upper_arm_r", "forearm_r", "hand_r"]
 const BASES := ["idle", "walk", "run", "swim", "wheel", "haul", "push", "cannon", "jump", "dig",
 	"hammer", "bail"]
 ## Where the fist closes round a grip in the rest pose, from the wrist along the hanging hand
@@ -112,7 +114,23 @@ func _build_tree() -> void:
 			graph.connect_node("base", BASES.find(name), "rate_" + name)
 		else:
 			graph.connect_node("base", BASES.find(name), "clip_" + name)
-	var last := "base"
+	# The weapon carried up in the right hand while walking, standing, swimming or jumping.
+	var arm := AnimationNodeBlend2.new()
+	_only(arm, SWORD_ARM)
+	graph.add_node("arm", arm)
+	var held := AnimationNodeTransition.new()
+	held.xfade_time = 0.15
+	held.add_input("blade")
+	held.add_input("pistol")
+	graph.add_node("held", held)
+	for i in 2:
+		var clip := AnimationNodeAnimation.new()
+		clip.animation = ["hold_blade", "hold_pistol"][i]
+		graph.add_node("clip_" + clip.animation, clip)
+		graph.connect_node("held", i, "clip_" + clip.animation)
+	graph.connect_node("arm", 0, "base")
+	graph.connect_node("arm", 1, "held")
+	var last := "arm"
 	for name: String in ["carry", "bucket"]:
 		var hold := AnimationNodeBlend2.new()
 		_upper_only(hold)
@@ -155,9 +173,13 @@ func _build_tree() -> void:
 
 
 func _upper_only(node: AnimationNode) -> void:
+	_only(node, UPPER)
+
+
+func _only(node: AnimationNode, bones: Array) -> void:
 	node.filter_enabled = true
 	var path := String(_model.get_path_to(_skeleton))
-	for bone: String in UPPER:
+	for bone: String in bones:
 		node.set_filter_path(NodePath("%s:%s" % [path, bone]), true)
 
 
@@ -191,6 +213,10 @@ func set_weapon(kind: int) -> void:
 	_weapon = kind
 	_cutlass.visible = kind == Weapons.Kind.CUTLASS and not _busy_hands()
 	_pistol.visible = kind == Weapons.Kind.PISTOL and not _busy_hands()
+	# Carried up in the hand, not pointed ahead, whenever it is out.
+	var out := _cutlass.visible or _pistol.visible
+	_tree.set("parameters/arm/blend_amount", 1.0 if out else 0.0)
+	_tree.set("parameters/held/transition_request", "pistol" if kind == Weapons.Kind.PISTOL else "blade")
 
 
 ## A cutlass cut or a pistol shot.
