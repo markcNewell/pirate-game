@@ -385,8 +385,89 @@ def hammer():
     return kit.join("hammer", parts)
 
 
+def skull():
+    """A skeleton captain's skull, about 0.3 m long: a gold-crowned skull with deep sockets and
+    teeth, sitting on its jaw (the game adds a green glow in its sockets)."""
+    bone, dark = "f0e8d0", "1a1714"
+    parts = []
+    cran = kit.ellipsoid("cranium", (0, 0.17, 0.01), (0.12, 0.13, 0.145), bone, rings=12, sectors=16)
+    parts.append(cran)
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.ellipsoid("socket", (sx * 0.05, 0.15, -0.115), (0.037, 0.04, 0.022), dark, rings=6, sectors=10), 0.3))
+        parts.append(kit.ellipsoid("cheek", (sx * 0.08, 0.1, -0.09), (0.03, 0.022, 0.03), bone, rings=6, sectors=8))
+    parts.append(kit.noink(kit.prism("nose", [(-0.018, 0.0), (0.018, 0.0), (0.0, 0.04)], 0.03, dark, centre=(0, 0.08, -0.13), plane="xy"), 0.3))
+    parts.append(kit.box("maxilla", (0, 0.05, -0.09), (0.12, 0.035, 0.07), bone, bevel=0.012))
+    for i in range(7):
+        parts.append(kit.noink(kit.box("tooth", (-0.045 + i * 0.015, 0.028, -0.122), (0.012, 0.02, 0.01), "fbf8ee", bevel=0.002), 0.2))
+    jaw = [(math.sin(math.radians(-70 + 140 * i / 8)) * 0.08, 0.012, -0.02 - math.cos(math.radians(-70 + 140 * i / 8)) * 0.09) for i in range(9)]
+    parts.append(kit.tube("jaw", jaw, 0.018, 8, bone))
+    # A gold crown band with points, his mark of rank.
+    band = kit.lathe("crown", [(0.118, 0.24), (0.124, 0.25), (0.124, 0.28), (0.118, 0.285)], 20, "ffd23a", caps=False, centre=(0, 0, 0.01))
+    parts.append(band)
+    for k in range(6):
+        a = 2 * math.pi * k / 6
+        point = kit.prism("point", [(-0.016, 0.0), (0.016, 0.0), (0.0, 0.032)], 0.01, "ffd23a", plane="xy")
+        # Each point faces outward from the band.
+        kit.place(point, (math.cos(a) * 0.123, 0.278, 0.01 + math.sin(a) * 0.123), (0, math.pi / 2 - a, 0))
+        parts.append(point)
+    parts.append(kit.ellipsoid("gem", (0, 0.265, -0.13), (0.018, 0.018, 0.01), "9cff8a", rings=4, sectors=8))
+    return kit.join("skull", parts)
+
+
+CRATE_WOOD = ["b8864e", "a87442", "c4955a"]
+
+
+def cargo_crate(goods):
+    """A Merchant Alliance crate (0.8 x 0.6 x 0.6, on the ground at y = 0), planked and battened,
+    stencilled with the Alliance's anchor, its lid ajar on what it holds: rum bottles, bolts of
+    silk or sacks of spice."""
+    name = ["rum", "silk", "spice"][goods]
+    parts = []
+    hx, hy, hz = 0.4, 0.3, 0.3
+    parts.append(kit.box("core", (0, hy, 0), (2 * hx - 0.04, 2 * hy - 0.02, 2 * hz - 0.04), "4a3020"))
+    for k in range(3):
+        y = (k + 0.5) * 2 * hy / 3
+        for sz in (1, -1):
+            parts.append(kit.box("plank", (0, y, sz * (hz - 0.012)), (2 * hx - 0.06, 2 * hy / 3 - 0.014, 0.03), CRATE_WOOD[(k + (sz > 0)) % 3], bevel=0.005))
+        for sx in (1, -1):
+            parts.append(kit.box("plank", (sx * (hx - 0.012), y, 0), (0.03, 2 * hy / 3 - 0.014, 2 * hz - 0.06), CRATE_WOOD[(k + 1) % 3], bevel=0.005))
+    for sx in (1, -1):
+        for sz in (1, -1):
+            parts.append(kit.box("batten", (sx * (hx - 0.02), hy, sz * (hz - 0.02)), (0.06, 2 * hy, 0.06), "6b4a2c", bevel=0.008))
+    # The anchor stencil on the front and back, in Alliance blue.
+    for sz in (1, -1):
+        z = sz * (hz + 0.004)
+        blue = "2c4e8a"
+        parts.append(kit.noink(kit.box("shank", (0, 0.32, z), (0.025, 0.24, 0.006), blue), 0.0))
+        parts.append(kit.noink(kit.box("stock", (0, 0.42, z), (0.13, 0.025, 0.006), blue), 0.0))
+        arc = [(0.1 * math.sin(math.radians(a)), 0.25 - 0.06 * math.cos(math.radians(a)), z) for a in range(-80, 81, 20)]
+        parts.append(kit.noink(kit.tube("arms", arc, 0.013, 4, blue), 0.0))
+    # Lid: two planks, one pushed aside.
+    parts.append(kit.box("lid", (-0.18, 2 * hy + 0.015, 0), (0.42, 0.03, 2 * hz), CRATE_WOOD[0], bevel=0.006))
+    # The other half of the lid leans against the crate's side.
+    parts.append(kit.box("lid", (hx + 0.07, hy + 0.02, 0.0), (0.03, 0.4, 2 * hz), CRATE_WOOD[2], bevel=0.006, rot=(0.0, 0.0, 0.2)))
+    top = 2 * hy
+    if goods == 0:
+        for k in range(3):
+            x = 0.06 + k * 0.1
+            parts.append(kit.lathe("bottle", [(0.0, 0.0), (0.04, 0.0), (0.042, 0.12), (0.018, 0.17), (0.016, 0.23), (0.0, 0.235)], 10, "3a6a3a", centre=(x, top - 0.08, -0.1 + 0.08 * (k % 2))))
+            parts.append(kit.noink(kit.lathe("cork", [(0.0, 0.0), (0.018, 0.0), (0.018, 0.03), (0.0, 0.03)], 8, "b08a5a", centre=(x, top + 0.15, -0.1 + 0.08 * (k % 2))), 0.3))
+        parts.append(kit.noink(kit.ellipsoid("straw", (0.15, top - 0.02, 0.05), (0.16, 0.04, 0.2), "d8c070", rings=4, sectors=8), 0.3))
+    elif goods == 1:
+        for k, c in enumerate(("c8302a", "6a3aa0", "e0b030")):
+            parts.append(kit.tube("bolt", [(0.02, top + 0.01, -0.2 + k * 0.15), (0.36, top + 0.01, -0.2 + k * 0.15)], 0.06, 12, c))
+    else:
+        for k, c in enumerate(("c9b48a", "b89a6a")):
+            sack = kit.ellipsoid("sack", (0.1 + k * 0.17, top + 0.03, -0.05 + 0.1 * k), (0.11, 0.09, 0.12), c, rings=8, sectors=10)
+            kit.jitter(sack, 0.008, k)
+            parts.append(sack)
+            parts.append(kit.noink(kit.ellipsoid("spice", (0.1 + k * 0.17, top + 0.1, -0.05 + 0.1 * k), (0.06, 0.03, 0.06), ("c85a2a", "e0a020")[k], rings=4, sectors=8), 0.3))
+    return kit.join("crate_" + name, parts)
+
+
 def main(names):
     builders = {
+        "loot": lambda: [skull()] + [cargo_crate(g) for g in range(3)],
         "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
         "chests": lambda: [chest(t) for t in range(3)],

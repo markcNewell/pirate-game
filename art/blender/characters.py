@@ -909,7 +909,7 @@ def skeleton():
     body = kit.join("skeleton", parts)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(3):
+    for i in range(4):
         ob = kit.join("look%d" % i, skeleton_look(i))
         rig.bind(ob, arm)
         meshes.append(ob)
@@ -993,7 +993,8 @@ def morion(color="6a6a72"):
 
 def skeleton_look(i):
     """The skeleton's outfits: 0 torn breeches, a sash and a battered tricorn; 1 a faded
-    bandana and the rags of a shirt; 2 a rusty morion helmet and a loincloth."""
+    bandana and the rags of a shirt; 2 a rusty morion helmet and a loincloth; 3 a bounty's
+    captain: a rotten captain's coat, a feathered hat and a green lantern."""
     parts = []
     if i == 0:
         parts += torn_breeches(RAGS, 1) + sash(RAGS_DARK)
@@ -1004,6 +1005,11 @@ def skeleton_look(i):
     elif i == 1:
         parts += torn_breeches("4a4a5a", 2) + rag_vest("8a8470", 5)
         head_bits = bandana("8a3a2e", dots="c8bca0")
+    elif i == 3:
+        parts += torn_breeches("2a2a3a", 4)
+        parts += coat("3a2a4a", trim="b89a40")
+        head_bits = cavalier("221a28", feather="5a8a5a")
+        parts += hand_lantern("l")
     else:
         cloth = kit.loft("loincloth", [(0.82, 0.15, 0.1, 0, 0.0), (0.92, 0.165, 0.115, 0, 0.0), (0.98, 0.16, 0.11, 0, 0.0)], RAGS, sides=16, power=2.4)
         rig.set_weights(cloth, rig.rigid("hips"))
@@ -1216,6 +1222,183 @@ def fp_animations(arm):
     a(arm, "fp_equip_blade", [(0.0, low), (0.3, ready)], loop=False)
 
 
+# ---------------------------------------------------------------------------------------------
+# The companies' people: the Order of Souls' mystic, the Merchant Alliance's agent and the
+# castaway trader who takes cargo. One model, one rig, a look mesh each (like the pirate);
+# shirt and skin are marker colours the game sets per person.
+
+def hood(color, inner="1a1418"):
+    """A deep hood over the head, open at the face, falling to the shoulders."""
+    def keep(x, y, z):
+        nz = (z - HEAD_C.z) / HEAD_R[2]
+        ny = (y - HEAD_C.y) / HEAD_R[1]
+        # Everything but a window at the face.
+        return not (nz < -0.25 and -0.85 < ny < 0.55)
+    shell_ob = shell("hood", color, 0.04, keep, thick=0.02, rings=18, sectors=26)
+    for v in shell_ob.data.vertices:
+        x, y, z = kit.G(v.co)
+        # Peak at the top, and flare out below over the shoulders.
+        if y > HEAD_C.y + 0.08:
+            z += 0.06 * (y - HEAD_C.y - 0.08) / 0.1
+            y += 0.04 * (y - HEAD_C.y - 0.08) / 0.1
+        if y < HEAD_C.y - 0.05:
+            k = (HEAD_C.y - 0.05 - y) / 0.15
+            x *= 1.0 + 0.5 * k
+        v.co = kit.V(x, y, z)
+    kit.paint_where(shell_ob, inner, lambda x, y, z: kit.G(Vector((0, 0, 0)))[0] == 0 and z < HEAD_C.z - 0.05 and abs(x) < 0.12 and y < HEAD_C.y + 0.12 and y > HEAD_C.y - 0.15)
+    return [shell_ob]
+
+
+def robe(color, trim, name="robe"):
+    """A long robe from the shoulders to the ankles, widening to the hem, with a cord belt."""
+    # A little outside the torso everywhere, so the shirt never shows through.
+    rings = [
+        (0.06, 0.26, 0.23, 0, 0.02), (0.3, 0.24, 0.21, 0, 0.0), (0.62, 0.225, 0.18, 0, 0.0),
+        (0.9, 0.205, 0.16, 0, 0.0), (1.06, 0.215, 0.168, 0, -0.016), (1.2, 0.235, 0.172, 0, -0.014),
+        (1.32, 0.258, 0.168, 0, -0.008), (1.4, 0.252, 0.152, 0, 0.0), (1.46, 0.19, 0.118, 0, 0.008),
+        (1.51, 0.1, 0.08, 0, 0.01),
+    ]
+    ob = kit.loft(name, rings, color, sides=24, power=2.2, cap_bottom=False)
+    smooth_part(ob)
+    kit.paint_where(ob, trim, lambda x, y, z: y < 0.12)
+    kit.paint_where(ob, trim, lambda x, y, z: z < -0.1 and abs(x) < 0.03 and y > 0.5)
+    rig.set_weights(ob, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
+    cord = kit.lathe("cord", [(0.198, 0.95), (0.205, 0.97), (0.198, 0.99)], 24, "c8a050", caps=False)
+    cord.scale = (1.0, 0.76, 1.0)
+    kit.transform_apply(cord)
+    tassel = kit.tube("tassel", [(-0.12, 0.96, -0.12), (-0.13, 0.8, -0.13), (-0.13, 0.7, -0.12)], [0.015, 0.012, 0.02], 6, "c8a050")
+    for p in (cord, tassel):
+        rig.set_weights(p, rig.rigid("hips"))
+    return [ob, cord, tassel]
+
+
+def wide_sleeve(side, color, trim):
+    inner, sh, el, wr = arm_points(side)
+    pts = [inner, sh, el, wr - (wr - el).normalized() * 0.01]
+    sl = kit.tube("widesleeve_" + side, [tuple(p) for p in pts], [0.09, 0.095, 0.11, 0.14], 14, color, caps=False)
+    sol = sl.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.012
+    kit.apply_all(sl)
+    smooth_part(sl)
+    cuff = kit.tube("widecuff_" + side, [tuple(wr - (wr - el).normalized() * 0.05), tuple(wr - (wr - el).normalized() * 0.005)], [0.135, 0.142], 14, trim, caps=False)
+    for p in (sl, cuff):
+        rig.set_weights(p, rig.limb_weights(side, "upper_arm", "forearm", "hand", start_parent="chest"))
+    return [sl, cuff]
+
+
+def hand_lantern(side="l"):
+    """A lantern hanging from the fist (the game lights it green for the Order)."""
+    g = rig.grip_point(side)
+    at = Vector(g) + Vector((0, -0.22, 0))
+    parts = [kit.tube("bail", [tuple(Vector(g) + Vector((0, 0.01, 0))), tuple(at + Vector((0, 0.12, 0)))], 0.008, 4, "2e2e36")]
+    parts.append(kit.lathe("lamptop", [(0.07, 0.0), (0.04, 0.05), (0.0, 0.07)], 8, "2e2e36", centre=tuple(at + Vector((0, 0.08, 0)))))
+    parts.append(kit.lathe("lampbase", [(0.0, 0.0), (0.065, 0.0), (0.065, 0.02), (0.0, 0.02)], 8, "2e2e36", centre=tuple(at - Vector((0, 0.09, 0)))))
+    parts.append(kit.noink(kit.lathe("lampglass", [(0.05, -0.07), (0.055, 0.0), (0.05, 0.07)], 8, "b8ffa8", caps=False, centre=tuple(at)), 0.0))
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        parts.append(kit.box("lampbar", tuple(at + Vector((math.cos(a) * 0.055, 0.0, math.sin(a) * 0.055))), (0.012, 0.16, 0.012), "2e2e36"))
+    for p in parts:
+        rig.set_weights(p, rig.rigid("hand_" + side))
+    return parts
+
+
+def mystic():
+    """The Order of Souls: a tall hooded figure in a deep green robe with gold trim, pale, with
+    glowing eyes in the hood's shadow and a lantern in the left hand."""
+    head_bits = hood("1f4a3a", inner="0e1a16") + face("2a2a2a", mouth=False, gruff=-0.3)
+    for sx in (1, -1):
+        head_bits.append(kit.noink(kit.ellipsoid("eyeglow", (sx * 0.05, 1.69, surface_z(sx * 0.05, 1.69) - 0.004), (0.014, 0.01, 0.006), "9cff8a", rings=4, sectors=6), 0.0))
+    parts = head(head_bits)
+    parts += robe("1f4a3a", "c8a050")
+    for side in ("r", "l"):
+        parts += wide_sleeve(side, "1f4a3a", "c8a050")
+    parts += hand_lantern("l")
+    # A pendant: the Order's eye.
+    parts.append(kit.noink(kit.ellipsoid("pendant", (0, 1.3, -0.165), (0.04, 0.05, 0.015), "c8a050", rings=6, sectors=10), 0.3))
+    parts.append(kit.noink(kit.ellipsoid("pendant_eye", (0, 1.3, -0.18), (0.018, 0.022, 0.008), "9cff8a", rings=4, sectors=8), 0.0))
+    for p in parts[-2:]:
+        rig.set_weights(p, rig.rigid("chest"))
+    return parts
+
+
+def agent():
+    """The Merchant Alliance: a smart agent in a navy coat with silver buttons, a white
+    neckcloth, a black tricorn and a ledger under the arm."""
+    hair = "6a4a32"
+    head_bits = tricorn("1e2236", trim="c0c0c8") + hair_back(hair, 0.0) + face(hair, gruff=0.2)
+    head_bits += [kit.tube("tache", [(sx * 0.005, 1.607, surface_z(0, 1.6) - 0.03), (sx * 0.04, 1.602, surface_z(0.04, 1.6) - 0.025)], [0.012, 0.01], 6, hair) for sx in (1, -1)]
+    parts = head(head_bits)
+    parts += coat("2c3e66", trim="c0c0c8")
+    parts += trousers("e8e0cc") + boots() + belt(buckle="c0c0c8", color="1e1a1a")
+    stock = kit.ellipsoid("neckcloth", (0, 1.43, -0.07), (0.07, 0.05, 0.05), "f4efe2", rings=6, sectors=10)
+    rig.set_weights(stock, rig.rigid("chest"))
+    parts.append(stock)
+    ledger = kit.box("ledger", (-0.245, 1.12, -0.04), (0.06, 0.3, 0.22), "6a2a2a", bevel=0.01, rot=(0, 0, 0.15))
+    pages = kit.box("pages", (-0.235, 1.12, -0.04), (0.05, 0.28, 0.2), "f4ecd8", rot=(0, 0, 0.15))
+    for p in (ledger, pages):
+        rig.set_weights(p, rig.rigid("upper_arm_l"))
+        parts.append(p)
+    return parts
+
+
+def castaway():
+    """The castaway trader: a weathered old sailor in a straw hat and patched, rolled-up
+    clothes, barefoot, with a great grey beard."""
+    hair = "c8c4bc"
+    head_bits = straw_hat("d8b868", band="2f6a4f") + bushy_beard(hair) + hair_back(hair, 0.05) + face(hair, mouth=False, gruff=-0.2)
+    parts = head(head_bits)
+    for side in ("r", "l"):
+        parts += sleeve(side, rolled=True)
+    legs = trousers("8a7a5a")
+    for p in legs:
+        if p.name.startswith("leg"):
+            import bmesh
+            bm = bmesh.new()
+            bm.from_mesh(p.data)
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if kit.G(v.co)[1] < 0.42], context="VERTS")
+            bm.to_mesh(p.data)
+            bm.free()
+            ragged(p, 0.05, seed=3)
+            sol = p.modifiers.new("solid", "SOLIDIFY")
+            sol.thickness = 0.008
+            kit.apply_all(p)
+    parts += legs
+    for side in ("r", "l"):
+        ankle = rig.joint("foot_" + side)
+        knee = rig.joint("shin_" + side)
+        shin = kit.tube("shin", [tuple(knee + Vector((0, -0.05, 0))), tuple(ankle)], [0.055, 0.045], 10, SKIN)
+        rig.set_weights(shin, rig.rigid("shin_" + side))
+        foot = kit.loft("barefoot", [(0.0, 0.055, 0.12, ankle.x, -0.05), (0.04, 0.06, 0.13, ankle.x, -0.055), (0.08, 0.04, 0.07, ankle.x, -0.01)], SKIN, sides=14, power=2.2)
+        smooth_part(foot)
+        rig.set_weights(foot, rig.rigid("foot_" + side))
+        parts += [shin, foot]
+    patch = kit.box("patch", (0.1, 0.62, -0.115), (0.08, 0.09, 0.02), "6a5a3a", rot=(0, 0, 0.2))
+    rig.set_weights(patch, rig.rigid("thigh_r"))
+    parts.append(patch)
+    parts += sash("b8352c")
+    return parts
+
+
+def npcs():
+    arm = rig.build_armature("rig")
+    base = [torso()]
+    for p in base:
+        rig.set_weights(p, rig.torso_weights)
+    base += neck()
+    for side in ("r", "l"):
+        base += hand(side)
+    body = kit.join("body", base)
+    rig.bind(body, arm)
+    meshes = [body]
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway)):
+        ob = kit.join(name, build())
+        rig.bind(ob, arm)
+        meshes.append(ob)
+    rig.animate(arm)
+    rig.rest(arm)
+    return [arm] + meshes
+
+
 def fp_arm():
     """Your own right arm in first person: the fist round a grip at the origin (the grip runs
     along -Z, as weapons are made), the forearm and sleeve running back to the lower right."""
@@ -1245,11 +1428,11 @@ def fp_arm():
 
 
 def main(names):
-    builders = {"pirate": pirate, "skeleton": skeleton, "merchant": merchant, "fp_arm": fp_arm, "fp_rig": fp_rig}
+    builders = {"pirate": pirate, "skeleton": skeleton, "merchant": merchant, "npcs": npcs, "fp_arm": fp_arm, "fp_rig": fp_rig}
     for name in names or builders:
         kit.reset()
         objs = builders[name]()
-        kit.export(name, objs, animations=name in ("pirate", "skeleton", "merchant", "fp_rig"), ao_distance=0.12, ao_strength=0.8)
+        kit.export(name, objs, animations=name in ("pirate", "skeleton", "merchant", "npcs", "fp_rig"), ao_distance=0.12, ao_strength=0.8)
 
 
 if __name__ == "__main__":

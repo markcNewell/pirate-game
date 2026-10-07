@@ -203,6 +203,41 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			player.play(str(_args.get("shot-anim", "fp_idle")))
 			player.seek(float(_args.get("shot-at", 0.0)), true)
 			player.pause())
+	elif game and view == "board":
+		# At the map table with the mission board open.
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6), 0.6)
+		game.local_player.pitch = -0.4
+		get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void: game.send_request("board", 0))
+	elif game and view in ["bounty", "cargo", "trader"]:
+		# A mission under way (on the island given by --voyage-island, default Parrot Rock), seen
+		# where it happens: the captain and his crew, the crates on the pier, or the trader.
+		var island := int(_args.get("voyage-island", 1))
+		var company: int = {"bounty": Missions.Company.SOULS, "cargo": Missions.Company.MERCHANT, "trader": Missions.Company.MERCHANT}[view]
+		var offer := Missions.make_offer(company, 2, Islands.mission_islands(), RandomNumberGenerator.new(), island)
+		game.sim._start_mission(game.local_id if game.sim.crews.has(game.local_id) else ServerSim.CREW, offer)
+		var spec: Dictionary = Islands.LAYOUT[island]
+		var look_at := Vector3(spec.x, 0, spec.z)
+		var stand := Vector3.ZERO
+		match view:
+			"bounty":
+				var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+				look_at = game.sim.skeletons[m.captain].pos
+				var away := (Vector3(spec.x, 0, spec.z) - look_at).normalized()
+				stand = look_at + Vector3(away.z, 0, -away.x) * 7.0
+			"cargo":
+				look_at = Outpost.cargo_spot(1)
+				stand = Outpost.agent_pos() + Vector3(-5.5, 0, 3.5)
+			"trader":
+				look_at = Islands.trader_spot(island)
+				var out := (look_at - Vector3(spec.x, look_at.y, spec.z)).normalized()
+				stand = look_at + out * 5.0 + Vector3(out.z, 0, -out.x) * 2.0
+		var ground_island := Islands.island_at(stand.x, stand.z)
+		stand.y = Islands.ground_at(ground_island, stand.x, stand.z) if ground_island >= 0 else stand.y
+		if view == "cargo":
+			stand.y = Outpost.PIER_Y
+		var to := look_at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = -0.12
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":

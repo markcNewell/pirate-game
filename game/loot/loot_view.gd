@@ -13,16 +13,40 @@ var _glint: MeshInstance3D
 var _clock := randf() * GLINT_EVERY
 
 
-## The chest for its value's tier, or the supply barrel (art/blender/props.py).
-static func mesh_for(kind: int, tier: int) -> ArrayMesh:
-	if kind == Loot.Kind.BARREL:
-		return Models.mesh("supply_barrel")
+## The chest for its value's tier, the supply barrel, a captain's skull or a crate of the
+## given goods (art/blender/props.py).
+static func mesh_for(kind: int, tier: int, variant := 0) -> ArrayMesh:
+	match kind:
+		Loot.Kind.BARREL:
+			return Models.mesh("supply_barrel")
+		Loot.Kind.SKULL:
+			return Models.part("loot", "skull")
+		Loot.Kind.CRATE:
+			return Models.part("loot", "crate_%s" % Missions.GOODS[variant % Missions.GOODS.size()])
 	return Models.part("chests", "chest_%d" % tier)
 
 
-func setup(kind: int, value: int) -> LootView:
-	add_child(Toon.instance(mesh_for(kind, Loot.chest_tier(value))))
-	if kind != Loot.Kind.BARREL:
+func setup(kind: int, value: int, variant := 0) -> LootView:
+	add_child(Toon.instance(mesh_for(kind, Loot.chest_tier(value), variant)))
+	if kind == Loot.Kind.SKULL:
+		# A skeleton captain's skull glows green from its sockets.
+		var glow := OmniLight3D.new()
+		glow.light_color = Color("9cff8a")
+		glow.light_energy = 1.4
+		glow.omni_range = 2.5
+		glow.position = Vector3(0, 0.2, -0.3)
+		add_child(glow)
+		for side: float in [-1.0, 1.0]:
+			var eye := MeshInstance3D.new()
+			var ball := SphereMesh.new()
+			ball.radius = 0.022
+			ball.height = 0.044
+			eye.mesh = ball
+			eye.material_override = Toon.glow_material(Color("9cff8a"))
+			eye.position = Vector3(side * 0.05, 0.15, -0.105)
+			eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(eye)
+	if kind == Loot.Kind.CHEST or kind == Loot.Kind.SKULL:
 		# Treasure catches the light now and then, so it stands out on a beach or a deck.
 		_glint = MeshInstance3D.new()
 		_glint.mesh = _star_mesh()

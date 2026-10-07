@@ -21,6 +21,7 @@ var _dolphins: Dolphins
 var _wind_lines: WindLines
 var _whale: Whale
 var _merchant: Node3D
+var _npcs: Array[Npc] = []
 var _merchant_rest := 0.0
 var _gloom := 0.0
 var _strike_flash := 0.0
@@ -65,6 +66,8 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 	_wind_lines.follow(camera_pos, Game.wind_dir(sea_time), _gloom, get_process_delta_time())
 	_whale.follow(camera_pos, sea_time, get_process_delta_time())
 	_animate_merchant(camera_pos, sea_time)
+	for npc in _npcs:
+		npc.watch(camera_pos, get_process_delta_time())
 	_inside = Storm.amount(_camera, sea_time) if storm_enabled else 0.0
 	_storm.visible = storm_enabled and Storm.enabled
 	# The light changes slowly, so a few updates a second is plenty.
@@ -254,6 +257,17 @@ func _island(spec: Dictionary) -> void:
 		root.add_child(merchant)
 		_merchant = merchant
 		_merchant_rest = merchant.rotation.y
+		# The other companies' people: the Order's mystic on the beach, the Alliance's agent on
+		# the pier beside the cargo. Both look out to sea.
+		for who: String in ["mystic", "agent"]:
+			var at := Outpost.mystic_pos() if who == "mystic" else Outpost.agent_pos()
+			var out := Vector3(at.x - spec.x, 0, at.z - spec.z).normalized()
+			if who == "agent":
+				out = Vector3(0, 0, 1)
+			var npc := Npc.new(who, atan2(-out.x, -out.z))
+			npc.position = at - root.position
+			root.add_child(npc)
+			_npcs.append(npc)
 		faces.append_array(port.faces)
 		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
 		var panes := Lantern.lit_panes(Models.part("tavern", "tavern_panes"), Color("3a4250"))

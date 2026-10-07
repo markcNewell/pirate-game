@@ -422,6 +422,7 @@ func _process(delta: float) -> void:
 	_update_balls()
 	_update_items()
 	_update_skeletons(delta)
+	_update_traders(delta)
 	var cam := get_viewport().get_camera_3d()
 	world.follow(cam.global_position if cam else Vector3.ZERO, render_time, view_ships)
 
@@ -430,6 +431,32 @@ func _process(delta: float) -> void:
 func frame_transform(ship_id: int) -> Transform3D:
 	var v: ShipView = ship_views.get(ship_id, ship_view)
 	return v.global_transform if v else Transform3D.IDENTITY
+
+
+## A castaway trader stands on the island of every crew's cargo run, waiting for the crates.
+var _trader_views := {}  # crew -> Npc
+
+
+func _update_traders(delta: float) -> void:
+	for crew in _trader_views.keys():
+		if not traders.has(crew) or traders[crew].island != _trader_views[crew].get_meta("island"):
+			_trader_views[crew].queue_free()
+			_trader_views.erase(crew)
+	for crew in traders:
+		if _trader_views.has(crew):
+			continue
+		var island: int = traders[crew].island
+		var spec: Dictionary = Islands.LAYOUT[island]
+		var at := Islands.trader_spot(island)
+		var out := Vector3(at.x - spec.x, 0, at.z - spec.z).normalized()
+		var npc := Npc.new("castaway", atan2(-out.x, -out.z))
+		npc.set_meta("island", island)
+		npc.position = at
+		add_child(npc)
+		_trader_views[crew] = npc
+	var cam := get_viewport().get_camera_3d()
+	for crew in _trader_views:
+		_trader_views[crew].watch(cam.global_position if cam else Vector3.ZERO, delta)
 
 
 func _update_skeletons(delta: float) -> void:
@@ -442,6 +469,7 @@ func _update_skeletons(delta: float) -> void:
 		if not _skeleton_views.has(id):
 			var v := SkeletonView.new()
 			v.look = id
+			v.captain = sk.captain
 			add_child(v)
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
@@ -461,7 +489,7 @@ func _update_items() -> void:
 	for id in view_items:
 		var item: Loot = view_items[id]
 		if not _item_views.has(id):
-			var v := LootView.new().setup(item.kind, item.value)
+			var v := LootView.new().setup(item.kind, item.value, item.variant)
 			add_child(v)
 			_item_views[id] = v
 		var view: LootView = _item_views[id]
