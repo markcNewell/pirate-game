@@ -14,6 +14,10 @@ static func pistol_mesh() -> ArrayMesh:
 
 
 var weapon := Weapons.Kind.CUTLASS
+## What you are working with instead of a weapon: "", "shovel", "hammer" or "bucket".
+var tool := ""
+var _tools := {}
+var _tool_clock := 0.0
 var _cutlass: MeshInstance3D
 var _pistol: MeshInstance3D
 var _flash: MeshInstance3D
@@ -56,6 +60,21 @@ func _ready() -> void:
 	# Your own hand round the grip, and a sleeve in your shirt's colour running off screen.
 	_hand = Toon.instance(hand_mesh(_shirt, _skin), look)
 	add_child(_hand)
+	# Tools, held in the same fist: each turned so its handle runs along the grip.
+	for name: String in ["shovel", "hammer", "bucket"]:
+		var held := Toon.instance(Models.part("tools", name), look)
+		match name:
+			"shovel":
+				held.rotation.x = PI / 2.0
+				held.position = Vector3(0, 0, 0.1)
+			"hammer":
+				held.rotation.x = -PI / 2.0
+			"bucket":
+				held.rotation.y = PI / 2.0
+		held.visible = false
+		held.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(held)
+		_tools[name] = held
 	# A white crescent swept across the view with each cutlass swing. It hangs off the camera,
 	# not the blade, so it stays put while the arm moves.
 	_swoosh_material = Toon.clear_material(Color(1, 1, 1, 0.0))
@@ -114,8 +133,17 @@ static func hand_mesh(shirt: Color, skin: Color) -> ArrayMesh:
 func show_weapon(kind: int, visible_now: bool) -> void:
 	weapon = kind
 	visible = visible_now
-	_cutlass.visible = kind == Weapons.Kind.CUTLASS
-	_pistol.visible = kind == Weapons.Kind.PISTOL
+	_cutlass.visible = kind == Weapons.Kind.CUTLASS and tool == ""
+	_pistol.visible = kind == Weapons.Kind.PISTOL and tool == ""
+	for name: String in _tools:
+		_tools[name].visible = name == tool
+
+
+## Hold a tool instead of the weapon while digging, patching or carrying water ("" for none).
+func set_tool(name: String) -> void:
+	if name != tool:
+		tool = name
+		_tool_clock = 0.0
 
 
 func attack() -> void:
@@ -126,6 +154,10 @@ func attack() -> void:
 
 
 func _process(delta: float) -> void:
+	if tool != "":
+		_tool_clock += delta
+		_work_motion()
+		return
 	_swing = maxf(0.0, _swing - delta * 3.5)
 	_kick = maxf(0.0, _kick - delta * 6.0)
 	var arc := sin(_swing * PI)
@@ -134,3 +166,23 @@ func _process(delta: float) -> void:
 	# The swoosh shows through the middle of the swing and fades as it ends.
 	_swoosh.visible = _swing > 0.05 and _swing < 0.85
 	_swoosh_material.albedo_color.a = 0.55 * sin(clampf((0.85 - _swing) / 0.8, 0.0, 1.0) * PI)
+
+
+## The working motions: a shovel driven down and heaved up, a hammer tapping, a bucket
+## swaying low at your side.
+func _work_motion() -> void:
+	var t := _tool_clock
+	match tool:
+		"shovel":
+			var dig := maxf(0.0, sin(t * TAU / 0.8))
+			rotation = Vector3(-0.9 - 0.45 * dig, 0.25, 0.1)
+			position = Vector3(0.18, -0.38 - 0.12 * dig, -0.55)
+		"hammer":
+			var tap := absf(sin(t * TAU / 0.6))
+			rotation = Vector3(0.35 - 0.7 * tap, 0.2, -0.2)
+			position = Vector3(0.28, -0.3, -0.5)
+		"bucket":
+			rotation = Vector3(0.0, 0.0, 0.05 * sin(t * 2.0))
+			position = Vector3(0.3, -0.25, -0.5)
+	_flash.visible = false
+	_swoosh.visible = false

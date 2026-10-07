@@ -287,8 +287,82 @@ def chest(tier):
     return kit.join("chest_%d" % tier, parts)
 
 
+def cannonball():
+    """An iron cannonball, 0.48 m across, with a faint casting seam."""
+    ball = kit.ellipsoid("cannonball", (0, 0, 0), (0.24, 0.24, 0.24), "2b2b30", rings=10, sectors=16)
+    seam = [(0.243 * math.cos(2 * math.pi * i / 24), 0.0, 0.243 * math.sin(2 * math.pi * i / 24)) for i in range(25)]
+    s = kit.noink(kit.tube("seam", seam, 0.008, 4, "3a3a42", caps=False), 0.0)
+    return kit.join("cannonball", [ball, s])
+
+
+def splinter():
+    """A splinter of wood, about 0.45 m: a twisted, jagged shard along Z."""
+    pts = [(0.0, 0.0, -0.22), (0.01, 0.01, -0.08), (-0.01, 0.0, 0.06), (0.0, -0.01, 0.22)]
+    ob = kit.tube("splinter", pts, [0.004, 0.045, 0.04, 0.006], 4, "b07a42", twist=0.4)
+    kit.paint_where(ob, "8a5a30", lambda x, y, z: x > 0.0)
+    kit.flat(ob)
+    return ob
+
+
+def wreck_plank():
+    """A broken hull plank floating after a sinking: 2.2 m, a jagged snapped end, nails."""
+    rng = random.Random(4)
+    outline = [(-0.16, -1.1), (0.16, -1.1), (0.16, 0.85), (0.1, 0.95), (0.13, 1.02), (0.04, 1.1), (0.0, 0.98), (-0.06, 1.08), (-0.12, 0.96), (-0.16, 1.0)]
+    plank = kit.prism("plank", outline, 0.07, "a0522d", plane="xz", bevel=0.01)
+    kit.paint_where(plank, "7d3c20", lambda x, y, z: y < 0.0)
+    parts = [plank]
+    for z in (-0.95, -0.2, 0.55):
+        for x in (-0.08, 0.08):
+            parts.append(kit.noink(kit.ellipsoid("nail", (x, 0.037, z), (0.014, 0.008, 0.014), "2e2e36", rings=4, sectors=6), 0.0))
+    return kit.join("wreck_plank", parts)
+
+
+def bucket(name="bucket", water=True):
+    """A wooden bucket on a rope handle (the handle's top at the origin, where a fist holds
+    it), hanging down: staves, two iron hoops and, when full, the water."""
+    top = -0.42
+    height = 0.32
+    parts = [kit.lathe("bucketbody", [(0.0, 0.0), (0.15, 0.0), (0.2, height), (0.18, height), (0.13, 0.03), (0.0, 0.03)], 14, "8a5a32", centre=(0, top - height, 0))]
+    for k in range(14):
+        a = 2 * math.pi * k / 14
+        parts.append(kit.noink(kit.tube("staveline", [(0.152 * math.cos(a), top - height + 0.01, 0.152 * math.sin(a)), (0.201 * math.cos(a), top - 0.01, 0.201 * math.sin(a))], 0.005, 3, "6a4428"), 0.0))
+    for h in (0.07, 0.25):
+        r = 0.15 + 0.05 * h / height + 0.006
+        parts.append(kit.lathe("hoop", [(r, top - height + h - 0.018), (r, top - height + h + 0.018)], 14, "34303a", caps=False))
+    if water:
+        parts.append(kit.noink(kit.lathe("water", [(0.0, 0.0), (0.185, 0.0)], 14, "4fb6f5", centre=(0, top - 0.035, 0), caps=False), 0.0))
+    handle = [(-0.2, top + 0.01, 0.0), (-0.16, top + 0.25, 0.0), (-0.06, top + 0.4, 0.0), (0.0, top + 0.42, 0.0), (0.06, top + 0.4, 0.0), (0.16, top + 0.25, 0.0), (0.2, top + 0.01, 0.0)]
+    parts.append(kit.tube("handle", handle, 0.013, 5, "caa36a", caps=False))
+    for sx in (1, -1):
+        parts.append(kit.box("lug", (sx * 0.2, top - 0.03, 0), (0.03, 0.08, 0.05), "34303a"))
+    return kit.join(name, parts)
+
+
+def shovel():
+    """A spade, the grip at the origin (held in the fist, the shaft running down along -Y) and
+    a pointed iron blade at the bottom."""
+    parts = [kit.tube("shaft", [(0, 0.12, 0), (0, -0.5, 0), (0, -1.0, 0)], [0.022, 0.024, 0.024], 8, "b07a42")]
+    parts.append(kit.tube("tgrip", [(-0.09, 0.14, 0), (0.09, 0.14, 0)], 0.025, 8, "8a5a32"))
+    parts.append(kit.lathe("collar", [(0.03, -1.02), (0.036, -0.94)], 8, "4a4a52", caps=False))
+    blade = kit.prism("blade", [(-0.13, -1.0), (0.13, -1.0), (0.14, -1.2), (0.08, -1.32), (0.0, -1.38), (-0.08, -1.32), (-0.14, -1.2)], 0.02, "7a7e86", plane="xy", bevel=0.005)
+    kit.paint_where(blade, "a8acb4", lambda x, y, z: y < -1.28)
+    parts.append(blade)
+    return kit.join("shovel", parts)
+
+
+def hammer():
+    """A carpenter's hammer, held at the grip (origin), the head up along +Y."""
+    parts = [kit.tube("handle", [(0, -0.08, 0), (0, 0.12, 0), (0, 0.28, 0)], [0.022, 0.02, 0.018], 8, "b07a42")]
+    parts.append(kit.box("head", (0, 0.3, 0), (0.05, 0.06, 0.16), "4a4a52", bevel=0.008))
+    parts.append(kit.lathe("face", [(0.0, 0.0), (0.032, 0.0), (0.032, 0.03), (0.0, 0.03)], 10, "6a6e76", centre=(0, 0.3, -0.08), axis="z"))
+    parts.append(kit.prism("claw", [(0.0, 0.03), (0.0, -0.03), (0.09, -0.05), (0.11, 0.0)], 0.04, "4a4a52", centre=(0, 0.3, 0.06), plane="zy"))
+    return kit.join("hammer", parts)
+
+
 def main(names):
     builders = {
+        "fx": lambda: [cannonball(), splinter(), wreck_plank()],
+        "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
         "chests": lambda: [chest(t) for t in range(3)],
         "supply_barrel": supply_barrel,
         "cutlass": cutlass,

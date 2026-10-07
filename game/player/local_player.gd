@@ -508,6 +508,14 @@ func update_view() -> void:
 	var look := Transform3D(Basis(Vector3.UP, yaw), p)
 	head.global_transform = game.frame_transform(ship_id) * look if mode == Mode.ON_SHIP else look
 	camera.rotation.x = pitch
+	var tool := "bucket" if bucket else ""
+	if tool == "" and input.interact_held:
+		var target := current_target()
+		if not target.is_empty() and target.kind in ["dig", "patch"]:
+			tool = "shovel" if target.kind == "dig" else "hammer"
+	weapon_view.set_tool(tool)
+	if tool == "":
+		weapon_view.position = Vector3(0.3, -0.33, -0.52)
 	weapon_view.show_weapon(weapon, not dead and station < 0 and carry < 0)
 
 

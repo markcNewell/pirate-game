@@ -1,7 +1,7 @@
 class_name Effects
 extends Node3D
 ## Short-lived toon effects: cannonballs, muzzle smoke, splashes, splinters and sand puffs.
-## Each effect is a handful of simple meshes animated here, so there is nothing to author.
+## Each effect is a handful of meshes animated here (the solid pieces from art/blender/props.py).
 
 enum Impact { WATER, HULL, SPLINTERS, SAND }
 
@@ -17,18 +17,12 @@ var _plank_mesh: ArrayMesh
 
 
 func _ready() -> void:
-	var b := MeshBuilder.new()
-	b.ellipsoid(Vector3.ZERO, 0.24, Vector3.ONE, 6, 10, Color("2b2b30"))
-	_ball_mesh = b.build()
+	_ball_mesh = Models.part("fx", "cannonball")
 	_puff_mesh = SphereMesh.new()
 	_puff_mesh.radial_segments = 12
 	_puff_mesh.rings = 6
-	var s := MeshBuilder.new()
-	s.box(Vector3.ZERO, Vector3(0.05, 0.05, 0.22), Toon.color("trunk"))
-	_splinter_mesh = s.build()
-	var p := MeshBuilder.new()
-	p.box(Vector3.ZERO, Vector3(0.16, 0.06, 1.1), Toon.color("hull"))
-	_plank_mesh = p.build()
+	_splinter_mesh = Models.part("fx", "splinter")
+	_plank_mesh = Models.part("fx", "wreck_plank")
 
 
 func cannonball() -> Node3D:

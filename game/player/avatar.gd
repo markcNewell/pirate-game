@@ -65,11 +65,9 @@ func _init(player_name: String, index: int) -> void:
 	_skeleton.add_child(_look)
 	_cutlass = _in_hand("hand_r", Toon.instance(WeaponView.cutlass_mesh()), 1.0)
 	_pistol = _in_hand("hand_r", Toon.instance(WeaponView.pistol_mesh()), 1.0)
-	var b := MeshBuilder.new()
-	b.cylinder(Vector3(0, 0, 0), Vector3(0, 0.32, 0), 0.15, 0.2, 10, Color("8a5a32"))
-	b.cylinder(Vector3(0, 0.27, 0), Vector3(0, 0.29, 0), 0.19, 0.19, 10, Color("4fb6f5"))
-	var bucket := Toon.instance(b.build())
-	bucket.position = Vector3(0, -0.42, 0)
+	# The bucket hangs from its handle in the fist; the grip runs forward, the handle across it.
+	var bucket := Toon.instance(Models.part("tools", "bucket"))
+	bucket.rotation.y = PI / 2.0
 	_bucket = _in_hand("hand_l", bucket, -1.0)
 	_bucket.visible = false
 	_label = Label3D.new()
