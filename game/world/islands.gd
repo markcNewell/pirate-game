@@ -35,12 +35,13 @@ static func outpost_index() -> int:
 
 
 ## Index of the island whose land is under a world point, or -1.
-static func island_at(x: float, z: float) -> int:
+## The island whose waterline (plus `margin` metres) contains the point, or -1.
+static func island_at(x: float, z: float, margin := 2.0) -> int:
 	for i in LAYOUT.size():
 		var spec: Dictionary = LAYOUT[i]
 		var dx: float = x - spec.x
 		var dz: float = z - spec.z
-		if dx * dx + dz * dz < (spec.radius + 2.0) ** 2:
+		if dx * dx + dz * dz < (spec.radius + margin) ** 2:
 			return i
 	return -1
 

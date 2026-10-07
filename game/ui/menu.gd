@@ -71,6 +71,13 @@ func _ready() -> void:
 	_crew.select(Settings.crew)
 	box.add_child(_crew)
 
+	# Sound: overall volume and the music, applied as you drag and saved with the rest.
+	var sound := HBoxContainer.new()
+	sound.add_theme_constant_override("separation", 8)
+	box.add_child(sound)
+	_slider(sound, "Volume", Settings.volume, func(v: float) -> void: Settings.volume = v)
+	_slider(sound, "Music", Settings.music, func(v: float) -> void: Settings.music = v)
+
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	box.add_child(buttons)
@@ -130,8 +137,27 @@ func _button(row: HBoxContainer, text: String, action: Callable) -> void:
 	b.text = text
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.custom_minimum_size = Vector2(0, 44)
+	b.pressed.connect(func() -> void: Audio.play("click", -6.0))
 	b.pressed.connect(action)
 	row.add_child(b)
+
+
+func _slider(row: HBoxContainer, label: String, value: float, store: Callable) -> void:
+	var l := Label.new()
+	l.text = label
+	l.add_theme_color_override("font_color", Hud.INK)
+	row.add_child(l)
+	var s := HSlider.new()
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = 0.05
+	s.value = value
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	s.value_changed.connect(func(v: float) -> void:
+		store.call(v)
+		Audio.apply_volumes())
+	row.add_child(s)
 
 
 func _sky_gradient() -> ShaderMaterial:

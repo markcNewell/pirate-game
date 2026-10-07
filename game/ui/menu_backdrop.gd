@@ -17,6 +17,7 @@ var _time := 0.0
 func _ready() -> void:
 	# The title sea stays calm; a session sets the storm up again from its server.
 	Storm.enabled = false
+	Audio.music(true)
 	_world = World.new()
 	_world.storm_enabled = false
 	add_child(_world)
@@ -33,6 +34,10 @@ func _ready() -> void:
 	_camera.far = 3000.0
 	add_child(_camera)
 	_camera.make_current()
+
+
+func _exit_tree() -> void:
+	Audio.music(false)
 
 
 func _process(delta: float) -> void:

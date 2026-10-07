@@ -29,6 +29,12 @@ var _holes := {}  # hole id -> Node3D
 var _hole_mesh: ArrayMesh
 var _patch_mesh: ArrayMesh
 var _last_anchor_progress := 0.0
+var _winch: AudioStreamPlayer3D
+var _last_sails := -1.0
+var _last_patch := {}
+var _last_stores := -1
+var _flap_wait := 0.0
+var _hammer_wait := 0.0
 
 
 func _ready() -> void:
@@ -62,6 +68,7 @@ func _ready() -> void:
 	add_child(_wheel)
 
 	_capstan = Toon.instance(ShipMesh.capstan())
+	_winch = Audio.loop_at(_capstan, "winch", -80.0, 35.0)
 	_capstan.position = ShipShape.CAPSTAN
 	add_child(_capstan)
 
@@ -206,6 +213,7 @@ func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float)
 			# The canvas breathes a little as gusts fill and spill it.
 			sail.scale.z = 1.0 + 0.07 * sin(_gust_clock * 1.3 + m * 1.7 + i * 0.9)
 	_wheel.rotation.z = -state.rudder * 2.6
+	_ship_sounds(state, delta)
 	if state.anchored and state.anchor_progress > _last_anchor_progress:
 		_capstan.rotation.y += delta * 2.5
 	_last_anchor_progress = state.anchor_progress
@@ -302,6 +310,32 @@ func _place_barrel(gun: int, yaw: float, pitch: float) -> void:
 	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.BACK
 	var basis := Basis.looking_at(dir, up)
 	_barrels[gun].transform = Transform3D(basis, ShipShape.cannon_pivot_of(gun) - dir * _recoil[gun])
+
+
+## Sounds of the crew at work, heard by anyone nearby: the capstan ratchet while the anchor
+## comes up, canvas flapping as sails are worked, hammering at a hole being patched, and a
+## thump as supplies come aboard.
+func _ship_sounds(state: ShipState, delta: float) -> void:
+	var winching := state.anchored and state.anchor_progress > _last_anchor_progress
+	_winch.volume_db = -4.0 if winching else -80.0
+	var sails := state.sail_height[0] + state.sail_height[1] + absf(state.sail_angle[0]) + absf(state.sail_angle[1])
+	_flap_wait -= delta
+	if _last_sails >= 0.0 and absf(sails - _last_sails) > 1e-3 and _flap_wait <= 0.0:
+		_flap_wait = 0.7
+		Audio.play_at("sail_flap", global_transform * Vector3(0, ShipShape.DECK_Y + 8.0, ShipShape.MAST_Z[1]), -6.0)
+	_last_sails = sails
+	_hammer_wait -= delta
+	var patched := {}
+	for hole: Array in state.holes:
+		patched[int(hole[0])] = float(hole[4])
+		if float(hole[4]) > _last_patch.get(int(hole[0]), 1.0) and _hammer_wait <= 0.0:
+			_hammer_wait = 0.32
+			Audio.play_at("hammer", global_transform * Vector3(hole[1], hole[2], hole[3]), -2.0)
+	_last_patch = patched
+	var stores := state.cannonballs + state.planks + state.bananas
+	if _last_stores >= 0 and stores > _last_stores:
+		Audio.play_at("thud", global_transform * Vector3(0, ShipShape.DECK_Y, 0), 0.0)
+	_last_stores = stores
 
 
 func _update_holes(holes: Array) -> void:

@@ -49,6 +49,7 @@ var hud: Hud
 var effects: Effects
 ## Ships we have seen start to sink (id -> time since the last bubbles).
 var _wrecked := {}
+var _creak_wait := 5.0
 var avatars := {}  # peer id -> Avatar
 var _item_views := {}  # item id -> LootView
 var _skeleton_views := {}  # skeleton id -> SkeletonView
@@ -225,6 +226,8 @@ func client_on_snapshot(data: Array) -> void:
 	for entry in data[4]:
 		purses[int(entry[0])] = int(entry[1])
 		if int(entry[0]) == own_crew:
+			if int(entry[1]) > purse and has_view():
+				Audio.play("coins", -2.0)
 			purse = int(entry[1])
 			voyage = {} if entry.size() < 5 else {"island": int(entry[2]), "x": float(entry[3]), "z": float(entry[4])}
 	var snap_bones := {}
@@ -289,12 +292,24 @@ func client_on_event(kind: String, data: Array) -> void:
 		"swing":
 			if _skeleton_views.has(int(data[0])):
 				_skeleton_views[int(data[0])].swing()
+				Audio.play_at("swing", _skeleton_views[int(data[0])].global_position + Vector3.UP, -4.0, 0.8)
 		"hurt_skeleton":
 			if _skeleton_views.has(int(data[0])):
 				_skeleton_views[int(data[0])].hurt()
+				Audio.play_at("rattle", _skeleton_views[int(data[0])].global_position + Vector3.UP)
 		"attack":
 			if avatars.has(int(data[0])):
-				avatars[int(data[0])].attack()
+				var who: Avatar = avatars[int(data[0])]
+				who.attack()
+				var pistol := int(data[1]) == Weapons.Kind.PISTOL
+				Audio.play_at("pistol" if pistol else "swing", who.global_position + Vector3.UP * 1.4, 0.0 if pistol else -4.0)
+		"hurt_player":
+			if int(data[0]) == local_id:
+				Audio.play("thud", -2.0, 0.8)
+			elif avatars.has(int(data[0])):
+				Audio.play_at("thud", avatars[int(data[0])].global_position + Vector3.UP)
+		"alarm":
+			Audio.play("bell", -3.0, 1.0, 0.0)
 		"lightning":
 			if world:
 				world.strike(Vector3(data[1], data[2], data[3]))
@@ -328,6 +343,7 @@ func _process(delta: float) -> void:
 	ship_view = ship_views.get(own_ship)
 	# The HUD's wind arrow shows the wind where our ship is, swirling if she is in the storm.
 	view_wind = Storm.wind(Vector2(view_ship.x, view_ship.z), render_time, view_wind).normalized()
+	_ship_sounds(delta)
 	if ship_view == null:
 		return
 
@@ -338,6 +354,10 @@ func _process(delta: float) -> void:
 		local_player.carry = me.carry
 		if me.hp < local_player.hp and hud:
 			hud.flash_damage()
+		if me.hp > local_player.hp and not me.dead and not local_player.dead:
+			Audio.play("chomp", -4.0)
+		if me.carry != local_player.carry:
+			Audio.play("thud", -6.0)
 		local_player.hp = me.hp
 		local_player.dead = me.dead
 	local_player.update_view()
@@ -436,6 +456,34 @@ func _sinking_effects(id: int, s: ShipState, delta: float) -> void:
 			effects.bubbles(Vector3(s.x, 0.0, s.z))
 
 
+## Aboard a ship: water rushing past the hull as she gathers speed, and her timbers creaking
+## now and then, more often in a storm.
+func _ship_sounds(delta: float) -> void:
+	var aboard := local_player.mode == LocalPlayer.Mode.ON_SHIP and view_ships.has(local_player.ship_id)
+	if not aboard:
+		Audio.set_ambience("bow_wash", -80.0)
+		return
+	var s: ShipState = view_ships[local_player.ship_id]
+	Audio.set_ambience("bow_wash", lerpf(-38.0, -9.0, clampf(absf(s.speed) / ShipPhysics.MAX_SPEED, 0.0, 1.0)))
+	_creak_wait -= delta
+	if _creak_wait <= 0.0:
+		var storm := Storm.amount(Vector2(s.x, s.z), render_time)
+		_creak_wait = randf_range(4.0, 11.0) * (1.0 - 0.65 * storm)
+		Audio.play("creak", -18.0 + 9.0 * storm, randf_range(0.8, 1.25), 0.0)
+
+
+func _impact_sound(kind: int, pos: Vector3) -> void:
+	match kind:
+		Effects.Impact.WATER:
+			Audio.play_at("splash", pos, 0.0)
+		Effects.Impact.HULL:
+			Audio.play_at("hull_hit", pos, 4.0)
+		Effects.Impact.SPLINTERS:
+			Audio.play_at("hull_hit", pos, -2.0, 1.2)
+		Effects.Impact.SAND:
+			Audio.play_at("thud", pos, 0.0, 0.7)
+
+
 func _update_balls() -> void:
 	for id in _balls.keys():
 		var b: Dictionary = _balls[id]
@@ -449,9 +497,11 @@ func _update_balls() -> void:
 			if ship_views.has(b.ship):
 				ship_views[b.ship].recoil(b.gun)
 			effects.muzzle_smoke(b.p0, b.v0.normalized())
+			Audio.play_at("cannon", b.p0, 4.0, 1.0, 0.07)
 		var end: Dictionary = b.end
 		if not end.is_empty() and render_time >= end.t:
 			effects.impact(end.kind, end.pos)
+			_impact_sound(end.kind, end.pos)
 			node.queue_free()
 			_balls.erase(id)
 			continue

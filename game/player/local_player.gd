@@ -65,6 +65,9 @@ var _send_timer := 0.0
 var _patch_timer := 0.0
 ## How long E has been held on a dig spot; the HUD's ring shows it (the server keeps the truth).
 var _dig_clock := 0.0
+## Distance walked since the last footstep, and time since the last spade or stroke sound.
+var _stride := 0.0
+var _sound_wait := 0.0
 var _stations := ShipShape.stations()
 
 
@@ -137,6 +140,7 @@ func _physics_process(delta: float) -> void:
 		if input.fire and carry < 0 and _attack_ready <= 0.0:
 			_attack_ready = Weapons.CUTLASS_COOLDOWN if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_RELOAD
 			weapon_view.attack()
+			Audio.play("swing" if weapon == Weapons.Kind.CUTLASS else "pistol", -3.0 if weapon == Weapons.Kind.CUTLASS else 0.0)
 			game.send_request("attack", weapon, [yaw, pitch])
 
 	_curr = frame_position()
@@ -151,6 +155,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _move_on_ship(delta: float) -> void:
+	swimming = false
 	var local := DeckProxy.from_proxy(body.global_position)
 	# Wading through a flooded lower deck is slow going.
 	var depth := frame_ship().water - (local.y - ShipShape.LOWER_Y)
@@ -160,6 +165,7 @@ func _move_on_ship(delta: float) -> void:
 	var jump := input.jump and carry < 0
 	body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), jump, delta, scale)
 	body.move_and_slide()
+	_footsteps(delta, "step_wood")
 	local = DeckProxy.from_proxy(body.global_position)
 	if not ShipShape.is_on_board(local):
 		_go_overboard(local)
@@ -176,6 +182,23 @@ func _move_in_world(delta: float) -> void:
 		var jump := input.jump and carry < 0
 		body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), jump, delta, scale)
 	body.move_and_slide()
+	_footsteps(delta, "splash" if swimming else "step_sand")
+
+
+## A footstep sound every stride while walking on something (a stroke while swimming).
+func _footsteps(delta: float, sound: String) -> void:
+	var flat := Vector2(body.velocity.x, body.velocity.z).length()
+	if not swimming and not body.is_on_floor():
+		return
+	_stride += flat * delta
+	var stride := 2.2 if swimming else 1.5
+	if _stride < stride:
+		return
+	_stride = 0.0
+	if swimming:
+		Audio.play(sound, -22.0, 1.6, 0.15)
+	else:
+		Audio.play(sound, -12.0 if sound == "step_wood" else -14.0, 1.0, 0.12)
 
 
 ## Leave the ship frame: carry position, heading and momentum (including the ship's) into the world.
@@ -195,6 +218,10 @@ func _interact(delta: float) -> void:
 	var target := current_target()
 	var digging: bool = not target.is_empty() and target.kind == "dig" and input.interact_held
 	_dig_clock = _dig_clock + delta if digging else 0.0
+	_sound_wait -= delta
+	if digging and _sound_wait <= 0.0:
+		_sound_wait = 0.5
+		Audio.play("dig", -4.0)
 	if target.is_empty():
 		return
 	if target.kind == "patch" or target.kind == "dig":
@@ -215,8 +242,10 @@ func _interact(delta: float) -> void:
 			game.send_request("hatch", target.id)
 		"scoop":
 			game.send_request("scoop", 0)
+			Audio.play("splash", -14.0, 1.5)
 		"throw":
 			game.send_request("throw", 0)
+			Audio.play("splash", -8.0, 1.2)
 		"sell", "drop", "voyage", "eat":
 			game.send_request(target.kind, 0)
 		"pickup", "open", "restock":

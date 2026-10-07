@@ -13,6 +13,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 [autoload]
 
 Net="*res://game/net/net.gd"
+Audio="*res://game/audio/audio.gd"
 
 [display]
 

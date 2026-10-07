@@ -7,10 +7,11 @@ one ship together on a shared sea hosted by a dedicated server. Built with Godot
 sailing, swimming, cannons, skeleton ships, holes, patching, bailing and sinking; treasure maps,
 digging and selling at Port Merrow; health, cutlass and pistol, skeleton camps and boarding; and
 crew vs crew: fight other crews, sink their ships and steal their chests. The sea has a
-24-minute day with sunsets, starry nights and lanterns, and a storm that roams the map. Specs:
+24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
+waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
-[5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md).
+[5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -92,7 +93,9 @@ machine, see [server/README.md](server/README.md).
 | Treasure smoke test (dig + sell) | `tests/smoke/treasure_test.sh` |
 | Fighting smoke test (island + boarding) | `tests/smoke/fighting_test.sh` |
 | Crew-vs-crew smoke test (duel, broadsides, theft) | `tests/smoke/crew_test.sh` |
+| Storm smoke test (lightning strikes a ship) | `tests/smoke/storm_test.sh` |
 | Every smoke test at once | `tools/smoke_all.sh` |
+| Rebuild the sounds | `python3 tools/make_sounds.py` |
 | Import and unit tests in one go | `tools/check.sh` |
 | Screenshot without a monitor | `tools/screenshot.sh /tmp/shot.png outside --demo` |
 | Export Windows + server builds | `tools/export.sh` |
@@ -104,7 +107,8 @@ Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`
 `--demo` (host under full sail), `--bot wheel|sails|anchor|swimmer|gunner|repair`,
 `--quit-after SECONDS`, `--no-ai`, `--ai-delay SECONDS`, `--test-holes N`, `--start-near N|outpost`,
 `--voyage-island N`, `--test-chest`, `--test-boarding`, `--crew N`, `--crews-close`, `--test-steal`,
-`--time T` (pin the time of day: 0 midnight, 0.5 noon, 0.79 sunset) and `--storm X,Z` (pin the storm).
+`--time T` (pin the time of day: 0 midnight, 0.5 noon, 0.79 sunset), `--storm X,Z` (pin the storm)
+and `--calm` (server: no storm).
 Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`.
 
 ### How it fits together
@@ -121,5 +125,9 @@ Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`
   (`storm.gd` says where it is, `storm_view.gd` draws it). Both run off the shared server clock,
   so every player sees the same sunset and the same storm.
 - `art/shaders/`: toon lighting, ink outlines, sky, rain.
+- `art/sounds/`: every sound, synthesised by `tools/make_sounds.py` (numpy; nothing recorded or
+  downloaded; the title tune is the traditional "Drunken Sailor"). `game/audio/audio.gd` (the
+  `Audio` autoload) plays them: one-shots in the world, ambience loops that follow the scene,
+  and music. Volume and music sliders are on the title screen.
 
 Everything you see is built from code for now; Blender models arrive in later milestones.

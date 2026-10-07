@@ -24,6 +24,8 @@ var _merchant: Node3D
 var _merchant_rest := 0.0
 var _gloom := 0.0
 var _strike_flash := 0.0
+var _last_flash := -1
+var _gull_wait := 6.0
 var _camera := Vector2.ZERO
 var _inside := 0.0
 var _ambient := 0.38
@@ -59,6 +61,7 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 	_sky.set_shader_parameter("time", sea_time)
 	_camera = Vector2(camera_pos.x, camera_pos.z)
 	_dolphins.follow(camera_pos, sea_time, ships, get_process_delta_time())
+	_sounds(camera_pos, sea_time, get_process_delta_time())
 	_wind_lines.follow(camera_pos, Game.wind_dir(sea_time), _gloom, get_process_delta_time())
 	_whale.follow(camera_pos, sea_time, get_process_delta_time())
 	_animate_merchant(camera_pos, sea_time)
@@ -129,10 +132,38 @@ func _apply_daylight(t: float) -> void:
 		get_tree().call_group(Lantern.GROUP, "set_level", lamps)
 
 
-## Lightning hits a ship's mast at `top`: a bolt down onto it and a bright flash.
+## Lightning hits a ship's mast at `top`: a bolt down onto it, a bright flash and a crack.
 func strike(top: Vector3) -> void:
 	_storm.strike(top)
+	Audio.play_at("thunder", top, 6.0)
 	_strike_flash = clampf(1.0 - Vector2(top.x - _camera.x, top.z - _camera.y).length() / 300.0, 0.3, 1.0)
+
+
+## The ambience follows where you are: the sea always, wind louder up high and in the storm,
+## rain inside it, thunder after each flash (later the further off it is), gulls near islands.
+func _sounds(camera_pos: Vector3, sea_time: float, delta: float) -> void:
+	var low := 1.0 - clampf(camera_pos.y / 12.0, 0.0, 1.0)
+	Audio.set_ambience("sea", lerpf(-16.0, -7.0, low))
+	Audio.set_ambience("wind", -24.0 + 4.0 * clampf(camera_pos.y / 15.0, 0.0, 1.0) + 16.0 * _inside)
+	Audio.set_ambience("rain", lerpf(-40.0, -6.0, _inside) if _inside > 0.1 else -80.0)
+	var f := Storm.flash(sea_time)
+	if f.on and f.seed != _last_flash and _storm.visible:
+		_last_flash = f.seed
+		var off: Vector2 = f.offset
+		var bolt: Vector2 = Storm.centre(sea_time) + off
+		var far := Vector2(camera_pos.x, camera_pos.z).distance_to(bolt)
+		if far < 1200.0:
+			var rumble := "thunder" if far < 250.0 else "thunder_far"
+			var loud := 4.0 - far / 60.0
+			get_tree().create_timer(far / 343.0).timeout.connect(func() -> void: Audio.play(rumble, loud))
+	_gull_wait -= delta
+	if _gull_wait <= 0.0:
+		_gull_wait = randf_range(5.0, 14.0)
+		var island := Islands.island_at(camera_pos.x, camera_pos.z, 120.0)
+		if island >= 0 and _gloom < 0.5:
+			var spec: Dictionary = Islands.LAYOUT[island]
+			var a := randf() * TAU
+			Audio.play_at("gull", Vector3(spec.x + cos(a) * spec.radius, 20.0, spec.z + sin(a) * spec.radius), -6.0, 1.0, 0.15)
 
 
 ## The merchant breathes, and turns to watch you when you come close.
@@ -220,6 +251,11 @@ func _island(spec: Dictionary) -> void:
 		faces.append_array(port.faces)
 		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
 		root.add_child(Lantern.lit_panes(Outpost.tavern_windows(), Color("3a4250")))
+		# The tavern's music drifts out of its door.
+		var tavern := Node3D.new()
+		tavern.position = Outpost.tavern_point(Vector3(3.5, 1.5, 0)) - root.position
+		root.add_child(tavern)
+		Audio.loop_at(tavern, "shanty", -8.0, 45.0)
 		var lighthouse := Lighthouse.new()
 		lighthouse.position = Outpost.lighthouse_lamp() - root.position
 		root.add_child(lighthouse)

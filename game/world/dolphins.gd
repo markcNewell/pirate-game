@@ -17,6 +17,7 @@ const AIR := 0.42
 static var eager := false
 
 var _swimmers: Array[Node3D] = []
+var _was_up: Array[bool] = []
 var _wait := 0.0
 var _left := 0.0
 var _side := 1.0
@@ -32,6 +33,7 @@ func _ready() -> void:
 		d.visible = false
 		add_child(d)
 		_swimmers.append(d)
+		_was_up.append(false)
 
 
 ## Call every frame with the camera position, the sea clock and the ships (id -> ShipState).
@@ -66,6 +68,11 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, delta: floa
 		var u := fposmod(age / LEAP_PERIOD + i * 0.31, 1.0)
 		var d := _swimmers[i]
 		var surface := Waves.height(base.x, base.z, sea_time)
+		var up := u <= AIR
+		if up != _was_up[i]:
+			# A splash as each one leaves the water and as it dives back in.
+			_was_up[i] = up
+			Audio.play_at("splash", base + Vector3(0, surface, 0), -14.0, 1.4)
 		if u > AIR:
 			d.visible = false
 			continue

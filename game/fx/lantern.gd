@@ -12,6 +12,7 @@ var _light: OmniLight3D
 var _energy: float
 var _flame: MeshInstance3D
 var _flicker := 0.0
+var _crackle: AudioStreamPlayer3D
 
 
 ## `fire` adds a flickering toon flame that only shows while the lantern is lit.
@@ -40,6 +41,7 @@ func _init(color: Color, energy: float, reach: float, fire := false) -> void:
 		_flame.visible = false
 		add_child(_flame)
 		_light.position.y = 0.9
+		_crackle = Audio.loop_at(self, "fire", -80.0, 30.0)
 	add_to_group(GROUP)
 
 
@@ -75,6 +77,7 @@ func set_level(level: float) -> void:
 	_light.light_energy = _energy * level
 	if _flame:
 		_flame.visible = level > 0.3
+		_crackle.volume_db = -6.0 if _flame.visible else -80.0
 	set_process(_flame != null and _flame.visible)
 
 

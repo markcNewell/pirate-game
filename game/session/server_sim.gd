@@ -369,6 +369,7 @@ func _maybe_spawn_skeleton() -> void:
 	var from := spot - origin
 	print("[server] skeleton ship %d spawned at (%.0f, %.0f)" % [id, spot.x, spot.y])
 	Net.send_message(0, "A skeleton ship approaches from the %s!" % compass_name(atan2(from.x, -from.y)))
+	Net.send_event("alarm", [])
 
 
 func _maybe_respawn_crews() -> void:

@@ -71,6 +71,8 @@ func follow(camera_pos: Vector3, sea_time: float, delta: float) -> void:
 		Basis(Vector3.UP, _heading) * Basis(Vector3.RIGHT, (k - 0.5) * 0.5),
 		_at + ahead + Vector3(0, sea - 1.6 + rise * 1.6, 0))
 	var blowing := k > 0.3 and k < 0.6
+	if blowing and not _spout.visible:
+		Audio.play_at("spout", _at + Vector3(0, sea, 0), 4.0)
 	_spout.visible = blowing
 	if blowing:
 		var puff := sin((k - 0.3) / 0.3 * PI)
