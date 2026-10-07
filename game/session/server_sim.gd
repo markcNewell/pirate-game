@@ -282,7 +282,7 @@ func snapshot() -> Array:
 		var r: Dictionary = players[id]
 		list.append([
 			id, r.mode, r.ship, r.pos.x, r.pos.y, r.pos.z, r.yaw, r.pitch, r.station, 1 if r.bucket else 0,
-			r.carry, r.hp, 1 if r.dead_until >= 0.0 else 0, r.weapon, r.crew,
+			r.carry, r.hp, 1 if r.dead_until >= 0.0 else 0, r.weapon, r.crew, _act(r),
 		])
 	var item_list := []
 	for id in items:
@@ -297,6 +297,18 @@ func snapshot() -> Array:
 	for id in skeletons:
 		bones.append(skeletons[id].to_array())
 	return [time, ship_list, list, item_list, crew_list, bones]
+
+
+## What a player is busy with, for the animation others see (Avatar.Act): digging or hammering
+## while they hold the key, and a moment's heave when they throw a bucket over the side.
+func _act(r: Dictionary) -> int:
+	if r.last_dig >= 0.0 and time - r.last_dig < 0.4:
+		return Avatar.Act.DIG
+	if r.last_patch >= 0.0 and time - r.last_patch < 0.4:
+		return Avatar.Act.HAMMER
+	if r.last_bail >= 0.0 and time - r.last_bail < 0.9:
+		return Avatar.Act.BAIL
+	return Avatar.Act.NONE
 
 
 func log_line() -> String:
@@ -611,7 +623,7 @@ func add_player(id: int, player_name: String, wanted_crew := 0) -> void:
 	players[id] = {
 		"name": clean, "crew": crew, "mode": LocalPlayer.Mode.ON_SHIP, "ship": crew, "pos": Vector3.ZERO,
 		"yaw": 0.0, "pitch": 0.0, "station": -1, "seq": 0, "time": time, "bucket": false,
-		"last_patch": -1.0, "carry": -1, "dig": 0.0, "last_dig": -1.0,
+		"last_patch": -1.0, "carry": -1, "dig": 0.0, "last_dig": -1.0, "last_bail": -1.0,
 		"hp": HEALTH, "dead_until": -1.0, "weapon": Weapons.Kind.CUTLASS, "next_attack": 0.0,
 	}
 	roster[id] = clean
@@ -844,6 +856,7 @@ func _throw(r: Dictionary) -> void:
 	if r.mode != LocalPlayer.Mode.ON_SHIP or not r.bucket or r.pos.y < ShipShape.DECK_Y - 0.5:
 		return
 	r.bucket = false
+	r.last_bail = time
 	_pending_bail[r.crew] = _pending_bail.get(r.crew, 0.0) + BUCKET
 	stats.bailed += 1
 

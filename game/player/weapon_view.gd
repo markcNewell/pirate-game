@@ -3,21 +3,14 @@ extends Node3D
 ## The cutlass or pistol held in front of the first-person camera, with a quick swing for
 ## the blade and a kick and a flash for the pistol.
 
+## A cutlass, grip at the origin, blade forward along -Z (art/blender/props.py).
 static func cutlass_mesh() -> ArrayMesh:
-	var b := MeshBuilder.new()
-	b.box(Vector3(0, 0, 0.05), Vector3(0.025, 0.025, 0.08), Color("5a3a22"))
-	b.box(Vector3(0, 0, -0.04), Vector3(0.09, 0.02, 0.02), Toon.color("gold"))
-	b.box(Vector3(0, 0.0, -0.4), Vector3(0.008, 0.035, 0.34), Color("d8dde2"))
-	b.box(Vector3(0, 0.02, -0.72), Vector3(0.008, 0.02, 0.05), Color("d8dde2"))
-	return b.build()
+	return Models.mesh("cutlass")
 
 
+## A flintlock pistol, the butt in the fist at the origin, barrel forward along -Z.
 static func pistol_mesh() -> ArrayMesh:
-	var b := MeshBuilder.new()
-	b.cylinder(Vector3(0, 0, 0.0), Vector3(0, 0, -0.32), 0.028, 0.024, 8, Color("3a3a42"))
-	b.box(Vector3(0, -0.05, 0.06), Vector3(0.025, 0.07, 0.07), Color("6b4a2c"), Basis(Vector3.RIGHT, 0.5))
-	b.box(Vector3(0, 0.02, 0.02), Vector3(0.012, 0.02, 0.03), Toon.color("gold"))
-	return b.build()
+	return Models.mesh("flintlock")
 
 
 var weapon := Weapons.Kind.CUTLASS
@@ -33,11 +26,23 @@ var _swing := 0.0
 var _kick := 0.0
 
 
+## The toon look with a finer ink line: held this close, the world's line would be a rope.
+static func view_material() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://art/shaders/toon.gdshader")
+	var ink := ShaderMaterial.new()
+	ink.shader = load("res://art/shaders/outline.gdshader")
+	ink.set_shader_parameter("min_width", 0.0035)
+	m.next_pass = ink
+	return m
+
+
 func _ready() -> void:
-	position = Vector3(0.32, -0.32, -0.45)
-	_cutlass = Toon.instance(cutlass_mesh())
+	position = Vector3(0.3, -0.33, -0.52)
+	var look := view_material()
+	_cutlass = Toon.instance(cutlass_mesh(), look)
 	add_child(_cutlass)
-	_pistol = Toon.instance(pistol_mesh())
+	_pistol = Toon.instance(pistol_mesh(), look)
 	add_child(_pistol)
 	_flash = MeshInstance3D.new()
 	var s := SphereMesh.new()
@@ -45,11 +50,11 @@ func _ready() -> void:
 	s.height = 0.14
 	_flash.mesh = s
 	_flash.material_override = Toon.glow_material(Color("ffe08a"))
-	_flash.position = Vector3(0, 0, -0.38)
+	_flash.position = Vector3(0, 0.055, -0.37)
 	_flash.visible = false
 	add_child(_flash)
 	# Your own hand round the grip, and a sleeve in your shirt's colour running off screen.
-	_hand = Toon.instance(hand_mesh(_shirt, _skin))
+	_hand = Toon.instance(hand_mesh(_shirt, _skin), look)
 	add_child(_hand)
 	# A white crescent swept across the view with each cutlass swing. It hangs off the camera,
 	# not the blade, so it stays put while the arm moves.
@@ -97,13 +102,13 @@ func set_sleeve(shirt: Color, skin: Color) -> void:
 		_hand.mesh = hand_mesh(shirt, skin)
 
 
-## A fist round the grip (thumb on top) and a sleeve running back off the bottom of the screen.
+## Your fist round the grip and your sleeve running back off the bottom of the screen
+## (art/blender/characters.py, fp_arm), in your shirt colour and skin tone.
 static func hand_mesh(shirt: Color, skin: Color) -> ArrayMesh:
-	var b := MeshBuilder.new()
-	b.ellipsoid(Vector3(0.0, -0.005, 0.055), 0.055, Vector3(1.05, 1.0, 1.4), 6, 8, skin)
-	b.ellipsoid(Vector3(-0.035, 0.01, 0.02), 0.025, Vector3(1.0, 0.8, 1.2), 4, 6, skin)
-	b.cylinder(Vector3(0.0, -0.02, 0.11), Vector3(0.1, -0.26, 0.62), 0.065, 0.085, 8, shirt)
-	return b.build()
+	return Models.mesh("fp_arm", {
+		Models.SHIRT: shirt, Models.SHIRT_DARK: shirt.darkened(0.28),
+		Models.SKIN: skin, Models.SKIN_DARK: skin.darkened(0.12),
+	})
 
 
 func show_weapon(kind: int, visible_now: bool) -> void:

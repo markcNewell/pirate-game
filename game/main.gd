@@ -18,6 +18,7 @@ extends Node
 ##   --storm X,Z              pin the storm's centre there, for screenshots
 ##   --dolphins               dolphins visit straight away, for screenshots
 ##   --whale                  a whale surfaces ahead straight away, for screenshots
+##   --model-sheet NAME       render a contact sheet of a Blender model (see tools/model_sheet.sh)
 
 var _menu: Menu
 var _backdrop: MenuBackdrop
@@ -61,6 +62,10 @@ func _start() -> void:
 			get_tree().quit(2))
 		Net.join(_args.get("join", "127.0.0.1"), port, "Bot %s" % role, role, int(_args.get("crew", 0)))
 		_maybe_quit_later()
+		return
+
+	if _args.has("model-sheet"):
+		add_child(ModelSheet.new(_args))
 		return
 
 	_menu = Menu.new()

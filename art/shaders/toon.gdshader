@@ -6,11 +6,13 @@ render_mode cull_back;
 
 uniform float rim_amount = 0.12;
 uniform vec4 tint : source_color = vec4(1.0);
+// Blender models carry baked crease shadow in the vertex alpha (1 = open, 0 = deep crease).
+uniform float crease_shadow = 0.55;
 
 varying vec3 base_color;
 
 void vertex() {
-	base_color = COLOR.rgb;
+	base_color = COLOR.rgb * mix(1.0, COLOR.a, crease_shadow);
 }
 
 void fragment() {
@@ -28,7 +30,9 @@ void light() {
 		DIFFUSE_LIGHT += (ndl > 0.0 ? 1.0 : 0.25) * pool * LIGHT_COLOR / PI;
 	} else {
 		// Lit, half-lit and shade. Shade keeps some sun so dark sides stay readable colours.
-		float band = ndl > 0.45 ? 1.0 : (ndl > 0.0 ? 0.72 : 0.45);
+		// The steps get a sliver of blend, so their edges run smooth instead of zig-zagging
+		// along the triangles of low-poly curves.
+		float band = 0.45 + 0.27 * smoothstep(-0.03, 0.03, ndl) + 0.28 * smoothstep(0.42, 0.48, ndl);
 		if (ATTENUATION < 0.5) {
 			band = min(band, 0.45);
 		}

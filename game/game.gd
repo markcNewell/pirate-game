@@ -213,6 +213,7 @@ func client_on_snapshot(data: Array) -> void:
 			"mode": int(p[1]), "ship": int(p[2]), "pos": Vector3(p[3], p[4], p[5]), "yaw": float(p[6]),
 			"pitch": float(p[7]), "station": int(p[8]), "bucket": int(p[9]) == 1, "carry": int(p[10]),
 			"hp": int(p[11]), "dead": int(p[12]) == 1, "weapon": int(p[13]), "crew": int(p[14]),
+			"act": int(p[15]) if p.size() > 15 else 0,
 		}
 	var snap_items := {}
 	for entry in data[3]:
@@ -307,6 +308,7 @@ func client_on_event(kind: String, data: Array) -> void:
 			if int(data[0]) == local_id:
 				Audio.play("thud", -2.0, 0.8)
 			elif avatars.has(int(data[0])):
+				avatars[int(data[0])].hurt()
 				Audio.play_at("thud", avatars[int(data[0])].global_position + Vector3.UP)
 		"alarm":
 			Audio.play("bell", -3.0, 1.0, 0.0)
@@ -374,7 +376,11 @@ func _process(delta: float) -> void:
 			continue
 		var feet := Transform3D(Basis(Vector3.UP, p.yaw), p.pos)
 		var on_ship: bool = p.mode == LocalPlayer.Mode.ON_SHIP and ship_views.has(p.ship)
-		avatar.place(ship_views[p.ship].global_transform * feet if on_ship else feet, delta)
+		var kind: int = ShipShape.stations()[p.station].kind if p.station >= 0 else -1
+		# Afloat out of their ship with the feet well below the sea's mean level: swimming.
+		var swimming: bool = p.mode == LocalPlayer.Mode.WORLD and p.pos.y < -0.5
+		avatar.set_state(kind, swimming, p.carry >= 0, p.act)
+		avatar.place(ship_views[p.ship].global_transform * feet if on_ship else feet, delta, p.pos)
 		avatar.set_bucket(p.bucket)
 		avatar.set_hostile(p.crew != own_crew)
 		avatar.set_weapon(p.weapon)
@@ -573,7 +579,7 @@ func _interpolate(t: float) -> void:
 			"mode": pb.mode, "ship": pb.ship, "pos": pa.pos.lerp(pb.pos, w),
 			"yaw": lerp_angle(pa.yaw, pb.yaw, w), "pitch": lerpf(pa.pitch, pb.pitch, w),
 			"station": pb.station, "bucket": pb.bucket, "carry": pb.carry,
-			"hp": pb.hp, "dead": pb.dead, "weapon": pb.weapon, "crew": pb.crew,
+			"hp": pb.hp, "dead": pb.dead, "weapon": pb.weapon, "crew": pb.crew, "act": pb.act,
 		}
 
 

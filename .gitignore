@@ -4,3 +4,4 @@ export_presets.cfg.bak
 /build/
 # brainstorm companion
 .superpowers/
+__pycache__/
