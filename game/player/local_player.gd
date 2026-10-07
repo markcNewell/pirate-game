@@ -515,7 +515,8 @@ func update_view() -> void:
 			tool = "shovel" if target.kind == "dig" else "hammer"
 	weapon_view.set_tool(tool)
 	weapon_view.moving = Vector2(body.velocity.x, body.velocity.z).length() > 1.0
-	weapon_view.show_weapon(weapon, not dead and station < 0 and carry < 0)
+	# Both hands are busy swimming, so the weapon is put away in the water.
+	weapon_view.show_weapon(weapon, not dead and station < 0 and carry < 0 and not swimming)
 
 
 func world_position() -> Vector3:
