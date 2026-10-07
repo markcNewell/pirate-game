@@ -47,7 +47,8 @@ func _process(delta: float) -> void:
 	# Aim left of the ship so it sails in the clear right-hand side of the screen.
 	var right := (at - eye).cross(Vector3.UP).normalized()
 	_camera.look_at_from_position(eye, at - right * 15.0 + Vector3(0, 3.0, 0))
-	_world.follow(_camera.global_position, _time, {1: ship, 10: skel})
+	# Late afternoon, the sun low and golden behind the ships.
+	_world.follow(_camera.global_position, _time, {1: ship, 10: skel}, 0.7)
 
 
 ## A ship under sail at angle `a` round the circle (counter-clockwise), heading along it.

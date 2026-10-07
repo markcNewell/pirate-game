@@ -7,7 +7,7 @@ render_mode unshaded, cull_disabled;
 
 const int WAVES = 4;
 const int MAX_ISLANDS = 8;
-const int MAX_SHIPS = 4;
+const int MAX_SHIPS = 8;
 
 uniform vec4 wave_a[WAVES];  // direction x, direction z, wavenumber k, amplitude
 uniform vec4 wave_b[WAVES];  // angular speed, phase, unused, unused
@@ -20,6 +20,8 @@ uniform vec3 foam_color : source_color = vec3(1.0);
 uniform vec3 far_color : source_color = vec3(0.137, 0.537, 0.890);
 uniform vec3 shallow_color : source_color = vec3(0.30, 0.82, 0.86);
 uniform vec3 beach_color : source_color = vec3(0.62, 0.93, 0.90);
+uniform vec3 daylight : source_color = vec3(1.0);  // the time of day's tint over everything
+uniform float sun_glints = 1.0;
 
 uniform vec4 islands[MAX_ISLANDS];  // x, z, waterline radius, unused
 uniform int island_count = 0;
@@ -147,11 +149,11 @@ void fragment() {
 		vec2 cell = floor(world_pos.xz * 1.2);
 		float glint = hash(cell);
 		float twinkle = sin(sea_time * 4.0 + glint * 40.0);
-		if (glint > 0.992 && twinkle > 0.7 && wave_height > 0.05) {
+		if (glint > 1.0 - 0.008 * sun_glints && twinkle > 0.7 && wave_height > 0.05) {
 			foam = 1.0;
 		}
 	}
-	col = mix(col, foam_color, foam);
+	col = mix(col, foam_color, foam) * daylight;
 	// Calm the bands far out so the horizon is a clean line, not a stripe of noise.
 	float dist = length(world_pos - CAMERA_POSITION_WORLD);
 	col = mix(col, far_color, smoothstep(250.0, 600.0, dist) * 0.85);

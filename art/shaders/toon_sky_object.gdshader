@@ -2,6 +2,8 @@
 shader_type spatial;
 render_mode cull_back, fog_disabled;
 
+uniform vec4 tint : source_color = vec4(1.0);
+
 varying vec3 base_color;
 
 void vertex() {
@@ -9,7 +11,7 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = base_color;
+	ALBEDO = base_color * tint.rgb;
 }
 
 void light() {

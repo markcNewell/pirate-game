@@ -55,7 +55,15 @@ func _ready() -> void:
 		_place_barrel(gun, 0.0, 0.0)
 
 	var glow := Toon.glow_material(ShipMesh._c("lantern"))
-	_lamp(Vector3(0, ShipShape.QUARTER_Y + ShipShape.RAIL_HEIGHT + 1.32, ShipShape.STERN_Z + 0.2), glow)
+	var stern_lamp := Vector3(0, ShipShape.QUARTER_Y + ShipShape.RAIL_HEIGHT + 1.32, ShipShape.STERN_Z + 0.2)
+	_lamp(stern_lamp, glow)
+	# At night the stern lantern lights the quarterdeck and a lamp on the main mast the deck.
+	var mast_lamp := Vector3(0.45, ShipShape.DECK_Y + 2.4, ShipShape.MAST_Z[1] - 0.45)
+	_lamp(mast_lamp, glow)
+	for at: Vector3 in [stern_lamp, mast_lamp]:
+		var lantern := Lantern.new(ShipMesh._c("lantern").lerp(Color.WHITE, 0.2), 1.0, 9.0)
+		lantern.position = at
+		add_child(lantern)
 	for z: float in [-7.0, -1.0, 3.5]:
 		_lamp(Vector3(0, ShipShape.DECK_Y - 0.55, z), glow)
 	if kind == ShipState.Kind.CREW:

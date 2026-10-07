@@ -8,6 +8,12 @@ const SKY_TOP := Color("2f8ff0")
 
 var ocean: Ocean
 var _clouds: Node3D
+var _env: Environment
+var _sky: ShaderMaterial
+var _light: DirectionalLight3D
+var _cloud_material: ShaderMaterial
+var _daylight_wait := 0.0
+var _lamps := -1.0
 
 
 func _ready() -> void:
@@ -23,20 +29,55 @@ func _ready() -> void:
 	add_child(Gulls.new())
 
 
-func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:
+## `time_of_day` pins the light (0-1, see Daylight); below 0 it follows the server clock.
+func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day := -1.0) -> void:
 	ocean.follow(camera_pos, sea_time, ships)
+	_sky.set_shader_parameter("time", sea_time)
+	# The light changes slowly, so a few updates a second is plenty.
+	_daylight_wait -= get_process_delta_time()
+	if _daylight_wait <= 0.0:
+		_daylight_wait = 0.25
+		_apply_daylight(time_of_day if time_of_day >= 0.0 else Daylight.time_of_day(sea_time))
 	# Clouds ride along with the camera so they always sit on the horizon, drifting slowly.
 	_clouds.global_position = Vector3(camera_pos.x, 0.0, camera_pos.z)
 	_clouds.rotation.y = sea_time * 0.002
 
 
+func _apply_daylight(t: float) -> void:
+	var look := Daylight.look(t)
+	_sky.set_shader_parameter("top_color", look.top)
+	_sky.set_shader_parameter("horizon_color", look.horizon)
+	_sky.set_shader_parameter("glow_color", look.light.lerp(Color("ff5e3a"), 0.35))
+	_sky.set_shader_parameter("sun_dir", look.sun)
+	_sky.set_shader_parameter("moon_dir", look.moon)
+	_sky.set_shader_parameter("glow", look.glow)
+	_sky.set_shader_parameter("stars", look.stars)
+	_env.ambient_light_color = look.ambient
+	_env.ambient_light_energy = look.ambient_energy
+	_env.fog_light_color = look.fog
+	var dir: Vector3 = look.light_dir
+	_light.look_at_from_position(Vector3.ZERO, -dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.FORWARD)
+	_light.light_color = look.light
+	_light.light_energy = look.energy
+	var sea: Color = look.sea
+	# Far out, the sea takes on some of the horizon's colour: orange at sunset, blue at night.
+	var far := Ocean.MID_COLOR * sea
+	ocean.set_daylight(sea, clampf(look.energy * 1.2 - 0.1, 0.0, 1.0), far.lerp(look.horizon, 0.3 * look.glow))
+	_cloud_material.set_shader_parameter("tint", look.cloud)
+	var lamps := snappedf(look.lamps, 0.05)
+	if lamps != _lamps:
+		_lamps = lamps
+		get_tree().call_group(Lantern.GROUP, "set_level", lamps)
+
+
 func _environment() -> void:
-	var sky_material := ShaderMaterial.new()
-	sky_material.shader = load("res://art/shaders/sky.gdshader")
-	sky_material.set_shader_parameter("top_color", SKY_TOP)
-	sky_material.set_shader_parameter("horizon_color", HORIZON)
+	_sky = ShaderMaterial.new()
+	_sky.shader = load("res://art/shaders/sky.gdshader")
+	_sky.set_shader_parameter("top_color", SKY_TOP)
+	_sky.set_shader_parameter("horizon_color", HORIZON)
 	var sky := Sky.new()
-	sky.sky_material = sky_material
+	sky.sky_material = _sky
+	sky.radiance_size = Sky.RADIANCE_SIZE_32
 
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
@@ -55,6 +96,7 @@ func _environment() -> void:
 	env.fog_depth_curve = 1.4
 	env.fog_sky_affect = 0.0
 
+	_env = env
 	var holder := WorldEnvironment.new()
 	holder.environment = env
 	add_child(holder)
@@ -72,6 +114,7 @@ func _sun() -> void:
 	sun.shadow_bias = 0.12
 	sun.shadow_normal_bias = 2.5
 	add_child(sun)
+	_light = sun
 
 
 func _island(spec: Dictionary) -> void:
@@ -90,6 +133,14 @@ func _island(spec: Dictionary) -> void:
 		merchant.rotation.y = -PI / 2.0 - Outpost.HUT_ANGLE
 		root.add_child(merchant)
 		faces.append_array(port.faces)
+		for lamp in Outpost.lamps():
+			var light := Lantern.new(Color("ffd08a"), 1.6, 9.0)
+			light.position = lamp - root.position
+			root.add_child(light)
+	if built.fire != null:
+		var fire := Lantern.new(Color("ff9a4a"), 2.2, 14.0, true)
+		fire.position = built.fire
+		root.add_child(fire)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -103,6 +154,8 @@ func _island(spec: Dictionary) -> void:
 
 
 func _make_clouds() -> void:
+	# Its own copy of the material, so the clouds can blush at sunset without tinting anything else.
+	_cloud_material = Toon.sky_object_material().duplicate()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for i in 14:
@@ -113,7 +166,7 @@ func _make_clouds() -> void:
 			if p == 0:
 				offset = Vector3.ZERO
 			b.ellipsoid(offset, rng.randf_range(1.0, 1.7), Vector3(1.0, 0.75, 1.0), 8, 12, Toon.color("cloud"))
-		var cloud := Toon.instance(b.build(), Toon.sky_object_material())
+		var cloud := Toon.instance(b.build(), _cloud_material)
 		cloud.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var a := TAU * i / 14.0 + rng.randf_range(-0.2, 0.2)
 		var dist := rng.randf_range(650.0, 900.0)

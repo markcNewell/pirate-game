@@ -4,8 +4,10 @@ extends MeshInstance3D
 ## the camera so the sea never ends. The shader moves and colours it (ocean.gdshader).
 
 const RADIUS := 1500.0
-const MAX_SHIPS := 4
+const MAX_SHIPS := 8
 const SECTORS := 160
+## The open sea's colour far out by day (the shader's far_color).
+const MID_COLOR := Color(0.137, 0.537, 0.890)
 
 var _material: ShaderMaterial
 
@@ -27,16 +29,27 @@ func _ready() -> void:
 	material_override = _material
 
 
+## The time of day's tint, how much the sun glints, and the colour far out to the horizon.
+func set_daylight(tint: Color, glints: float, far: Color) -> void:
+	_material.set_shader_parameter("daylight", tint)
+	_material.set_shader_parameter("sun_glints", glints)
+	_material.set_shader_parameter("far_color", far)
+
+
 ## Call every frame with the camera position, the shared sea clock and the ships (id -> ShipState).
+## Only the nearest MAX_SHIPS get their hulls cut out of the sea and their wakes drawn.
 func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:
 	global_position = Vector3(camera_pos.x, 0.0, camera_pos.z)
 	_material.set_shader_parameter("sea_time", sea_time)
 	var a := PackedVector4Array()
 	var b := PackedVector4Array()
-	for id in ships:
-		var s: ShipState = ships[id]
-		if a.size() >= MAX_SHIPS:
-			break
+	var near: Array = ships.values()
+	if near.size() > MAX_SHIPS:
+		var at := Vector2(camera_pos.x, camera_pos.z)
+		near.sort_custom(func(p: ShipState, q: ShipState) -> bool:
+			return at.distance_squared_to(Vector2(p.x, p.z)) < at.distance_squared_to(Vector2(q.x, q.z)))
+		near.resize(MAX_SHIPS)
+	for s: ShipState in near:
 		a.append(Vector4(s.x, s.z, s.yaw, 0.0))
 		b.append(Vector4(s.sink, s.water, s.speed, 0.0))
 	var count := a.size()

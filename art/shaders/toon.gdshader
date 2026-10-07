@@ -21,10 +21,17 @@ void fragment() {
 
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
-	// Lit, half-lit and shade. Shade keeps some sun so dark sides stay readable colours.
-	float band = ndl > 0.45 ? 1.0 : (ndl > 0.0 ? 0.72 : 0.45);
-	if (ATTENUATION < 0.5) {
-		band = min(band, 0.45);
+	if (!LIGHT_IS_DIRECTIONAL) {
+		// Lanterns: flat pools of light that step down with distance, lighting only the
+		// faces that look toward them.
+		float pool = ATTENUATION > 0.45 ? 1.0 : (ATTENUATION > 0.12 ? 0.55 : (ATTENUATION > 0.03 ? 0.22 : 0.0));
+		DIFFUSE_LIGHT += (ndl > 0.0 ? 1.0 : 0.25) * pool * LIGHT_COLOR / PI;
+	} else {
+		// Lit, half-lit and shade. Shade keeps some sun so dark sides stay readable colours.
+		float band = ndl > 0.45 ? 1.0 : (ndl > 0.0 ? 0.72 : 0.45);
+		if (ATTENUATION < 0.5) {
+			band = min(band, 0.45);
+		}
+		DIFFUSE_LIGHT += band * LIGHT_COLOR / PI;
 	}
-	DIFFUSE_LIGHT += band * LIGHT_COLOR / PI;
 }

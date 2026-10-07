@@ -48,6 +48,16 @@ static func barrels() -> Array[Vector3]:
 
 
 ## A good anchorage off the merchant's beach (used by tests to start nearby).
+## Where the pier lamps and the hut's lantern hang, in world space.
+static func lamps() -> Array[Vector3]:
+	var r1: float = spec().radius + PIER_END
+	var out: Array[Vector3] = []
+	for side: float in [-1.0, 1.0]:
+		out.append(_centre() + Vector3(r1 - 0.4, PIER_Y + 2.6, side * (PIER_HALF_WIDTH - 0.15)))
+	out.append(merchant_pos() + Vector3(0, 2.4, 0))
+	return out
+
+
 static func anchorage() -> Vector3:
 	return _at(spec().radius + 40.0, HUT_ANGLE, 0.0)
 

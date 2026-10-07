@@ -40,11 +40,12 @@ static func build(spec: Dictionary) -> Dictionary:
 	_palms(decor, solid, spec, rng)
 	_rocks(decor, solid, spec, rng)
 	_bushes(decor, spec, rng)
+	var fire: Variant = null
 	if not spec.get("outpost", false):
-		_camp(decor, solid, spec, rng)
+		fire = _camp(decor, solid, spec, rng)
 	var faces := ground_b.faces()
 	faces.append_array(solid.faces())
-	return {"ground": ground_b.build(), "decor": decor.build(), "faces": faces}
+	return {"ground": ground_b.build(), "decor": decor.build(), "faces": faces, "fire": fire}
 
 
 static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
@@ -213,8 +214,9 @@ static func _bushes(b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator
 			b.ellipsoid(Vector3(x, y + 0.35 * size, z) + off, 0.55 * size, Vector3(1, 0.8, 1), 5, 8, green)
 
 
-## A skeleton camp: a tattered tent, a ring of stones round a dead fire, and a few bones.
-static func _camp(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+## A skeleton camp: a tattered tent, a ring of stones round a fire (lit at night), and a few
+## bones. Returns where the fire is, relative to the island's centre.
+static func _camp(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> Vector3:
 	var radius: float = spec.radius
 	var a := rng.randf() * TAU
 	var r := 0.35 * radius
@@ -243,3 +245,4 @@ static func _camp(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: Ran
 		var p := at + Vector3(rng.randf_range(-2.5, 2.5), 0, rng.randf_range(-2.5, 2.5))
 		p.y = ground(spec, p.x, p.z) + 0.05
 		b.box(p, Vector3(0.25, 0.035, 0.035), Color("efe8d2"), Basis(Vector3.UP, rng.randf() * TAU))
+	return at
