@@ -192,6 +192,8 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			"outside": [Vector3(26, 10, 20), Vector3(0, 6, 0)],
 			"bow": [Vector3(-8, 8, -40), Vector3(0, 5, 0)],
 			"stern": [Vector3(3, 5.5, 24), Vector3(0, 3.6, 12)],
+			"flag": [Vector3(7, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1] - 3.0, ShipShape.MAST_Z[1] + 5.0),
+				Vector3(1.2, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1], ShipShape.MAST_Z[1])],
 			"high": [Vector3(30, 45, 50), Vector3(0, 0, -20)],
 		}
 		if view.begins_with("island"):

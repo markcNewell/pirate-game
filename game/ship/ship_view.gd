@@ -21,6 +21,7 @@ var _recoil: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var _aim_override := {}
 var _flood: MeshInstance3D
 var _spray: Array[CPUParticles3D] = []
+var _gust_clock := 0.0
 var _holes := {}  # hole id -> Node3D
 var _hole_mesh: ArrayMesh
 var _patch_mesh: ArrayMesh
@@ -57,7 +58,7 @@ func _ready() -> void:
 
 	_flag = Node3D.new()
 	_flag.position = Vector3(0, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1] + 0.3, ShipShape.MAST_Z[1])
-	var cloth := Toon.instance(ShipMesh.flag())
+	var cloth := Toon.instance(ShipMesh.flag(), Toon.cloth_material())
 	cloth.position = Vector3(0, -0.9, 0)
 	_flag.add_child(cloth)
 	add_child(_flag)
@@ -171,11 +172,15 @@ func _add_hull_blocker() -> void:
 ## Draw the ship for this frame. `pose` comes from ShipPhysics.pose_of at the render time.
 func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float) -> void:
 	global_transform = pose
+	_gust_clock += delta
 	visible = state.sink < 1.0
 	for m in _rigs.size():
 		_rigs[m].rotation.y = -state.sail_angle[m] * ShipPhysics.MAX_SAIL_ANGLE
-		for sail: MeshInstance3D in _sails[m]:
+		for i in _sails[m].size():
+			var sail: MeshInstance3D = _sails[m][i]
 			sail.scale.y = lerpf(FURLED, 1.0, state.sail_height[m])
+			# The canvas breathes a little as gusts fill and spill it.
+			sail.scale.z = 1.0 + 0.07 * sin(_gust_clock * 1.3 + m * 1.7 + i * 0.9)
 	_wheel.rotation.z = -state.rudder * 2.6
 	if state.anchored and state.anchor_progress > _last_anchor_progress:
 		_capstan.rotation.y += delta * 2.5

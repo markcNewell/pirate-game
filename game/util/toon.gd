@@ -60,6 +60,7 @@ static var _object: ShaderMaterial
 static func crew_palette(crew: int) -> Dictionary:
 	return CREWS[clampi(crew - 1, 0, CREWS.size() - 1)]
 static var _sky_object: ShaderMaterial
+static var _cloth: ShaderMaterial
 static var _glow: StandardMaterial3D
 
 
@@ -74,6 +75,17 @@ static func object_material() -> ShaderMaterial:
 		_object.shader = load("res://art/shaders/toon.gdshader")
 		_object.next_pass = _outline()
 	return _object
+
+
+## The toon material for flags: the same look, rippling in the wind (outline included).
+static func cloth_material() -> ShaderMaterial:
+	if _cloth == null:
+		_cloth = ShaderMaterial.new()
+		_cloth.shader = load("res://art/shaders/toon_cloth.gdshader")
+		var ink := ShaderMaterial.new()
+		ink.shader = load("res://art/shaders/outline_cloth.gdshader")
+		_cloth.next_pass = ink
+	return _cloth
 
 
 ## For clouds and other horizon things that fog must not wash out.

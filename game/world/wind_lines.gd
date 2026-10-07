@@ -4,7 +4,7 @@ extends Node3D
 ## curl at the tail, and fade out. They show which way the wind blows without a glance at the
 ## HUD. Only scenery; each player sees their own.
 
-const COUNT := 7
+const COUNT := 5
 const LIFE := 2.6
 const SPEED := 9.0
 const LENGTH := 6.0
@@ -60,7 +60,7 @@ func follow(camera_pos: Vector3, wind: Vector2, gloom: float, delta: float) -> v
 		var at: Vector3 = item.from + dir * SPEED * item.age
 		line.global_transform = Transform3D(Basis.looking_at(-dir) * Basis.from_scale(Vector3(1.0, 1.0, 0.3 + 0.7 * sin(k * PI))), at)
 		var m := line.material_override as StandardMaterial3D
-		m.albedo_color.a = 0.8 * sin(k * PI) * (1.0 - gloom)
+		m.albedo_color.a = 0.65 * sin(k * PI) * (1.0 - gloom)
 
 
 ## A thin line along +z, bowing gently, that ends in a small curl.

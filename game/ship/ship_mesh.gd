@@ -378,7 +378,28 @@ static func capstan() -> ArrayMesh:
 ## A black flag with a skull and crossed bones, flying toward +x from its pole.
 static func flag() -> ArrayMesh:
 	var b := MeshBuilder.new()
-	b.box(Vector3(1.2, 0, 0), Vector3(1.2, 0.75, 0.03), _c("flag"))
+	# A thin slab cut into strips so the cloth shader has vertices to ripple.
+	var cols := 12
+	var rows := 3
+	var w := 2.4
+	var h := 0.75
+	var t := 0.03
+	var cloth := _c("flag")
+	for i in cols:
+		var x0 := w * i / cols
+		var x1 := w * (i + 1) / cols
+		for j in rows:
+			var y0 := -h + 2.0 * h * j / rows
+			var y1 := -h + 2.0 * h * (j + 1) / rows
+			for side: float in [-1.0, 1.0]:
+				var z := side * t
+				b.quad(Vector3(x0, y0, z), Vector3(x1, y0, z), Vector3(x1, y1, z), Vector3(x0, y1, z), cloth, Vector3(0, 0, side))
+		for edge: float in [-1.0, 1.0]:
+			var y := edge * h
+			b.quad(Vector3(x0, y, -t), Vector3(x1, y, -t), Vector3(x1, y, t), Vector3(x0, y, t), cloth, Vector3(0, edge, 0))
+	for end: float in [0.0, 1.0]:
+		var x := end * w
+		b.quad(Vector3(x, -h, -t), Vector3(x, h, -t), Vector3(x, h, t), Vector3(x, -h, t), cloth, Vector3(end * 2.0 - 1.0, 0, 0))
 	for z: float in [-0.05, 0.05]:
 		var face := Vector3(1.2, 0.08, z)
 		b.ellipsoid(face, 0.3, Vector3(1.0, 1.0, 0.15), 6, 10, _c("bone"))
