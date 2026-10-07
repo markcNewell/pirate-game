@@ -30,6 +30,13 @@ func _ready() -> void:
 
 
 ## The time of day's tint, how much the sun glints, and the colour far out to the horizon.
+## The glitter path toward a low light: its direction, colour and strength (0 for none).
+func set_light_path(dir: Vector3, color: Color, strength: float) -> void:
+	_material.set_shader_parameter("path_dir", dir)
+	_material.set_shader_parameter("path_color", color)
+	_material.set_shader_parameter("path_strength", strength)
+
+
 func set_daylight(tint: Color, glints: float, far: Color) -> void:
 	_material.set_shader_parameter("daylight", tint)
 	_material.set_shader_parameter("sun_glints", glints)

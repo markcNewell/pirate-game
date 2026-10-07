@@ -110,6 +110,15 @@ func _apply_daylight(t: float) -> void:
 	var far := Ocean.MID_COLOR * sea
 	ocean.set_daylight(sea, clampf(look.energy * 1.2 - 0.1, 0.0, 1.0), far.lerp(look.horizon, 0.3 * look.glow))
 	_cloud_material.set_shader_parameter("tint", look.cloud)
+	# A path of glitter on the water toward the sun when it is low, or toward the moon.
+	var sun: Vector3 = look.sun
+	var moon: Vector3 = look.moon
+	if sun.y > -0.02 and sun.y < 0.35:
+		ocean.set_light_path(sun, Color("ffd08a"), (1.0 - smoothstep(0.15, 0.35, sun.y)) * (1.0 - s))
+	elif moon.y > 0.05:
+		ocean.set_light_path(moon, Color("e6ecff"), 0.75 * look.stars * (1.0 - s))
+	else:
+		ocean.set_light_path(sun, Color.WHITE, 0.0)
 	var lamps := snappedf(look.lamps, 0.05)
 	if lamps != _lamps:
 		_lamps = lamps

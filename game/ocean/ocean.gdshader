@@ -22,6 +22,10 @@ uniform vec3 shallow_color : source_color = vec3(0.30, 0.82, 0.86);
 uniform vec3 beach_color : source_color = vec3(0.62, 0.93, 0.90);
 uniform vec3 daylight : source_color = vec3(1.0);  // the time of day's tint over everything
 uniform float sun_glints = 1.0;
+// A glittering path on the water toward a low sun or the moon.
+uniform vec3 path_dir = vec3(0.0, 1.0, 0.0);
+uniform vec3 path_color : source_color = vec3(1.0, 0.85, 0.6);
+uniform float path_strength = 0.0;
 
 uniform vec4 islands[MAX_ISLANDS];  // x, z, waterline radius, unused
 uniform int island_count = 0;
@@ -175,6 +179,15 @@ void fragment() {
 	float cloud = noise(world_pos.xz * 0.006 + vec2(sea_time * 0.004, sea_time * 0.0025));
 	col *= cloud > 0.62 ? 0.91 : 1.0;
 	col = mix(col, foam_color, foam) * daylight;
+	if (path_strength > 0.0) {
+		vec2 to = world_pos.xz - CAMERA_POSITION_WORLD.xz;
+		float along = dot(normalize(to), normalize(path_dir.xz + 1e-5));
+		float sparkle = hash(floor(world_pos.xz * 0.8));
+		float twinkle = sin(sea_time * 3.0 + sparkle * 50.0);
+		if (along > 0.992 - 0.004 * sparkle && sparkle > 0.55 && twinkle > 0.2 && length(to) > 12.0) {
+			col = mix(col, path_color, path_strength);
+		}
+	}
 	// Calm the bands far out so the horizon is a clean line, not a stripe of noise.
 	float dist = length(world_pos - CAMERA_POSITION_WORLD);
 	col = mix(col, far_color, smoothstep(250.0, 600.0, dist) * 0.85);

@@ -10,7 +10,8 @@ extends Node
 ##   --bot ROLE               headless test bot: wheel, sails, anchor or swimmer
 ##   --quit-after SECONDS     exit after this long, printing a summary
 ##   --screenshot PATH        save a screenshot and quit (with --shot-delay, --shot-view, and
-##                            --shot-from X,Y,Z: where the island views look from)
+##                            --shot-from X,Y,Z: where the island views look from,
+##                            --shot-yaw Y: which way the first-person views face)
 ##   --demo                   host only: start under full sail with the anchor up
 ##   --crew N                 ask for crew N (1-4); 0 or absent for any
 ##   --time T                 pin the time of day for this client (0 midnight, 0.5 noon, 0.75 sunset)
@@ -147,6 +148,9 @@ func _print_summary() -> void:
 func _screenshot(path: String, delay: float, view: String) -> void:
 	await get_tree().create_timer(delay * 0.5).timeout
 	var game := Net.game
+	if game and _args.has("shot-yaw"):
+		# Turn the first-person view: 0 faces north, PI/2 west, -PI/2 east.
+		game.local_player.yaw = float(_args["shot-yaw"])
 	if game and view == "wheel":
 		# Walk there instantly: the wheel is out of reach from the spawn point.
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.stations()[0].stand, 0.0)
