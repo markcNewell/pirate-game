@@ -5,10 +5,11 @@ extends RefCounted
 
 ## x, z: centre. radius: waterline radius (m). seed: shapes palms and rocks. hill: extra mound.
 ## outpost: the trading post (pier, merchant, supplies) faces +x from the centre.
+## landmark (optional): "arch" (a rock arch on the beach) or "stacks" (sea stacks off the shore).
 const LAYOUT: Array[Dictionary] = [
 	{"name": "Cutlass Cay", "x": 40.0, "z": -460.0, "radius": 60.0, "seed": 11, "hill": true, "outpost": false},
-	{"name": "Parrot Rock", "x": 360.0, "z": -150.0, "radius": 26.0, "seed": 23, "hill": false, "outpost": false},
-	{"name": "Gull Isle", "x": -300.0, "z": 140.0, "radius": 22.0, "seed": 37, "hill": false, "outpost": false},
+	{"name": "Parrot Rock", "x": 360.0, "z": -150.0, "radius": 26.0, "seed": 23, "hill": false, "outpost": false, "landmark": "stacks"},
+	{"name": "Gull Isle", "x": -300.0, "z": 140.0, "radius": 22.0, "seed": 37, "hill": false, "outpost": false, "landmark": "arch"},
 	{"name": "Port Merrow", "x": -380.0, "z": -300.0, "radius": 30.0, "seed": 41, "hill": false, "outpost": true},
 ]
 

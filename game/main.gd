@@ -9,7 +9,8 @@ extends Node
 ##   --name NAME              player name
 ##   --bot ROLE               headless test bot: wheel, sails, anchor or swimmer
 ##   --quit-after SECONDS     exit after this long, printing a summary
-##   --screenshot PATH        save a screenshot and quit (with --shot-delay, --shot-view)
+##   --screenshot PATH        save a screenshot and quit (with --shot-delay, --shot-view, and
+##                            --shot-from X,Y,Z: where the island views look from)
 ##   --demo                   host only: start under full sail with the anchor up
 ##   --crew N                 ask for crew N (1-4); 0 or absent for any
 ##   --time T                 pin the time of day for this client (0 midnight, 0.5 noon, 0.75 sunset)
@@ -188,10 +189,16 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			"bow": [Vector3(-8, 8, -40), Vector3(0, 5, 0)],
 			"high": [Vector3(30, 45, 50), Vector3(0, 0, -20)],
 		}
-		if view == "island":
-			var isl: Dictionary = Islands.LAYOUT[0]
+		if view.begins_with("island"):
+			# "island" frames the first island; "island2" the third, and so on.
+			var isl: Dictionary = Islands.LAYOUT[int(view.substr(6)) if view.length() > 6 else 0]
 			var centre := Vector3(isl.x, 4.0, isl.z)
-			cam.look_at_from_position(centre + Vector3(60, 22, 75), centre)
+			var away: float = isl.radius / 60.0
+			var from := Vector3(60, 22, 75)
+			if _args.has("shot-from"):
+				var xyz: PackedStringArray = str(_args["shot-from"]).split(",")
+				from = Vector3(float(xyz[0]), float(xyz[1]), float(xyz[2]))
+			cam.look_at_from_position(centre + from * maxf(away, 0.55), centre)
 		elif view == "lighthouse":
 			var lamp := Outpost.lighthouse_lamp()
 			var isl := Outpost.spec()

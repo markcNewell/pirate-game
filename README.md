@@ -21,7 +21,7 @@ crew vs crew: fight other crews, sink their ships and steal their chests. The se
 | ![Skeletons on Parrot Rock](docs/screenshots/skeletons.png) | ![Two crews' ships](docs/screenshots/two-crews.png) |
 | ![Sunset](docs/screenshots/sunset.png) | ![Night, lanterns lit](docs/screenshots/night.png) |
 | ![A storm on the horizon](docs/screenshots/storm.png) | ![Inside the storm](docs/screenshots/in-the-storm.png) |
-| ![Port Merrow's lighthouse at night](docs/screenshots/lighthouse-night.png) | |
+| ![Port Merrow's lighthouse at night](docs/screenshots/lighthouse-night.png) | ![The rock arch on Gull Isle](docs/screenshots/gull-isle-arch.png) |
 
 ## Play
 

@@ -45,6 +45,11 @@ static func build(spec: Dictionary) -> Dictionary:
 		fire = _camp(decor, solid, spec, rng)
 		if spec.radius > 24.0:
 			_wreck(decor, solid, spec, rng)
+	match spec.get("landmark", ""):
+		"arch":
+			_arch(decor, solid, spec, rng)
+		"stacks":
+			_stacks(decor, solid, spec, rng)
 	var faces := ground_b.faces()
 	faces.append_array(solid.faces())
 	return {"ground": ground_b.build(), "decor": decor.build(), "faces": faces, "fire": fire}
@@ -206,6 +211,50 @@ static func _wreck(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: Ra
 	tip.y = ground(spec, tip.x, tip.z) + 0.25
 	b.cylinder(foot, tip, 0.3, 0.24, 7, dark)
 	solid.box(at + frame * Vector3(0, h * 0.35, 0), Vector3(w * 0.8, h * 0.4, 6.2), Color.BLACK, frame)
+
+
+## A rock arch standing on the beach: two pillars of piled boulders joined by a curve of them.
+static func _arch(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+	var radius: float = spec.radius
+	# Facing south-east, so ships coming from the outpost see through it.
+	var a := 0.9
+	var mid := Vector3(cos(a) * (radius - 1.0), 0.0, sin(a) * (radius - 1.0))
+	var along := Vector3(-sin(a), 0.0, cos(a))
+	var span := 4.2
+	var height := 6.5
+	for side: float in [-1.0, 1.0]:
+		var foot := mid + along * span * side
+		foot.y = ground(spec, foot.x, foot.z) - 0.4
+		var y := 0.0
+		while y < height:
+			var size := rng.randf_range(1.25, 1.6)
+			_rock(b, foot + Vector3(rng.randf_range(-0.2, 0.2), y + size * 0.5, rng.randf_range(-0.2, 0.2)), size, Basis(Vector3.UP, rng.randf() * TAU))
+			y += size * 0.95
+		solid.box(foot + Vector3(0, height * 0.5, 0), Vector3(1.3, height * 0.5, 1.3), Color.BLACK)
+	var top := mid + Vector3(0, ground(spec, mid.x, mid.z) + height, 0)
+	for k in 9:
+		var t := PI * k / 8.0
+		var p := top + along * (-cos(t) * span) + Vector3(0, sin(t) * 2.2, 0)
+		_rock(b, p, rng.randf_range(1.1, 1.4), Basis(Vector3.UP, rng.randf() * TAU))
+
+
+## Tall rocks standing in the shallows, each topped with a tuft of grass.
+static func _stacks(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+	var radius: float = spec.radius
+	var a0 := rng.randf() * TAU
+	for i in 3:
+		var a := a0 + i * 0.5 + rng.randf_range(-0.1, 0.1)
+		var r := radius + 1.5 + rng.randf() * 1.0
+		var foot := Vector3(cos(a) * r, SEA_FLOOR * 0.5, sin(a) * r)
+		var height := rng.randf_range(7.0, 11.0) - i * 1.5
+		var y := 0.0
+		var size := 2.2
+		while y < height - foot.y:
+			_rock(b, foot + Vector3(0, y, 0), size, Basis(Vector3.UP, rng.randf() * TAU))
+			y += size * 0.9
+			size = maxf(1.0, size * 0.88)
+		b.ellipsoid(foot + Vector3(0, y - size * 0.1, 0), size * 0.9, Vector3(1.1, 0.4, 1.0), 5, 8, Toon.color("grass"))
+		solid.box(foot + Vector3(0, (y) * 0.5, 0), Vector3(1.6, y * 0.5, 1.6), Color.BLACK)
 
 
 ## A faceted lump: a coarse ellipsoid with flat faces.
