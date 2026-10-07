@@ -33,6 +33,20 @@ func _ready() -> void:
 	for m in ShipShape.MAST_Z.size():
 		_build_rig(m)
 
+	# The ship's name in gold letters across the transom.
+	var name_plate := Label3D.new()
+	name_plate.text = ServerSim.CREW_NAMES[crew - 1] if crew > 0 else "The Rotten Grin"
+	name_plate.font = Hud.display_font()
+	name_plate.font_size = 64
+	name_plate.pixel_size = 0.0056
+	name_plate.modulate = ShipMesh._c("gold")
+	name_plate.outline_size = 6
+	name_plate.outline_modulate = Color("2a1a10")
+	name_plate.shaded = true
+	name_plate.double_sided = false
+	name_plate.position = ShipMesh.name_board() + Vector3(0, 0, 0.04)
+	add_child(name_plate)
+
 	_wheel = Toon.instance(ShipMesh.wheel())
 	_wheel.position = ShipShape.WHEEL + Vector3(0, 1.05, 0.25)
 	add_child(_wheel)

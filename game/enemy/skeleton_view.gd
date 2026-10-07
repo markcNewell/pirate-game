@@ -28,6 +28,19 @@ func _ready() -> void:
 	_model = Node3D.new()
 	add_child(_model)
 	_model.add_child(Toon.instance(_body, _material))
+	# A green glow in each eye socket.
+	for side: float in [-1.0, 1.0]:
+		var eye := MeshInstance3D.new()
+		var ball := SphereMesh.new()
+		ball.radius = 0.024
+		ball.height = 0.048
+		ball.radial_segments = 6
+		ball.rings = 3
+		eye.mesh = ball
+		eye.material_override = Toon.glow_material(Color("9cff8a"))
+		eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		eye.position = Vector3(side * 0.065, 1.8, -0.165)
+		_model.add_child(eye)
 	_arm_pivot = Node3D.new()
 	_arm_pivot.position = Vector3(0.3, 1.4, 0)
 	_model.add_child(_arm_pivot)

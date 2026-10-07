@@ -559,10 +559,13 @@ static func _bow_and_stern(b: MeshBuilder) -> void:
 	for s: float in [-1.0, 1.0]:
 		b.box(top + Vector3(0, -1.45, s * 0.3), Vector3(0.05, 0.05, 0.32), iron, Basis(Vector3.RIGHT, s * 0.6))
 		b.box(top + Vector3(0, -1.2, s * 0.55), Vector3(0.06, 0.12, 0.08), iron)
-	# Name board under the stern windows.
-	var board := Vector3(0, ShipShape.DECK_Y + 0.1, ShipShape.HALF_LENGTH + 0.06)
-	b.box(board, Vector3(1.6, 0.18, 0.03), _c("hull_dark"))
-	b.box(board + Vector3(0, 0, 0.02), Vector3(1.5, 0.1, 0.02), gold)
+	# Name board under the stern windows; ShipView letters the name on it.
+	b.box(name_board(), Vector3(1.8, 0.25, 0.03), _c("hull_dark"))
+
+
+## Centre of the board on the transom where the ship's name is painted.
+static func name_board() -> Vector3:
+	return Vector3(0, ShipShape.DECK_Y + 0.1, ShipShape.HALF_LENGTH + 0.06)
 
 
 ## A round skull-and-bones emblem for the main course sail: one disc just in front of the

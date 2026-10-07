@@ -187,6 +187,7 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var offsets := {
 			"outside": [Vector3(26, 10, 20), Vector3(0, 6, 0)],
 			"bow": [Vector3(-8, 8, -40), Vector3(0, 5, 0)],
+			"stern": [Vector3(3, 5.5, 24), Vector3(0, 3.6, 12)],
 			"high": [Vector3(30, 45, 50), Vector3(0, 0, -20)],
 		}
 		if view.begins_with("island"):
