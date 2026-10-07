@@ -39,6 +39,8 @@ var _label: Label3D
 var _cutlass: Node3D
 var _pistol: Node3D
 var _bucket: Node3D
+var _shovel: Node3D
+var _hammer: Node3D
 var _weapon := Weapons.Kind.CUTLASS
 var _last := Vector3.ZERO
 var _have_last := false
@@ -75,6 +77,16 @@ func _init(player_name: String, look_index: int) -> void:
 	bucket.rotation.y = PI / 2.0
 	_bucket = _in_hand("hand_l", bucket, -1.0)
 	_bucket.visible = false
+	# Tools for digging and patching, their handles through the fist: the spade gripped at the
+	# top, its shaft out of the little-finger side; the hammer's head out past the thumb.
+	var shovel := Toon.instance(Models.part("tools", "shovel"))
+	shovel.rotation.x = -PI / 2.0
+	_shovel = _in_hand("hand_r", shovel, 1.0)
+	var hammer := Toon.instance(Models.part("tools", "hammer"))
+	hammer.rotation.x = -PI / 2.0
+	_hammer = _in_hand("hand_r", hammer, 1.0)
+	_shovel.visible = false
+	_hammer.visible = false
 	_label = Label3D.new()
 	_label.text = player_name
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -248,6 +260,8 @@ func set_state(station_kind: int, swimming: bool, carrying: bool, act: int) -> v
 	_carrying = carrying
 	_act = act
 	_tree.set("parameters/carry/blend_amount", 1.0 if carrying else 0.0)
+	_shovel.visible = act == Act.DIG
+	_hammer.visible = act == Act.HAMMER
 	set_weapon(_weapon)
 
 

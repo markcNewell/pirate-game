@@ -189,9 +189,22 @@ func _make(model: String, recolor: Dictionary) -> Node3D:
 		skeleton.add_child(attach)
 		var rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_r"))
 		var turn := Basis(Vector3.BACK, deg_to_rad(Avatar.ARM_A))
-		var held := Toon.instance(Models.mesh("flintlock" if _args["sheet-weapon"] == "pistol" else "cutlass"))
+		var what: String = _args["sheet-weapon"]
+		var held: MeshInstance3D
+		var lie := Transform3D.IDENTITY
+		match what:
+			"pistol":
+				held = Toon.instance(Models.mesh("flintlock"))
+			"shovel":
+				held = Toon.instance(Models.part("tools", "shovel"))
+				lie = Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3.ZERO)
+			"hammer":
+				held = Toon.instance(Models.part("tools", "hammer"))
+				lie = Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3.ZERO)
+			_:
+				held = Toon.instance(Models.mesh("cutlass"))
 		held.name = "weapon"
-		held.transform = rest.affine_inverse() * Transform3D(turn, rest.origin + turn * Avatar.GRIP)
+		held.transform = rest.affine_inverse() * Transform3D(turn, rest.origin + turn * Avatar.GRIP) * lie
 		attach.add_child(held)
 	if _args.has("sheet-normals"):
 		Models.outline_material(true).set_shader_parameter("normal_source", int(_args["sheet-normals"]))

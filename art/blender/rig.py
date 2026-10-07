@@ -510,19 +510,18 @@ def anim_hurt(arm):
 
 
 def anim_dig(arm):
-    """Driving a shovel into the ground and heaving it up."""
+    """Digging: the right fist on the spade's handle at the top, the left lower down the shaft
+    (placed by left_hand_on), driving the blade into the sand in front and heaving the load up."""
     up = {
-        "upper_arm_r": (70, -20, 10), "upper_arm_l": (55, 25, -10),
-        "forearm_r": (50, 0, 0), "forearm_l": (40, 0, 0),
+        "upper_arm_r": (50, 22, 2), "forearm_r": (55, 0, 0), "hand_r": (40, -28, 0),
         "spine": (-10, -10, 0), "chest": (-5, 0, 0), "head": (10, 0, 0),
         "thigh_r": (10, 0, 6), "thigh_l": (-8, 0, -6), "shin_r": (-15, 0, 0),
     }
     down = merge(up, {
-        "upper_arm_r": (35, -20, 8), "upper_arm_l": (25, 20, -8),
-        "forearm_r": (25, 0, 0), "forearm_l": (20, 0, 0),
-        "spine": (-30, -5, 0), "chest": (-12, 0, 0), "head": (30, 0, 0),
-        "thigh_r": (35, 0, 6), "shin_r": (-45, 0, 0), "thigh_l": (5, 0, -6), "shin_l": (-25, 0, 0),
-        "_root": (0, -0.1, 0),
+        "upper_arm_r": (40, 18, 0), "forearm_r": (35, 0, 0), "hand_r": (95, -28, 0),
+        "spine": (-32, -5, 0), "chest": (-12, 0, 0), "head": (30, 0, 0),
+        "thigh_r": (40, 0, 6), "shin_r": (-55, 0, 0), "thigh_l": (8, 0, -6), "shin_l": (-30, 0, 0),
+        "_root": (0, -0.14, 0),
     })
     return action(arm, "dig", [(0.0, up), (0.35, down), (0.6, down), (1.0, up)])
 
@@ -560,10 +559,65 @@ ANIMATIONS = [anim_idle, anim_walk, anim_run, anim_jump, anim_swim, anim_wheel, 
               anim_idle_blade]
 
 
+# Where the right fist closes round a grip, in the rest pose: the wrist, then along the hand
+# (Avatar.GRIP in the game; the hands rest turned out with the A of the arms).
+GRIP = (-0.0396, -0.121, 0.0)
+ARM_A = 37.7
+
+
+def grip_point(side="r"):
+    """The middle of a fist's grip in the rest pose (Godot coordinates)."""
+    sx = 1 if side == "r" else -1
+    a = math.radians(ARM_A) * sx
+    gx, gy = GRIP[0] * sx, GRIP[1]
+    wrist = joint("hand_" + side)
+    return wrist + Vector((gx * math.cos(a) - gy * math.sin(a), gx * math.sin(a) + gy * math.cos(a), 0.0))
+
+
+def left_hand_on(arm, act_name, held_offset):
+    """Re-pose the left arm of an animation so the left fist stays on something the right
+    hand holds, every frame: an IK target rides on the right hand at `held_offset` from its
+    grip (Godot, rest pose), and the left arm's solved pose is baked into the action."""
+    import bpy
+    scene = bpy.context.scene
+    act = bpy.data.actions[act_name]
+    arm.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    target = bpy.data.objects.new("lefthand_target", None)
+    kit.link(target)
+    target.parent = arm
+    target.parent_type = "BONE"
+    target.parent_bone = "hand_r"
+    bpy.context.view_layer.update()
+    target.matrix_world = Matrix.Translation(V(tuple(grip_point("r") + Vector(held_offset))))
+    arm.data.pose_position = "POSE"
+    # The hand's tip reaches for the target, so the fist (not the wrist) closes on it.
+    ik = arm.pose.bones["hand_l"].constraints.new("IK")
+    ik.target = target
+    ik.chain_count = 3
+    for track in arm.animation_data.nla_tracks:
+        track.mute = True
+    arm.animation_data.action = act
+    kit.active(arm)
+    bpy.ops.object.mode_set(mode="POSE")
+    for pb in arm.pose.bones:
+        pb.select = pb.name in ("upper_arm_l", "forearm_l", "hand_l")
+    start, end = int(act.frame_range[0]), int(act.frame_range[1])
+    bpy.ops.nla.bake(frame_start=start, frame_end=end, only_selected=True, visual_keying=True,
+                     clear_constraints=True, use_current_action=True, bake_types={"POSE"})
+    bpy.ops.object.mode_set(mode="OBJECT")
+    arm.animation_data.action = None
+    bpy.data.objects.remove(target)
+    scene.frame_set(1)
+
+
 def animate(arm):
     bpy.context.scene.render.fps = FPS
     for a in ANIMATIONS:
         a(arm)
+    # Two-handed work: the left hand on the spade's shaft, 0.4 m down from the right fist
+    # (the shaft runs back along +Z from the grip in the rest pose, as Avatar holds it).
+    left_hand_on(arm, "dig", (0.0, 0.0, 0.26))
 
 
 def rest(arm):
