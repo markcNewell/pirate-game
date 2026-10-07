@@ -167,11 +167,17 @@ func _ready() -> void:
 	_add_hull_blocker()
 
 
+## The glowing glass inside one of the ship's lantern housings (modelled in the hull).
 func _lamp(pos: Vector3, glow: Material) -> void:
 	var lamp := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(0.28, 0.34, 0.28)
-	lamp.mesh = box
+	var glass := CylinderMesh.new()
+	glass.top_radius = 0.11
+	glass.bottom_radius = 0.13
+	glass.height = 0.34
+	glass.radial_segments = 8
+	glass.rings = 1
+	lamp.mesh = glass
+	lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	lamp.material_override = glow
 	lamp.position = pos
 	add_child(lamp)

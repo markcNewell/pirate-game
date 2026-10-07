@@ -414,8 +414,8 @@ def mast(m, with_nest, snapped=False):
     prof = [(S.MAST_RADIUS, base), (S.MAST_RADIUS, S.DECK_Y + 0.5), (S.MAST_RADIUS * 0.86, lower_top + 0.6)]
     parts.append(kit.lathe("mast", prof, 12, slot("mast"), centre=(0, 0, z)))
     parts.append(kit.lathe("topmast", [(0.24, lower_top - 0.4), (0.2, top - 1.0), (0.15, top)], 10, slot("mast"), centre=(0, 0, z)))
-    # Iron bands round the lower mast.
-    y = S.DECK_Y + 1.6
+    # Iron bands round the lower mast, in the hold as well as on deck.
+    y = S.LOWER_Y + 0.9
     while y < lower_top - 0.3:
         r = S.MAST_RADIUS * (1 - 0.14 * (y - S.DECK_Y) / (lower_top - S.DECK_Y)) + 0.012
         parts.append(kit.lathe("band", [(r, y - 0.05), (r, y + 0.05)], 12, slot("iron"), caps=False, centre=(0, 0, z)))
@@ -1105,10 +1105,17 @@ def banana_heap(at, r):
 
 
 def hanging_lantern(at):
+    """A lantern hanging from a beam: a hook and chain, a pierced cap with a ring, a base and
+    four bars round the glass (ShipView lights a glowing glass inside)."""
     at = Vector(at)
-    parts = [kit.tube("lanthang", [tuple(at + Vector((0, 0.55, 0))), tuple(at + Vector((0, 0.2, 0)))], 0.012, 4, slot("iron"))]
-    parts.append(kit.lathe("lanttop", [(0.2, 0.0), (0.1, 0.12), (0.0, 0.16)], 8, slot("trim"), centre=tuple(at + Vector((0, 0.17, 0)))))
-    parts.append(kit.lathe("lantbase", [(0.0, 0.0), (0.19, 0.0), (0.19, 0.04), (0.0, 0.04)], 8, slot("trim"), centre=tuple(at - Vector((0, 0.21, 0)))))
+    parts = [kit.tube("lanthang", [tuple(at + Vector((0, 0.55, 0))), tuple(at + Vector((0, 0.3, 0)))], 0.012, 4, slot("iron"))]
+    ring = [tuple(at + Vector((0.04 * math.cos(2 * math.pi * k / 10), 0.3 + 0.0, 0.04 * math.sin(2 * math.pi * k / 10)))) for k in range(11)]
+    parts.append(kit.tube("lantring", ring, 0.01, 4, slot("iron"), caps=False))
+    parts.append(kit.lathe("lanttop", [(0.2, 0.0), (0.16, 0.05), (0.08, 0.12), (0.0, 0.14)], 8, slot("trim"), centre=tuple(at + Vector((0, 0.17, 0)))))
+    parts.append(kit.lathe("lantbase", [(0.0, 0.0), (0.19, 0.0), (0.19, 0.045), (0.0, 0.045)], 8, slot("trim"), centre=tuple(at - Vector((0, 0.215, 0)))))
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        parts.append(kit.box("lantbar", tuple(at + Vector((math.cos(a) * 0.16, 0.0, math.sin(a) * 0.16))), (0.025, 0.38, 0.025), slot("trim")))
     return parts
 
 
