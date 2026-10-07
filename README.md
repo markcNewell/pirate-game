@@ -7,6 +7,11 @@ one ship together on a shared sea hosted by a dedicated server. Built with Godot
 swimming, ladders and three islands to sail around. Combat, treasure and skeletons come in later
 milestones; see the [design spec](docs/specs/2026-10-07-pirate-game-design.md).
 
+| | |
+|---|---|
+| ![Under sail](docs/screenshots/ship-under-sail.png) | ![At the wheel](docs/screenshots/at-the-wheel.png) |
+| ![Crew on deck, island ahead](docs/screenshots/crew-and-island.png) | ![An island](docs/screenshots/island.png) |
+
 ## Play
 
 **From a release** (Windows): download `PirateGame-windows-*.zip` from the repo's Releases, unzip,
