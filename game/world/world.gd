@@ -19,6 +19,9 @@ var _lamps := -1.0
 var _storm: StormView
 var _dolphins: Dolphins
 var _wind_lines: WindLines
+var _whale: Whale
+var _merchant: Node3D
+var _merchant_rest := 0.0
 var _gloom := 0.0
 var _camera := Vector2.ZERO
 var _inside := 0.0
@@ -43,6 +46,8 @@ func _ready() -> void:
 	add_child(_dolphins)
 	_wind_lines = WindLines.new()
 	add_child(_wind_lines)
+	_whale = Whale.new()
+	add_child(_whale)
 
 
 ## `time_of_day` pins the light (0-1, see Daylight); below 0 it follows the server clock.
@@ -52,6 +57,8 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 	_camera = Vector2(camera_pos.x, camera_pos.z)
 	_dolphins.follow(camera_pos, sea_time, ships, get_process_delta_time())
 	_wind_lines.follow(camera_pos, Game.wind_dir(sea_time), _gloom, get_process_delta_time())
+	_whale.follow(camera_pos, sea_time, get_process_delta_time())
+	_animate_merchant(camera_pos, sea_time)
 	_inside = Storm.amount(_camera, sea_time) if storm_enabled else 0.0
 	_storm.visible = storm_enabled
 	# The light changes slowly, so a few updates a second is plenty.
@@ -105,6 +112,19 @@ func _apply_daylight(t: float) -> void:
 	if lamps != _lamps:
 		_lamps = lamps
 		get_tree().call_group(Lantern.GROUP, "set_level", lamps)
+
+
+## The merchant breathes, and turns to watch you when you come close.
+func _animate_merchant(camera_pos: Vector3, t: float) -> void:
+	if _merchant == null:
+		return
+	_merchant.scale = Vector3(1.0, 1.0 + 0.02 * sin(t * 2.2), 1.0)
+	var to := camera_pos - _merchant.global_position
+	var want := _merchant_rest
+	if Vector2(to.x, to.z).length() < 12.0:
+		# The model faces -z, so its heading toward a point is atan2(-x, -z).
+		want = atan2(-to.x, -to.z)
+	_merchant.rotation.y = lerp_angle(_merchant.rotation.y, want, clampf(get_process_delta_time() * 3.0, 0.0, 1.0))
 
 
 static func _stormy(c: Color, s: float) -> Color:
@@ -174,6 +194,8 @@ func _island(spec: Dictionary) -> void:
 		# Face out to sea: the model faces -z, so turn it toward the hut's outward direction.
 		merchant.rotation.y = -PI / 2.0 - Outpost.HUT_ANGLE
 		root.add_child(merchant)
+		_merchant = merchant
+		_merchant_rest = merchant.rotation.y
 		faces.append_array(port.faces)
 		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
 		var lighthouse := Lighthouse.new()

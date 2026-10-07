@@ -16,6 +16,7 @@ extends Node
 ##   --time T                 pin the time of day for this client (0 midnight, 0.5 noon, 0.75 sunset)
 ##   --storm X,Z              pin the storm's centre there, for screenshots
 ##   --dolphins               dolphins visit straight away, for screenshots
+##   --whale                  a whale surfaces ahead straight away, for screenshots
 
 var _menu: Menu
 var _backdrop: MenuBackdrop
@@ -30,6 +31,7 @@ func _ready() -> void:
 	if _args.has("time"):
 		Daylight.override = float(_args.time)
 	Dolphins.eager = _args.has("dolphins")
+	Whale.eager = _args.has("whale")
 	if _args.has("storm"):
 		var xz: PackedStringArray = str(_args.storm).split(",")
 		Storm.pin = Vector2(float(xz[0]), float(xz[1]))
