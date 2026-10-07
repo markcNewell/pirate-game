@@ -169,7 +169,7 @@ static func _tavern(b: MeshBuilder, solid: MeshBuilder) -> void:
 	var plaster := Color("efe6d2")
 	var beam := Color("5a3a24")
 	var roof := Color("9c3a2a")
-	var glow := Color("ffd27a")
+	var glass := Color("3a4250")
 	var half := Vector3(3.0, 0.0, 3.6)
 	b.box(at.call(Vector3(0, 1.4, 0)), Vector3(half.x, 1.4, half.z), stone, f.basis)
 	b.box(at.call(Vector3(0, 4.2, 0)), Vector3(half.x + 0.2, 1.4, half.z + 0.2), plaster, f.basis)
@@ -190,13 +190,24 @@ static func _tavern(b: MeshBuilder, solid: MeshBuilder) -> void:
 	# Door and lit windows on the front, windows upstairs too.
 	b.box(at.call(Vector3(half.x + 0.03, 1.1, 0)), Vector3(0.05, 1.1, 0.65), beam, f.basis)
 	for z: float in [-2.2, 2.2]:
-		b.box(at.call(Vector3(half.x + 0.03, 1.5, z)), Vector3(0.05, 0.5, 0.55), glow, f.basis)
-		b.box(at.call(Vector3(half.x + 0.25, 4.3, z * 0.85)), Vector3(0.04, 0.5, 0.45), glow, f.basis)
+		b.box(at.call(Vector3(half.x + 0.03, 1.5, z)), Vector3(0.05, 0.5, 0.55), glass, f.basis)
+		b.box(at.call(Vector3(half.x + 0.25, 4.3, z * 0.85)), Vector3(0.04, 0.5, 0.45), glass, f.basis)
 	# Hanging sign: a board on a bracket with a tankard painted on it.
 	b.box(at.call(Vector3(half.x + 0.9, 3.3, 1.6)), Vector3(0.9, 0.05, 0.05), beam, f.basis)
 	b.box(at.call(Vector3(half.x + 1.3, 2.75, 1.6)), Vector3(0.04, 0.45, 0.55), Color("2f6a4f"), f.basis)
 	b.box(at.call(Vector3(half.x + 1.35, 2.72, 1.6)), Vector3(0.03, 0.22, 0.17), Toon.color("gold"), f.basis)
 	solid.box(at.call(Vector3(0, 2.8, 0)), Vector3(half.x, 2.8, half.z), Color.BLACK, f.basis)
+
+
+## The tavern's window panes (island-local), lit by World through Lantern.lit_panes so they
+## glow from dusk to dawn.
+static func tavern_windows() -> ArrayMesh:
+	var f := _tavern_frame()
+	var b := MeshBuilder.new()
+	for z: float in [-2.2, 2.2]:
+		b.box(f * Vector3(3.1, 1.5, z), Vector3(0.01, 0.42, 0.47), Color.WHITE, f.basis)
+		b.box(f * Vector3(3.3, 4.3, z * 0.85), Vector3(0.01, 0.42, 0.37), Color.WHITE, f.basis)
+	return b.build()
 
 
 ## A striped lighthouse: a tapering tower, a railed gallery, the lamp room and a red cap.

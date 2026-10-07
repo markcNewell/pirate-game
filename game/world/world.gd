@@ -199,6 +199,7 @@ func _island(spec: Dictionary) -> void:
 		_merchant_rest = merchant.rotation.y
 		faces.append_array(port.faces)
 		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
+		root.add_child(Lantern.lit_panes(Outpost.tavern_windows(), Color("3a4250")))
 		var lighthouse := Lighthouse.new()
 		lighthouse.position = Outpost.lighthouse_lamp() - root.position
 		root.add_child(lighthouse)
