@@ -23,6 +23,8 @@ var _flood: MeshInstance3D
 var _spray: Array[CPUParticles3D] = []
 var _gust_clock := 0.0
 var _mist: Array[MeshInstance3D] = []
+var _gull_pivot: Node3D
+var _gulls: Array[Dictionary] = []
 var _holes := {}  # hole id -> Node3D
 var _hole_mesh: ArrayMesh
 var _patch_mesh: ArrayMesh
@@ -101,6 +103,18 @@ func _ready() -> void:
 
 	if kind == ShipState.Kind.SKELETON:
 		_make_mist()
+	else:
+		# A couple of gulls keep the crew company, wheeling round the mainmast.
+		_gull_pivot = Node3D.new()
+		_gull_pivot.position = Vector3(0, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1] - 2.0, ShipShape.MAST_Z[1])
+		add_child(_gull_pivot)
+		for i in 2:
+			var bird: Dictionary = Gulls.make_bird()
+			var node: Node3D = bird.node
+			node.position = Vector3(5.5 + i * 2.0, i * 1.2, 0)
+			node.rotation.y = PI
+			_gull_pivot.add_child(node)
+			_gulls.append(bird)
 
 	# Spray thrown off both sides of the bow when the ship is moving fast.
 	for side: float in [-1.0, 1.0]:
@@ -209,6 +223,10 @@ func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float)
 
 	_flood.visible = state.water > 0.02
 	_flood.position.y = ShipShape.LOWER_Y + state.water
+	if _gull_pivot:
+		_gull_pivot.rotation.y = _gust_clock * 0.45
+		for i in _gulls.size():
+			Gulls.flap(_gulls[i].wings, _gust_clock, 6.0 + i, i * 1.7)
 	for i in _mist.size():
 		# The ghostly mist swells and shrinks, each puff in its own time.
 		var swell := 1.0 + 0.18 * sin(_gust_clock * 0.9 + i * 1.3)

@@ -171,6 +171,9 @@ void fragment() {
 			foam = 1.0;
 		}
 	}
+	// Shadows of clouds drifting across the open sea, in one flat toon step.
+	float cloud = noise(world_pos.xz * 0.006 + vec2(sea_time * 0.004, sea_time * 0.0025));
+	col *= cloud > 0.62 ? 0.91 : 1.0;
 	col = mix(col, foam_color, foam) * daylight;
 	// Calm the bands far out so the horizon is a clean line, not a stripe of noise.
 	float dist = length(world_pos - CAMERA_POSITION_WORLD);
