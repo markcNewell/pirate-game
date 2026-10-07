@@ -87,6 +87,7 @@ func _apply_daylight(t: float) -> void:
 		look.energy *= 1.0 - 0.65 * s
 		look.glow *= 1.0 - s
 	_sky.set_shader_parameter("overcast", s)
+	_storm.daylight = clampf((look.energy - 0.6) / 0.25, 0.0, 1.0)
 	_gloom = maxf(s, look.stars)
 	_env.fog_depth_begin = lerpf(160.0, 20.0, s)
 	_env.fog_depth_end = lerpf(950.0, 260.0, s)

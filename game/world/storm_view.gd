@@ -10,6 +10,10 @@ var _curtain_material: ShaderMaterial
 var _rain: CPUParticles3D
 var _bolt: MeshInstance3D
 var _bolt_seed := -1
+var _rainbow: MeshInstance3D
+var _rainbow_material: StandardMaterial3D
+## Set by World from the time of day: rainbows only show in good daylight.
+var daylight := 1.0
 
 
 func _ready() -> void:
@@ -38,6 +42,19 @@ func _ready() -> void:
 	_rain = _make_rain()
 	add_child(_rain)
 
+	_rainbow_material = StandardMaterial3D.new()
+	_rainbow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_rainbow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_rainbow_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_rainbow_material.vertex_color_use_as_albedo = true
+	_rainbow_material.vertex_color_is_srgb = true
+	_rainbow_material.disable_fog = true
+	_rainbow = MeshInstance3D.new()
+	_rainbow.mesh = rainbow_mesh()
+	_rainbow.material_override = _rainbow_material
+	_rainbow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_rainbow)
+
 	_bolt = MeshInstance3D.new()
 	_bolt.material_override = Toon.glow_material(Color("eef4ff"))
 	_bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -53,6 +70,14 @@ func follow(camera_pos: Vector3, sea_time: float, inside: float) -> float:
 	# From inside, the curtain would be a wall right round you; the falling rain takes over.
 	_curtain_material.set_shader_parameter("strength", 1.0 - inside * 0.85)
 	_rain.global_position = camera_pos + Vector3(0, 14.0, 0)
+	# Seen from outside on a bright day, a rainbow stands in front of the rain, facing you.
+	var away := Vector2(camera_pos.x, camera_pos.z).distance_to(c)
+	var show := daylight * (1.0 - inside) * smoothstep(Storm.RADIUS * 1.6, Storm.RADIUS * 2.4, away)
+	_rainbow.visible = show > 0.02
+	if _rainbow.visible:
+		var to_cam := Vector3(camera_pos.x - c.x, 0.0, camera_pos.z - c.y).normalized()
+		_rainbow.global_transform = Transform3D(Basis.looking_at(-to_cam), Vector3(c.x, -6.0, c.y) + to_cam * Storm.RADIUS * 0.9)
+		_rainbow_material.albedo_color = Color(1, 1, 1, 0.45 * show)
 	_rain.emitting = inside > 0.25
 	var f := Storm.flash(sea_time)
 	_bolt.visible = f.on
@@ -65,6 +90,37 @@ func follow(camera_pos: Vector3, sea_time: float, inside: float) -> float:
 		_bolt.position = Vector3(off.x, 0.0, off.y)
 	var dist := Vector2(camera_pos.x, camera_pos.z).distance_to(c + f.offset)
 	return clampf(1.0 - dist / (Storm.RADIUS * 4.0), 0.0, 1.0)
+
+
+## A half-ring of seven flat bands, red outside to violet inside, standing upright and facing +z.
+static func rainbow_mesh() -> ArrayMesh:
+	var bands: Array[Color] = [
+		Color("ff4a4a"), Color("ff9a3a"), Color("ffe04a"), Color("5ad85a"), Color("4ab0ff"),
+		Color("5a6aff"), Color("a45aff"),
+	]
+	var outer := 105.0
+	var width := 3.2
+	var verts := PackedVector3Array()
+	var colors := PackedColorArray()
+	var steps := 48
+	for k in bands.size():
+		var r1 := outer - k * width
+		var r0 := r1 - width
+		for i in steps:
+			var a0 := PI * i / steps
+			var a1 := PI * (i + 1) / steps
+			var p := [Vector3(cos(a0) * r0, sin(a0) * r0, 0), Vector3(cos(a1) * r0, sin(a1) * r0, 0),
+				Vector3(cos(a1) * r1, sin(a1) * r1, 0), Vector3(cos(a0) * r1, sin(a0) * r1, 0)]
+			for v: Vector3 in [p[0], p[1], p[2], p[0], p[2], p[3]]:
+				verts.append(v)
+				colors.append(bands[k])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = colors
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 static func _cloud_bank() -> ArrayMesh:
