@@ -20,6 +20,7 @@ var _barrels: Array[Node3D] = []
 var _recoil: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var _aim_override := {}
 var _flood: MeshInstance3D
+var _spray: Array[CPUParticles3D] = []
 var _holes := {}  # hole id -> Node3D
 var _hole_mesh: ArrayMesh
 var _patch_mesh: ArrayMesh
@@ -75,6 +76,13 @@ func _ready() -> void:
 			light.light_energy = 0.55
 			light.omni_range = 6.0
 			add_child(light)
+
+	# Spray thrown off both sides of the bow when the ship is moving fast.
+	for side: float in [-1.0, 1.0]:
+		var spray := _make_spray(side)
+		spray.position = Vector3(side * (ShipShape.half_width(-10.5, 0.0) + 0.15), 0.25, -10.5)
+		add_child(spray)
+		_spray.append(spray)
 
 	_flood = MeshInstance3D.new()
 	_flood.mesh = ShipMesh.flood_mesh()
@@ -172,7 +180,38 @@ func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float)
 
 	_flood.visible = state.water > 0.02
 	_flood.position.y = ShipShape.LOWER_Y + state.water
+	for spray in _spray:
+		spray.emitting = state.speed > 3.0 and state.sink <= 0.0
+		spray.initial_velocity_min = 2.0 + state.speed * 0.35
+		spray.initial_velocity_max = 3.0 + state.speed * 0.6
 	_update_holes(state.holes)
+
+
+func _make_spray(side: float) -> CPUParticles3D:
+	var drop := SphereMesh.new()
+	drop.radius = 0.22
+	drop.height = 0.44
+	drop.radial_segments = 6
+	drop.rings = 3
+	var p := CPUParticles3D.new()
+	p.mesh = drop
+	p.material_override = Toon.clear_material(Color(1, 1, 1, 0.85))
+	p.amount = 64
+	p.lifetime = 0.9
+	p.local_coords = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(0.2, 0.1, 1.2)
+	p.direction = Vector3(side, 1.1, 0.5)
+	p.spread = 26.0
+	p.gravity = Vector3(0, -9.8, 0)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.6
+	var shrink := Curve.new()
+	shrink.add_point(Vector2(0.0, 1.0))
+	shrink.add_point(Vector2(1.0, 0.2))
+	p.scale_amount_curve = shrink
+	p.emitting = false
+	return p
 
 
 ## Point one of our own cannons where the local gunner is looking (this frame only).
