@@ -117,6 +117,8 @@ func _on_join() -> void:
 func _on_host() -> void:
 	_remember()
 	var err := Net.host(Settings.port, Settings.name, Settings.crew)
+	if err == ERR_UNAUTHORIZED:
+		return  # the session_ended message says why
 	if err != OK:
 		_status.text = "Could not host on port %d (%s). Is another game already using it?" % [Settings.port, error_string(err)]
 

@@ -30,17 +30,21 @@ var view_ship := ShipState.new()  # our crew's ship
 ## Our crew's number and its ship's id (the same number), once the server has placed us.
 var own_crew := ServerSim.CREW
 var own_ship := ServerSim.CREW
-## Every crew's purse: crew -> gold.
-var purses := {}
 var view_wind := Vector2(0, -1)
 var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket, carry}
 var view_items := {}  # item id -> Loot
 var view_skeletons := {}  # skeleton id -> Skeleton
-## The crew's gold, its reputation points with each company and its mission (see
-## _decode_mission; empty with none), as last heard. `voyage` is the next X still to dig on
-## a treasure voyage ({island, x, z} or empty).
+## Your own pirate as the server keeps them: XP, gold, the title you wear, standing with each
+## company and the story chapters done (see ServerSim._send_profile).
+var xp := 0
 var purse := 0
+var title := ""
 var rep: Array = [0, 0, 0]
+var chapters: Array = []
+## What everyone shows over their heads: peer id -> [pirate level, title].
+var tags := {}
+## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
+## next X still to dig on a treasure voyage ({island, x, z} or empty).
 var mission := {}
 var voyage := {}
 ## Every crew's cargo run, for drawing the traders: crew -> {island, x, z}.
@@ -93,6 +97,9 @@ func has_view() -> bool:
 
 func _ready() -> void:
 	if is_server():
+		# Pirates are remembered between sessions unless told otherwise (tests).
+		if not options.has("no-save") and not options.has("profiles"):
+			options["profiles"] = "user://profiles"
 		sim = ServerSim.new(options)
 		print("[server] session started, version %s" % GameConfig.VERSION)
 	if has_view():
@@ -161,12 +168,12 @@ func _physics_process(delta: float) -> void:
 		print("[server] " + sim.log_line())
 
 
-func server_can_join(version: String) -> String:
-	return sim.can_join(version)
+func server_can_join(version: String, player_name := "", token := "") -> String:
+	return sim.can_join(version, player_name, token)
 
 
-func server_add_player(id: int, player_name: String, crew := 0) -> void:
-	sim.add_player(id, player_name, crew)
+func server_add_player(id: int, player_name: String, crew := 0, token := "") -> void:
+	sim.add_player(id, player_name, crew, token)
 	roster = sim.roster
 
 
@@ -229,22 +236,17 @@ func client_on_snapshot(data: Array) -> void:
 	for entry in data[3]:
 		var item := Loot.from_array(entry)
 		snap_items[item.id] = item
-	# Every crew's purse; our own crew's purse and treasure hunt.
+	# Every crew's mission; our own crew's treasure hunt.
 	var mine: Dictionary = snap_players.get(local_id, {})
 	if not mine.is_empty():
 		own_crew = mine.crew
 		own_ship = mine.crew
 	traders.clear()
 	for entry in data[4]:
-		purses[int(entry[0])] = int(entry[1])
-		var crew_mission := _decode_mission(entry.slice(5))
+		var crew_mission := _decode_mission(entry.slice(1))
 		if not crew_mission.is_empty() and crew_mission.kind == Missions.Kind.CARGO:
 			traders[int(entry[0])] = crew_mission.targets[0]
 		if int(entry[0]) == own_crew:
-			if int(entry[1]) > purse and has_view():
-				Audio.play("coins", -2.0)
-			purse = int(entry[1])
-			rep = [int(entry[2]), int(entry[3]), int(entry[4])]
 			mission = crew_mission
 			voyage = {}
 			if not mission.is_empty() and mission.kind == Missions.Kind.TREASURE:
@@ -290,6 +292,8 @@ func client_on_roster(new_roster: Dictionary) -> void:
 			avatar.visible = false
 			add_child(avatar)
 			avatars[id] = avatar
+			if tags.has(id):
+				avatar.set_tag(tags[id][0], tags[id][1])
 		index += 1
 
 
@@ -302,9 +306,29 @@ func client_on_message(text: String) -> void:
 
 ## Reliable one-off happenings: a cannon fired, a ball landed.
 func client_on_event(kind: String, data: Array) -> void:
+	if kind == "profile":
+		# Bots have no view but report their gold, so take this first.
+		if int(data[1]) > purse and hud:
+			Audio.play("coins", -2.0)
+		xp = int(data[0])
+		purse = int(data[1])
+		title = str(data[2])
+		rep = [int(data[3]), int(data[4]), int(data[5])]
+		chapters = data[6]
+		return
 	if not has_view():
 		return
 	match kind:
+		"tags":
+			tags.clear()
+			for i in range(0, data.size() - 2, 3):
+				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2])]
+			for id in avatars:
+				if tags.has(id):
+					avatars[id].set_tag(tags[id][0], tags[id][1])
+		"level":
+			if hud:
+				hud.level_up(int(data[0]), str(data[1]))
 		"shot":
 			var id: int = data[0]
 			var ball := {

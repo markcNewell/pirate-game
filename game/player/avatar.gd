@@ -36,6 +36,7 @@ var _skeleton: Skeleton3D
 var _tree: AnimationTree
 var _look: HeadLook
 var _label: Label3D
+var _name := ""
 var _cutlass: Node3D
 var _pistol: Node3D
 var _bucket: Node3D
@@ -98,6 +99,7 @@ func _init(player_name: String, look_index: int) -> void:
 	_label.position.y = 2.3
 	_label.no_depth_test = false
 	add_child(_label)
+	_name = player_name
 	set_weapon(Weapons.Kind.CUTLASS)
 
 
@@ -333,3 +335,8 @@ class HeadLook extends SkeletonModifier3D:
 			var axis := (sk.get_bone_global_pose(parent).basis.inverse() * Vector3.RIGHT).normalized()
 			var q := Quaternion(axis, pitch * float(pair[1]))
 			sk.set_bone_pose_rotation(bone, q * sk.get_bone_pose_rotation(bone))
+
+
+## Pirate level and title under the name (ServerSim tags).
+func set_tag(lvl: int, title: String) -> void:
+	_label.text = "%s\nlevel %d  %s" % [_name, lvl, title]

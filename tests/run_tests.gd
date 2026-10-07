@@ -1,6 +1,7 @@
 extends SceneTree
 ## Runs every tests/test_*.gd file headless:
 ##   godot --headless --path . -s tests/run_tests.gd
+## TEST_ONLY=story runs only the files whose names contain "story".
 ## Exits 1 if any check failed or any script error was logged, so CI can gate on it.
 
 
@@ -24,9 +25,10 @@ func _initialize() -> void:
 	var errors := ErrorCounter.new()
 	OS.add_logger(errors)
 
+	var only := OS.get_environment("TEST_ONLY")
 	var files: Array[String] = []
 	for file in DirAccess.get_files_at("res://tests"):
-		if file.begins_with("test_") and file.ends_with(".gd"):
+		if file.begins_with("test_") and file.ends_with(".gd") and (only == "" or file.contains(only)):
 			files.append(file)
 	files.sort()
 

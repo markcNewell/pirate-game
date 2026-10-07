@@ -28,6 +28,14 @@ var fell := -1.0
 var walking := false
 ## A bounty's skeleton captain: tougher, harder-hitting, slower, and he drops his skull.
 var captain := false
+## One of the Spanish dead (helmet and breastplate).
+var spanish := false
+## Server only: a Spanish thief that runs for a fallen captain's skull and carries it to
+## `boat`; the item it holds (or -1); the crew whose chapter raised it (0 for none).
+var thief := false
+var holding := -1
+var boat := Vector3.ZERO
+var story_crew := 0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
 
@@ -46,7 +54,7 @@ func alive() -> bool:
 
 func to_array() -> Array:
 	var state := 2 if not alive() else (1 if walking else 0)
-	return [id, frame, pos.x, pos.y, pos.z, yaw, hp, state, 1 if captain else 0]
+	return [id, frame, pos.x, pos.y, pos.z, yaw, hp, state, 1 if captain else 0, 1 if spanish else 0, holding]
 
 
 static func from_array(a: Array) -> Skeleton:
@@ -59,6 +67,8 @@ static func from_array(a: Array) -> Skeleton:
 	s.fell = 0.0 if int(a[7]) == 2 else -1.0
 	s.walking = int(a[7]) == 1
 	s.captain = a.size() > 8 and int(a[8]) == 1
+	s.spanish = a.size() > 9 and int(a[9]) == 1
+	s.holding = int(a[10]) if a.size() > 10 else -1
 	return s
 
 
@@ -87,3 +97,23 @@ func step(target: Variant, dt: float, floor_at: Callable) -> bool:
 		pos = Vector3(next.x, ground, next.y)
 		walking = true
 	return false
+
+
+## Walk straight for `goal` (same frame) at `speed`, right up to it; returns how far is left.
+## Stops where the floor gives out (`floor_at` is NAN there), as `step` does.
+func walk_to(goal: Vector3, dt: float, floor_at: Callable, speed := SPEED) -> float:
+	cooldown = maxf(0.0, cooldown - dt)
+	walking = false
+	var flat := Vector2(goal.x - pos.x, goal.z - pos.z)
+	var dist := flat.length()
+	if dist < 0.05:
+		return dist
+	yaw = atan2(-flat.x, -flat.y)
+	var step_len := minf(speed * dt, dist)
+	var next := Vector2(pos.x, pos.z) + flat / dist * step_len
+	var ground: float = floor_at.call(next.x, next.y)
+	if is_nan(ground):
+		return dist
+	pos = Vector3(next.x, ground, next.y)
+	walking = true
+	return dist - step_len

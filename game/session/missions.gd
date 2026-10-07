@@ -5,9 +5,9 @@ extends RefCounted
 ## HUD and map describe them, and the tests check them.
 
 enum Company { GOLD, SOULS, MERCHANT }
-enum Kind { TREASURE, BOUNTY, CARGO }
+enum Kind { TREASURE, BOUNTY, CARGO, STORY }
 
-const COMPANY_NAMES := ["Gold Hoarders", "Order of Souls", "Merchant Alliance"]
+const COMPANY_NAMES := ["Gilded Hand", "Lantern Order", "Merrow Traders"]
 const COMPANY_COLOURS := [Color("ffd23a"), Color("9cff8a"), Color("7ab8ff")]
 ## Each company's kind of mission, by company.
 const COMPANY_KIND := [Kind.TREASURE, Kind.BOUNTY, Kind.CARGO]

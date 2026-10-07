@@ -13,6 +13,7 @@ var options := {}
 var _player_name := ""
 var _bot_role := ""
 var _crew := 0
+var _token := ""
 var _signals_connected := false
 
 
@@ -29,7 +30,11 @@ func host(port: int, player_name: String, crew := 0) -> Error:
 	var err := _create_server(port)
 	if err == OK:
 		_start_game(Game.Role.HOST, 1)
-		game.server_add_player(1, player_name, crew)
+		var refused := game.server_can_join(GameConfig.VERSION, player_name, Settings.get_token())
+		if refused != "":
+			leave(refused)
+			return ERR_UNAUTHORIZED
+		game.server_add_player(1, player_name, crew, Settings.get_token())
 	return err
 
 
@@ -43,6 +48,8 @@ func join(address: String, port: int, player_name: String, bot_role := "", crew 
 	_player_name = player_name
 	_bot_role = bot_role
 	_crew = crew
+	# Bots keep one token per name, so a server that remembers them lets them back in.
+	_token = "bot:" + player_name if bot_role != "" else Settings.get_token()
 	_connect_signals()
 	return OK
 
@@ -89,7 +96,7 @@ func _start_game(role: Game.Role, my_id: int, bot := "") -> void:
 
 
 func _on_connected() -> void:
-	_hello.rpc_id(1, _player_name, GameConfig.VERSION, _crew)
+	_hello.rpc_id(1, _player_name, GameConfig.VERSION, _crew, _token)
 
 
 func _on_connection_failed() -> void:
@@ -186,11 +193,11 @@ func send_request(action: String, arg: int, data: Array = []) -> void:
 # --- RPC endpoints ---
 
 @rpc("any_peer", "call_remote", "reliable")
-func _hello(player_name: String, version: String, crew: int) -> void:
+func _hello(player_name: String, version: String, crew: int, token: String) -> void:
 	if game == null or not game.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
-	var reason := game.server_can_join(version)
+	var reason := game.server_can_join(version, player_name, token)
 	if reason != "":
 		_refused.rpc_id(id, reason)
 		# Give the refusal a moment to arrive before hanging up.
@@ -203,7 +210,7 @@ func _hello(player_name: String, version: String, crew: int) -> void:
 	# The storm shapes the waves everyone floats on, so clients must know if it is on or pinned.
 	var pinned := Storm.pin != Vector2.INF
 	_welcome.rpc_id(id, id, Storm.enabled, pinned, Storm.pin if pinned else Vector2.ZERO)
-	game.server_add_player(id, player_name, crew)
+	game.server_add_player(id, player_name, crew, token)
 
 
 @rpc("authority", "call_remote", "reliable")

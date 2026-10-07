@@ -96,12 +96,12 @@ func test_bounty_captain_skull_and_the_order() -> void:
 	check_eq(r.carry, skull.id, "picked up the skull")
 	r.pos = Outpost.sell_spot()
 	sim.request(1, "sell", 0, [])
-	check_eq(r.carry, skull.id, "the Gold Hoarder does not buy skulls")
+	check_eq(r.carry, skull.id, "Silas does not buy skulls")
 	r.pos = Outpost.mystic_spot()
 	sim.request(1, "sell", 0, [])
-	check_eq(sim.crews[1].purse, skull.value, "the Order pays")
+	check_eq(r.profile.gold, skull.value, "Wren pays")
 	check(sim.crews[1].mission.is_empty(), "bounty done")
-	check_eq(sim.crews[1].rep[Missions.Company.SOULS], Missions.ITEM_POINTS + Missions.FINISH_POINTS)
+	check_eq(r.profile.rep[Missions.Company.SOULS], Missions.ITEM_POINTS + Missions.FINISH_POINTS)
 
 
 func test_cargo_collect_and_deliver() -> void:
@@ -121,9 +121,9 @@ func test_cargo_collect_and_deliver() -> void:
 	check_eq(r.carry, crate.id, "only the trader takes it")
 	r.pos = Islands.trader_spot(2)
 	sim.request(1, "deliver", 0, [])
-	check_eq(sim.crews[1].purse, crate.value, "paid in full on time")
+	check_eq(r.profile.gold, crate.value, "paid in full on time")
 	check(sim.crews[1].mission.is_empty(), "the run is done")
-	check_eq(sim.crews[1].rep[Missions.Company.MERCHANT], Missions.ITEM_POINTS + Missions.FINISH_POINTS)
+	check_eq(r.profile.rep[Missions.Company.MERCHANT], Missions.ITEM_POINTS + Missions.FINISH_POINTS)
 
 
 func test_mission_spots_make_sense() -> void:

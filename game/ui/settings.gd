@@ -13,6 +13,9 @@ static var crew := 0
 ## Overall and music volume, 0-1.
 static var volume := 0.8
 static var music := 0.6
+## A random code made on first launch and sent when joining, so servers keep your pirate's
+## name (and level and gold) for you alone.
+static var token := ""
 
 
 static func load_saved() -> void:
@@ -26,6 +29,18 @@ static func load_saved() -> void:
 	crew = cfg.get_value("player", "crew", crew)
 	volume = cfg.get_value("sound", "volume", volume)
 	music = cfg.get_value("sound", "music", music)
+	token = cfg.get_value("player", "token", token)
+
+
+## The token, made (and saved) the first time it is needed.
+static func get_token() -> String:
+	if token == "":
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		for i in 16:
+			token += "%02x" % rng.randi_range(0, 255)
+		save()
+	return token
 
 
 static func save() -> void:
@@ -37,4 +52,5 @@ static func save() -> void:
 	cfg.set_value("player", "crew", crew)
 	cfg.set_value("sound", "volume", volume)
 	cfg.set_value("sound", "music", music)
+	cfg.set_value("player", "token", token)
 	cfg.save(PATH)

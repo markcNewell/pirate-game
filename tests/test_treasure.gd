@@ -87,10 +87,10 @@ func test_voyage_dig_carry_and_sell() -> void:
 	check_eq(r.carry, chest.id, "picked up")
 	r.pos = Outpost.sell_spot()
 	sim.request(1, "sell", 0, [])
-	check_eq(sim.crews[1].purse, chest.value, "sold for its value")
+	check_eq(r.profile.gold, chest.value, "sold for its value")
 	check(sim.crews[1].mission.is_empty(), "voyage over")
 	check_eq(r.carry, -1)
-	check_eq(sim.crews[1].rep[Missions.Company.GOLD], Missions.CHEST_POINTS + Missions.ITEM_POINTS + Missions.FINISH_POINTS, "the Gold Hoarders are pleased")
+	check_eq(r.profile.rep[Missions.Company.GOLD], Missions.CHEST_POINTS + Missions.ITEM_POINTS + Missions.FINISH_POINTS, "the Gilded Hand is pleased")
 
 
 func test_chest_put_down_aboard_rides_with_the_ship() -> void:

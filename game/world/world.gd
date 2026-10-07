@@ -257,7 +257,7 @@ func _island(spec: Dictionary) -> void:
 		root.add_child(merchant)
 		_merchant = merchant
 		_merchant_rest = merchant.rotation.y
-		# The other companies' people: the Order's mystic on the beach, the Alliance's agent on
+		# The other companies' people: the Lantern Order's mystic on the beach, the Traders' agent on
 		# the pier beside the cargo. Both look out to sea.
 		for who: String in ["mystic", "agent"]:
 			var at := Outpost.mystic_pos() if who == "mystic" else Outpost.agent_pos()

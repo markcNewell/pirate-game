@@ -60,7 +60,10 @@ func _start() -> void:
 		Net.session_failed.connect(func(reason: String) -> void:
 			printerr("[bot %s] %s" % [role, reason])
 			get_tree().quit(2))
-		Net.join(_args.get("join", "127.0.0.1"), port, "Bot %s" % role, role, int(_args.get("crew", 0)))
+		# Two bots of one role in different crews need different names (names are unique).
+		var bot_crew := int(_args.get("crew", 0))
+		var bot_name := "Bot %s" % role + (" %d" % bot_crew if bot_crew > 0 else "")
+		Net.join(_args.get("join", "127.0.0.1"), port, bot_name, role, bot_crew)
 		_maybe_quit_later()
 		return
 

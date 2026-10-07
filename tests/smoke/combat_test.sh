@@ -24,7 +24,7 @@ field() { sed -n "s/.* $1=\([^ ]*\).*/\1/p" <<<"$2"; }
 
 # --- 1. the fight ---
 FIGHT=150
-run --server --calm --ai-delay 3 --port "$PORT" --quit-after "$((FIGHT + 6))" >"$LOGS/fight.log" 2>&1 &
+run --server --no-save --calm --ai-delay 3 --port "$PORT" --quit-after "$((FIGHT + 6))" >"$LOGS/fight.log" 2>&1 &
 server=$!
 sleep 2
 bots=()
@@ -47,7 +47,7 @@ check "a sunk skeleton ship leaves loot" \
 
 # --- 2. the sinking ---
 SINK=70
-run --server --calm --no-ai --test-holes 6 --port "$((PORT + 1))" --quit-after "$((SINK + 4))" >"$LOGS/sink.log" 2>&1 &
+run --server --no-save --calm --no-ai --test-holes 6 --port "$((PORT + 1))" --quit-after "$((SINK + 4))" >"$LOGS/sink.log" 2>&1 &
 server=$!
 sleep 2
 run --bot anchor --port "$((PORT + 1))" --quit-after "$SINK" >"$LOGS/sink_bot.log" 2>&1 || true

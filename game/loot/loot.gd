@@ -5,7 +5,8 @@ extends RefCounted
 ## snapshots carry all but the buried ones.
 
 enum Kind { CHEST, BARREL, SKULL, CRATE }
-enum State { BURIED, GROUND, FLOATING, CARRIED, ON_SHIP }
+## HELD: in a skeleton's arms (`carrier` is the skeleton's id).
+enum State { BURIED, GROUND, FLOATING, CARRIED, ON_SHIP, HELD }
 
 const CHEST_NAMES := ["castaway's chest", "seafarer's chest", "captain's chest"]
 ## Floating loot sinks out of sight after this long (s).

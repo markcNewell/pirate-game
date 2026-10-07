@@ -77,6 +77,9 @@ var _board: PanelContainer
 var _board_box: VBoxContainer
 var _card: Control
 var _purse: Label
+var _level: Control
+var _level_banner: Label
+var _level_banner_left := 0.0
 var _gunner: Label
 var _enemy: Label
 var _crew: PanelContainer
@@ -211,7 +214,7 @@ func _ready() -> void:
 	_help_hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_help_hint.offset_left = -300
 	_help_hint.offset_right = -20
-	_help_hint.offset_top = 76
+	_help_hint.offset_top = 128
 	_help_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	root.add_child(_help_hint)
 
@@ -222,6 +225,27 @@ func _ready() -> void:
 	_purse.offset_top = 16
 	_purse.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	root.add_child(_purse)
+
+	_level = LevelBadge.new()
+	_level.hud = self
+	_level.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_level.offset_left = -300
+	_level.offset_right = -20
+	_level.offset_top = 80
+	_level.offset_bottom = 124
+	root.add_child(_level)
+
+	_level_banner = _label(44)
+	_level_banner.add_theme_font_override("font", display_font())
+	_level_banner.add_theme_color_override("font_color", Color("ffd86a"))
+	_level_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_level_banner.offset_left = -400
+	_level_banner.offset_right = 400
+	_level_banner.offset_top = 170
+	_level_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_level_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_level_banner.modulate.a = 0.0
+	root.add_child(_level_banner)
 
 	_card = MissionCard.new()
 	_card.hud = self
@@ -362,13 +386,14 @@ func _process(delta: float) -> void:
 			var c: int = p.get("crew", 0)
 			if c != last_crew and c > 0:
 				last_crew = c
-				lines.append("%s%s - %d gold" % [ServerSim.CREW_NAMES[c - 1], " (yours)" if c == game.own_crew else "", game.purses.get(c, 0)])
+				lines.append("%s%s" % [ServerSim.CREW_NAMES[c - 1], " (yours)" if c == game.own_crew else ""])
 			var job := ""
 			if p.get("station", -1) >= 0:
 				job = "  -  " + ShipShape.stations()[p.station].label.trim_prefix("take ").trim_prefix("work ")
 			elif p.get("mode", 0) == LocalPlayer.Mode.WORLD:
 				job = "  -  overboard"
-			lines.append("    %s%s%s" % [game.roster[id], " (you)" if id == game.local_id else "", job])
+			var tag: Array = game.tags.get(id, [1, ""])
+			lines.append("    %s  (level %d)%s%s" % [game.roster[id], tag[0], " (you)" if id == game.local_id else "", job])
 		_crew_list.text = "\n".join(lines)
 	_compass.queue_redraw()
 	_gauges.queue_redraw()
@@ -382,6 +407,9 @@ func _process(delta: float) -> void:
 		_ghost.text = "You have fallen.\nThe sea will send you back aboard shortly."
 	var ship := game.view_ship
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
+	_level.queue_redraw()
+	_level_banner_left = maxf(0.0, _level_banner_left - delta)
+	_level_banner.modulate.a = clampf(_level_banner_left, 0.0, 1.0)
 	if Input.is_action_just_pressed("help") and not _menu.visible:
 		toggle_help()
 	_map.visible = Input.is_action_pressed("map") and not game.mission.is_empty() and not _menu.visible
@@ -485,6 +513,13 @@ func _parchment_card() -> PanelContainer:
 
 func flash_damage() -> void:
 	_hurt.color.a = 0.35
+
+
+## A new pirate level: a banner across the top for a few seconds.
+func level_up(lvl: int, level_title: String) -> void:
+	_level_banner.text = "Pirate level %d\n%s" % [lvl, level_title]
+	_level_banner_left = 5.0
+	Audio.play("coins", 0.0)
 
 
 func toast(text: String) -> void:
@@ -707,6 +742,22 @@ class Damage:
 
 
 
+## Top right under the gold: your pirate level and title, and how far to the next level.
+class LevelBadge:
+	extends Control
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var g := hud.game
+		var lvl := Progress.level(g.xp)
+		var font := get_theme_default_font()
+		var text := "Level %d  %s" % [lvl, g.title if g.title != "" else Progress.title_for(lvl)]
+		draw_string(font, Vector2(0, 20), text, HORIZONTAL_ALIGNMENT_RIGHT, size.x, 18, Color("ffd86a"))
+		var bar := Rect2(Vector2(size.x - 180, 30), Vector2(180, 7))
+		Hud.bar(self, bar, Progress.level_fraction(g.xp), Color("ffd86a"))
+
+
 ## The running mission, top left: the company, the title and the steps, done ones dimmed and
 ## struck through; a cargo run's time left.
 class MissionCard:
@@ -758,11 +809,11 @@ class MissionCard:
 			Missions.Kind.TREASURE:
 				for t: Dictionary in m.targets:
 					out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
-				out.append(["Sell to the Gold Hoarder (%d of %d)" % [m.handled, m.total], m.handled >= m.total])
+				out.append(["Sell to Silas Penny (%d of %d)" % [m.handled, m.total], m.handled >= m.total])
 			Missions.Kind.BOUNTY:
 				var t: Dictionary = m.targets[0]
 				out.append(["Beat %s on %s" % [m.captain, Islands.LAYOUT[t.island].name], t.done])
-				out.append(["Bring his skull to the Order of Souls", m.handled >= m.total])
+				out.append(["Bring his skull to Mother Wren", m.handled >= m.total])
 			Missions.Kind.CARGO:
 				var t: Dictionary = m.targets[0]
 				out.append(["Collect the cargo on Port Merrow's pier", false])
@@ -905,7 +956,7 @@ class TreasureMap:
 		for sx: float in [-5.0, 5.0]:
 			draw_circle(at + Vector2(sx, -7), 3.2, Color("c8302a"))
 
-	## A crate marked with the Merchant Alliance's anchor, where the trader waits.
+	## A crate marked with the Merrow Traders' anchor, where the trader waits.
 	func _crate(at: Vector2) -> void:
 		var r := Rect2(at - Vector2(13, 13), Vector2(26, 26))
 		draw_rect(r, Color("c08a50"))

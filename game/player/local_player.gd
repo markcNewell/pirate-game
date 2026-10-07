@@ -272,9 +272,9 @@ func current_target() -> Dictionary:
 		if mode == Mode.WORLD and held:
 			var here := body.global_position
 			if held.kind == Loot.Kind.CHEST and here.distance_to(Outpost.sell_spot()) < 3.5:
-				return {"kind": "sell", "id": 0, "label": "E  sell the %s to the Gold Hoarder (%d gold)" % [what, held.value]}
+				return {"kind": "sell", "id": 0, "label": "E  sell the %s to Silas Penny (%d gold)" % [what, held.value]}
 			if held.kind == Loot.Kind.SKULL and here.distance_to(Outpost.mystic_spot()) < 3.5:
-				return {"kind": "sell", "id": 0, "label": "E  give the skull to the Order of Souls (%d gold)" % held.value}
+				return {"kind": "sell", "id": 0, "label": "E  give the skull to Mother Wren (%d gold)" % held.value}
 			if held.kind == Loot.Kind.CRATE:
 				for crew in game.traders:
 					var t: Dictionary = game.traders[crew]

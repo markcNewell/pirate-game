@@ -1,7 +1,7 @@
 class_name Npc
 extends Node3D
-## One of the companies' people standing about (art/blender/characters.py, npcs): the Order of
-## Souls' mystic, the Merchant Alliance's agent or a castaway trader. They breathe and shift
+## One of the companies' people standing about (art/blender/characters.py, npcs): the Lantern
+## Order's mystic, the Merrow Traders' agent or a castaway trader. They breathe and shift
 ## on their feet, and turn to watch you when you come near.
 
 const WHO := {
