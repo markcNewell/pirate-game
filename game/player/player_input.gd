@@ -51,7 +51,7 @@ static func register_actions() -> void:
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "run": [KEY_SHIFT], "interact": [KEY_E],
 		"crew": [KEY_TAB], "menu": [KEY_ESCAPE], "map": [KEY_M],
-		"weapon_1": [KEY_1], "weapon_2": [KEY_2],
+		"weapon_1": [KEY_1], "weapon_2": [KEY_2], "help": [KEY_H],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

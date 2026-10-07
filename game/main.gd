@@ -171,6 +171,8 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 	elif game and view == "swing":
 		# Start a cutlass swing just before the picture is taken.
 		get_tree().create_timer(maxf(0.0, delay * 0.5 - 0.12)).timeout.connect(game.local_player.weapon_view.attack)
+	elif game and view == "help":
+		game.hud.toggle_help()
 	elif game and view == "ghost":
 		game.sim._hurt_player(game.local_id, 1000, "a falling yard")
 	elif game and view == "map":

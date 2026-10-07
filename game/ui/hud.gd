@@ -70,6 +70,8 @@ var _hurt: ColorRect
 var _ghost: Label
 var _veil: ColorRect
 var _ring: HoldRing
+var _help: PanelContainer
+var _help_hint: Label
 var _map: Control
 var _purse: Label
 var _gunner: Label
@@ -189,6 +191,18 @@ func _ready() -> void:
 	shroud.bg_color = Color(0.1, 0.12, 0.18, 0.15)
 	_ghost.add_theme_stylebox_override("normal", shroud)
 	root.add_child(_ghost)
+
+	_help = _controls_card()
+	root.add_child(_help)
+	_help_hint = _label(16)
+	_help_hint.text = "H  controls"
+	_help_hint.modulate.a = 0.75
+	_help_hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_help_hint.offset_left = -300
+	_help_hint.offset_right = -20
+	_help_hint.offset_top = 76
+	_help_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	root.add_child(_help_hint)
 
 	_purse = _label(22)
 	_purse.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -326,6 +340,8 @@ func _process(delta: float) -> void:
 		_ghost.text = "You have fallen.\nThe sea will send you back aboard shortly."
 	var ship := game.view_ship
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
+	if Input.is_action_just_pressed("help") and not _menu.visible:
+		toggle_help()
 	_map.visible = Input.is_action_pressed("map") and not game.voyage.is_empty() and not _menu.visible
 	_prompt.visible = not _map.visible and not game.local_player.dead
 	if _map.visible:
@@ -355,6 +371,63 @@ func heading() -> float:
 		return 0.0
 	var f := -cam.global_basis.z
 	return fposmod(rad_to_deg(atan2(f.x, -f.z)), 360.0)
+
+
+func toggle_help() -> void:
+	_help.visible = not _help.visible
+	_help_hint.visible = not _help.visible
+
+
+## The controls on a sheet of parchment, shown and hidden with H.
+func _controls_card() -> PanelContainer:
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("f2e2b8")
+	sb.border_color = Color("5a3e22")
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(22)
+	card.add_theme_stylebox_override("panel", sb)
+	card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var box := VBoxContainer.new()
+	card.add_child(box)
+	var title := Label.new()
+	title.text = "How to sail"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", display_font())
+	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_color_override("font_color", Color("5a3e22"))
+	box.add_child(title)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 4)
+	box.add_child(grid)
+	for row: Array in [
+		["W A S D, mouse", "walk and look; Shift runs, Space jumps"],
+		["E", "use what you look at: wheel, sails, anchor, cannon, ladder, hatch, chest"],
+		["E again", "let go of a station"],
+		["At the wheel", "A / D steer"],
+		["At the sails", "W / S raise and lower, A / D swing them to the wind"],
+		["At the anchor", "hold W to winch it up, S to drop it"],
+		["At a cannon", "mouse aims, left click fires"],
+		["Hold E", "patch a hole (needs planks), dig at the X"],
+		["Bucket", "E in the water below decks, then E on deck to throw it out"],
+		["1 / 2, left click", "cutlass or pistol, attack"],
+		["M (hold)", "read your treasure map"],
+		["Tab / Esc", "crew list / menu"],
+		["Storms", "big seas and lightning that holes the hull: patch, bail, or sail out"],
+	]:
+		for i in 2:
+			var cell := Label.new()
+			cell.text = row[i]
+			cell.add_theme_color_override("font_color", Color("2a1a10") if i == 1 else Color("8a2a1a"))
+			cell.add_theme_font_size_override("font_size", 18)
+			grid.add_child(cell)
+	card.visible = false
+	return card
 
 
 func _label(size: int) -> Label:
