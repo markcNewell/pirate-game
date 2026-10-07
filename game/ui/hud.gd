@@ -68,6 +68,7 @@ var _damage: Control
 var _health: Control
 var _hurt: ColorRect
 var _ghost: Label
+var _veil: ColorRect
 var _map: Control
 var _purse: Label
 var _gunner: Label
@@ -162,13 +163,23 @@ func _ready() -> void:
 	_hurt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_hurt)
 
+	# While fallen, the world is seen drained and cold through this veil.
+	_veil = ColorRect.new()
+	_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var veil_material := ShaderMaterial.new()
+	veil_material.shader = load("res://art/shaders/ghost_veil.gdshader")
+	_veil.material = veil_material
+	_veil.visible = false
+	root.add_child(_veil)
+
 	_ghost = _label(48)
 	_ghost.add_theme_font_override("font", display_font())
 	_ghost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_ghost.visible = false
 	var shroud := StyleBoxFlat.new()
-	shroud.bg_color = Color(0.1, 0.12, 0.18, 0.6)
+	shroud.bg_color = Color(0.1, 0.12, 0.18, 0.15)
 	_ghost.add_theme_stylebox_override("normal", shroud)
 	root.add_child(_ghost)
 
@@ -302,12 +313,13 @@ func _process(delta: float) -> void:
 	_health.queue_redraw()
 	_hurt.color.a = maxf(0.0, _hurt.color.a - delta * 1.2)
 	_ghost.visible = game.local_player.dead
+	_veil.visible = _ghost.visible
 	if _ghost.visible:
 		_ghost.text = "You have fallen.\nThe sea will send you back aboard shortly."
 	var ship := game.view_ship
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
 	_map.visible = Input.is_action_pressed("map") and not game.voyage.is_empty() and not _menu.visible
-	_prompt.visible = not _map.visible
+	_prompt.visible = not _map.visible and not game.local_player.dead
 	if _map.visible:
 		_map.queue_redraw()
 	var reload := game.local_player.cannon_reload()

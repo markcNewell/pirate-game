@@ -155,6 +155,8 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var st: Dictionary = ShipShape.stations()[5]
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, st.stand, -PI / 2.0)
 		game.send_request("station", 5)
+	elif game and view == "ghost":
+		game.sim._hurt_player(game.local_id, 1000, "a falling yard")
 	elif game and view == "map":
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6), 0.6)
 		game.send_request("voyage", 0)
