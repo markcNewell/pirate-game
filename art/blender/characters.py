@@ -1127,6 +1127,78 @@ def merchant():
     return [arm, ob]
 
 
+# Your own arm in first person, in the camera's frame (Godot axes: the camera at the origin
+# looking down -Z, +X to the right). The fist closes round a grip at FP_GRIP, the grip running
+# forward, where the weapons are held.
+FP_GRIP = Vector((0.3, -0.33, -0.52))
+# Where fp_arm() puts the wrist and elbow, measured from the grip.
+FP_WRIST = FP_GRIP + Vector((0.1254, 0.0218, 0.0))
+FP_ELBOW = FP_WRIST + Vector((0.14, -0.12, 0.3))
+FP_BONES = {
+    "fp_root": ((0.62, -0.72, 0.22), (0.62, -0.62, 0.22), None),
+    "fp_upper": ((0.66, -0.62, 0.12), tuple(FP_ELBOW), "fp_root"),
+    "fp_fore": (tuple(FP_ELBOW), tuple(FP_WRIST), "fp_upper"),
+    "fp_hand": (tuple(FP_WRIST), tuple(FP_GRIP), "fp_fore"),
+}
+
+
+def fp_rig():
+    """Your arm in first person, rigged: shoulder off the bottom right of the screen, elbow,
+    wrist and fist, with the cuts, the shot, the idle sway and the walking bob keyed on it.
+    Weapons hang off the fist (the game puts them on fp_hand at FP_GRIP)."""
+    arm = rig.build_armature("fp_rig", FP_BONES)
+    built = fp_arm()[0]
+    # fp_arm() has the grip at the origin; carry it to FP_GRIP in the camera's frame.
+    kit.place(built, tuple(FP_GRIP))
+    wrist = FP_WRIST
+    elbow = FP_ELBOW
+
+    def weights(p):
+        d_hand = (p - wrist).dot((FP_GRIP - wrist).normalized())
+        if d_hand > -0.02:
+            return {"fp_hand": 1.0}
+        d_elbow = (p - elbow).dot((wrist - elbow).normalized())
+        if d_elbow > 0.03:
+            return rig.blend("fp_fore", "fp_hand", d_hand + 0.02, 0.03) if d_hand > -0.05 else {"fp_fore": 1.0}
+        if d_elbow > -0.05:
+            return rig.blend("fp_upper", "fp_fore", d_elbow + 0.01, 0.04)
+        return {"fp_upper": 1.0}
+    rig.set_weights(built, weights)
+    built.name = "fp_body"
+    rig.bind(built, arm)
+    fp_animations(arm)
+    rig.rest(arm)
+    return [arm, built]
+
+
+def fp_animations(arm):
+    a = rig.action
+
+    def sway(p):
+        return {"fp_upper": (1.5 * rig.s(p), 1.0 * rig.s(p, 0.3), 0.8 * rig.s(p, 0.6)), "fp_hand": (-1.0 * rig.s(p), 0, 0)}
+    a(arm, "fp_idle", rig.cycle(3.2, sway))
+
+    def bob(p):
+        return {"fp_upper": (3.0 * abs(rig.s(p)) - 1.5, 2.5 * rig.s(p), 1.5 * rig.s(p)), "fp_hand": (-2.0 * abs(rig.s(p)), 0, 0)}
+    a(arm, "fp_walk", rig.cycle(0.62, bob))
+    rest = {}
+    # Signs here: a hand's +x tips the blade up, +y swings it to the left.
+    # A cut from up on the right across and down to the left...
+    wind = {"fp_upper": (22, -12, -18), "fp_fore": (30, 0, 0), "fp_hand": (45, -30, 10)}
+    cut = {"fp_upper": (-6, 30, 12), "fp_fore": (0, 0, 0), "fp_hand": (-28, 38, -10)}
+    a(arm, "fp_slash", [(0.0, rest), (0.09, wind), (0.2, cut), (0.42, rest)], loop=False)
+    # ...and the backhand, from up on the left across and down to the right.
+    wind2 = {"fp_upper": (15, 28, 12), "fp_fore": (25, 0, 0), "fp_hand": (40, 45, -15)}
+    cut2 = {"fp_upper": (-4, -14, -8), "fp_fore": (8, 0, 0), "fp_hand": (-18, -28, 15)}
+    a(arm, "fp_slash2", [(0.0, rest), (0.08, wind2), (0.2, cut2), (0.42, rest)], loop=False)
+    # The pistol comes up toward the middle of the view, kicks muzzle-up and settles.
+    aim = {"fp_upper": (14, 16, 0), "fp_fore": (-6, 0, 0), "fp_hand": (8, 6, 0)}
+    kick = {"fp_upper": (24, 16, 0), "fp_fore": (8, 0, 0), "fp_hand": (32, 6, 0)}
+    a(arm, "fp_shoot", [(0.0, rest), (0.06, aim), (0.1, kick), (0.32, aim), (0.5, rest)], loop=False)
+    low = {"fp_upper": (-40, -10, 20), "fp_fore": (-30, 0, 0), "fp_hand": (20, 0, 0)}
+    a(arm, "fp_equip", [(0.0, low), (0.3, rest)], loop=False)
+
+
 def fp_arm():
     """Your own right arm in first person: the fist round a grip at the origin (the grip runs
     along -Z, as weapons are made), the forearm and sleeve running back to the lower right."""
@@ -1156,11 +1228,11 @@ def fp_arm():
 
 
 def main(names):
-    builders = {"pirate": pirate, "skeleton": skeleton, "merchant": merchant, "fp_arm": fp_arm}
+    builders = {"pirate": pirate, "skeleton": skeleton, "merchant": merchant, "fp_arm": fp_arm, "fp_rig": fp_rig}
     for name in names or builders:
         kit.reset()
         objs = builders[name]()
-        kit.export(name, objs, animations=name in ("pirate", "skeleton", "merchant"), ao_distance=0.12, ao_strength=0.8)
+        kit.export(name, objs, animations=name in ("pirate", "skeleton", "merchant", "fp_rig"), ao_distance=0.12, ao_strength=0.8)
 
 
 if __name__ == "__main__":

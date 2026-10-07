@@ -514,8 +514,7 @@ func update_view() -> void:
 		if not target.is_empty() and target.kind in ["dig", "patch"]:
 			tool = "shovel" if target.kind == "dig" else "hammer"
 	weapon_view.set_tool(tool)
-	if tool == "":
-		weapon_view.position = Vector3(0.3, -0.33, -0.52)
+	weapon_view.moving = Vector2(body.velocity.x, body.velocity.z).length() > 1.0
 	weapon_view.show_weapon(weapon, not dead and station < 0 and carry < 0)
 
 

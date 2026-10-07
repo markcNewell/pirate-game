@@ -148,6 +148,11 @@ func _ready() -> void:
 func _studio(model: String, recolor: Dictionary) -> void:
 	var inst := _make(model, recolor)
 	add_child(inst)
+	if _args.has("sheet-anim"):
+		var player: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
+		player.play(_args["sheet-anim"])
+		player.seek(float(_args.get("sheet-at", 0.0)), true)
+		player.pause()
 	var cam := Camera3D.new()
 	cam.fov = float(_args.get("sheet-fov", 50.0))
 	cam.near = 0.05

@@ -54,12 +54,12 @@ def joint(name):
     return Vector(BONES[name][0])
 
 
-def build_armature(name="rig"):
+def build_armature(name="rig", bones=None):
     arm = bpy.data.armatures.new(name)
     ob = kit.link(bpy.data.objects.new(name, arm))
     kit.active(ob)
     bpy.ops.object.mode_set(mode="EDIT")
-    for b, (head, tail, parent) in BONES.items():
+    for b, (head, tail, parent) in (bones or BONES).items():
         eb = arm.edit_bones.new(b)
         eb.head = V(head)
         eb.tail = V(tail)
@@ -224,6 +224,7 @@ def merge(*poses):
 def action(armature, name, keys, loop=True):
     """An animation from [(time_seconds, pose)]. For loops the first pose is repeated at the end
     time given by the last key."""
+    bpy.context.scene.render.fps = FPS
     act = bpy.data.actions.new(name)
     act.use_fake_user = True
     if armature.animation_data is None:

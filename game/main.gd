@@ -192,6 +192,17 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		print("MOUSELOOK captured=%s yaw_before=%.3f yaw_after=%.3f turned=%s" % [
 			Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, before, game.local_player.yaw,
 			absf(game.local_player.yaw - before) > 0.1])
+	elif game and view == "fp":
+		# Freeze your own arm in one of its animations: --shot-anim NAME --shot-at SECONDS
+		# (--shot-pistol to hold the pistol).
+		var wv := game.local_player.weapon_view
+		if _args.has("shot-pistol"):
+			game.local_player.weapon = Weapons.Kind.PISTOL
+		get_tree().create_timer(maxf(0.0, delay * 0.5 - 0.3)).timeout.connect(func() -> void:
+			var player: AnimationPlayer = wv._player
+			player.play(str(_args.get("shot-anim", "fp_idle")))
+			player.seek(float(_args.get("shot-at", 0.0)), true)
+			player.pause())
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":
