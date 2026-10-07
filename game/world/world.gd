@@ -208,6 +208,10 @@ func _island(spec: Dictionary) -> void:
 			var light := Lantern.new(Color("ffd08a"), 1.6, 9.0)
 			light.position = lamp - root.position
 			root.add_child(light)
+	if not spec.outpost:
+		var flies := Fireflies.new(spec.radius)
+		flies.position = Vector3(0, IslandMesh.ground(spec, 0.0, 0.0) + 1.6, 0)
+		root.add_child(flies)
 	if built.fire != null:
 		var fire := Lantern.new(Color("ff9a4a"), 2.2, 14.0, true)
 		fire.position = built.fire
