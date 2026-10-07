@@ -47,6 +47,8 @@ const CAPSTAN := Vector3(0.0, DECK_Y, -3.2)
 const WHEEL := Vector3(0.0, QUARTER_Y, 9.0)
 ## The map table on the quarterdeck, beside the wheel, where voyages are taken.
 const MAP_TABLE := Vector3(-2.1, QUARTER_Y, 9.4)
+## The banana barrel on the lower deck, toward the stern.
+const BANANA_BARREL := Vector3(1.0, LOWER_Y, 4.6)
 
 ## Four deck cannons, a pair at each of these lengths, one each side.
 const CANNON_Z: Array[float] = [-1.2, 3.6]

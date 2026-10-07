@@ -10,6 +10,8 @@ var interact := false
 ## E held down (for patching), and the left mouse button pressed this tick (cannons).
 var interact_held := false
 var fire := false
+## 0 or 1 when a weapon key was pressed this tick (1 cutlass, 2 pistol), else -1.
+var weapon_key := -1
 ## Radians to turn this tick: x = yaw left/right, y = pitch up/down.
 var look := Vector2.ZERO
 var is_bot := false
@@ -33,6 +35,11 @@ func poll() -> void:
 	interact = playing and Input.is_action_just_pressed("interact")
 	interact_held = playing and Input.is_action_pressed("interact")
 	fire = playing and Input.is_action_just_pressed("fire")
+	weapon_key = -1
+	if playing and Input.is_action_just_pressed("weapon_1"):
+		weapon_key = Weapons.Kind.CUTLASS
+	elif playing and Input.is_action_just_pressed("weapon_2"):
+		weapon_key = Weapons.Kind.PISTOL
 	look = _mouse
 	_mouse = Vector2.ZERO
 
@@ -44,6 +51,7 @@ static func register_actions() -> void:
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "run": [KEY_SHIFT], "interact": [KEY_E],
 		"crew": [KEY_TAB], "menu": [KEY_ESCAPE], "map": [KEY_M],
+		"weapon_1": [KEY_1], "weapon_2": [KEY_2],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

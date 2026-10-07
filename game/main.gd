@@ -129,6 +129,12 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6), 0.6)
 		game.send_request("voyage", 0)
 		Input.action_press("map")
+	elif game and view == "fight":
+		# Ashore on Parrot Rock, where the camp wakes and comes for us.
+		var spec: Dictionary = Islands.LAYOUT[1]
+		var at := Vector3(spec.x - 12.0, 0, spec.z + 6.0)
+		at.y = Islands.ground_at(1, at.x, at.z)
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, at, -1.0)
 	elif game and view == "below":
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, Vector3(-0.8, ShipShape.LOWER_Y, 2.5), 0.25)
 	elif game and view == "enemy":

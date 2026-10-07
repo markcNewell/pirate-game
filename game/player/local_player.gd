@@ -41,6 +41,13 @@ var station := -1
 var bucket := false
 ## The item in our arms (a chest), or -1.
 var carry := -1
+## Which ship's frame we stand in while ON_SHIP (our own is ServerSim.CREW).
+var ship_id := 0
+var hp := 100
+var dead := false
+var weapon := Weapons.Kind.CUTLASS
+var weapon_view: WeaponView
+var _attack_ready := 0.0
 var teleport_seq := 0
 var swimming := false
 var sensitivity := 0.0025
@@ -82,6 +89,8 @@ func _ready() -> void:
 	camera.far = 3000.0
 	head.add_child(camera)
 	camera.make_current()
+	weapon_view = WeaponView.new()
+	camera.add_child(weapon_view)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -93,9 +102,18 @@ func _physics_process(delta: float) -> void:
 	if not active or game == null:
 		return
 	input.poll()
+	_prev = _curr
+	if dead:
+		# A ghost: no moving or acting until the server brings us back.
+		body.velocity = Vector3.ZERO
+		_curr = frame_position()
+		return
 	yaw = wrapf(yaw - input.look.x, -PI, PI)
 	pitch = clampf(pitch - input.look.y, -1.45, 1.45)
-	_prev = _curr
+	_attack_ready -= delta
+	if input.weapon_key >= 0 and input.weapon_key != weapon:
+		weapon = input.weapon_key
+		game.send_request("weapon", weapon)
 
 	if station >= 0:
 		body.global_position = DeckProxy.to_proxy(_stations[station].stand)
@@ -111,6 +129,10 @@ func _physics_process(delta: float) -> void:
 		else:
 			_move_in_world(delta)
 		_interact(delta)
+		if input.fire and carry < 0 and _attack_ready <= 0.0:
+			_attack_ready = Weapons.CUTLASS_COOLDOWN if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_RELOAD
+			weapon_view.attack()
+			game.send_request("attack", weapon, [yaw, pitch])
 
 	_curr = frame_position()
 	_send_timer += delta
@@ -124,7 +146,7 @@ func _physics_process(delta: float) -> void:
 func _move_on_ship(delta: float) -> void:
 	var local := DeckProxy.from_proxy(body.global_position)
 	# Wading through a flooded lower deck is slow going.
-	var depth := game.view_ship.water - (local.y - ShipShape.LOWER_Y)
+	var depth := frame_ship().water - (local.y - ShipShape.LOWER_Y)
 	var scale := 0.55 if ShipShape.is_below_deck(local) and depth > 0.6 else 1.0
 	if carry >= 0:
 		scale *= CARRY_SPEED
@@ -151,10 +173,11 @@ func _move_in_world(delta: float) -> void:
 
 ## Leave the ship frame: carry position, heading and momentum (including the ship's) into the world.
 func _go_overboard(local: Vector3) -> void:
-	var ship_tf := game.ship_view.global_transform
+	var ship_tf := game.frame_transform(ship_id)
+	var ship := frame_ship()
 	var vel := ship_tf.basis * body.velocity
-	var drift := ShipPhysics.forward(game.view_ship.yaw) * game.view_ship.speed
-	yaw = wrapf(yaw + game.view_ship.yaw, -PI, PI)
+	var drift := ShipPhysics.forward(ship.yaw) * ship.speed
+	yaw = wrapf(yaw + ship.yaw, -PI, PI)
 	_set_mode(Mode.WORLD)
 	body.global_position = ship_tf * local
 	body.velocity = vel + Vector3(drift.x, 0.0, drift.y)
@@ -178,14 +201,14 @@ func _interact(delta: float) -> void:
 		"station":
 			game.send_request("station", target.id)
 		"ladder":
-			game.send_request("climb", target.id)
+			game.send_request("climb", target.id, [_ladder_ship])
 		"hatch":
 			game.send_request("hatch", target.id)
 		"scoop":
 			game.send_request("scoop", 0)
 		"throw":
 			game.send_request("throw", 0)
-		"sell", "drop", "voyage":
+		"sell", "drop", "voyage", "eat":
 			game.send_request(target.kind, 0)
 		"pickup", "open", "restock":
 			game.send_request(target.kind, target.id)
@@ -210,13 +233,16 @@ func current_target() -> Dictionary:
 	if mode == Mode.WORLD:
 		var side := nearest_ladder()
 		if side != 0:
-			return {"kind": "ladder", "id": side, "label": "E  climb the ladder"}
+			var whose := "climb the ladder" if _ladder_ship == ServerSim.CREW else "board the skeleton ship!"
+			return {"kind": "ladder", "id": side, "label": "E  %s" % whose}
 		var barrel := nearest_outpost_barrel()
 		if barrel >= 0:
 			return {"kind": "restock", "id": barrel, "label": "E  load supplies onto the ship"}
 		if not game.voyage.is_empty() and not swimming and Islands.island_at(body.global_position.x, body.global_position.z) >= 0:
 			return {"kind": "dig", "id": 0, "label": "Hold E  dig"}
 		return {}
+	if ship_id != ServerSim.CREW:
+		return {}  # aboard someone else's ship: nothing of theirs to use
 	# Of everything in reach, use the thing we are looking at most directly.
 	var local := frame_position()
 	var eye := local + Vector3.UP * EYE_HEIGHT
@@ -236,6 +262,12 @@ func current_target() -> Dictionary:
 		candidates.append({"kind": "hatch", "id": 0, "label": "E  climb down the hatch", "at": ShipShape.hatch_top_target()})
 	if ShipShape.is_below_deck(local) and eye.distance_to(ShipShape.hatch_bottom_target()) < HATCH_REACH:
 		candidates.append({"kind": "hatch", "id": 1, "label": "E  climb up", "at": ShipShape.hatch_bottom_target()})
+	if ShipShape.is_below_deck(local) and hp < 100 and game.view_ship.bananas > 0 \
+			and _looking_at(eye, ShipShape.BANANA_BARREL + Vector3.UP * 0.9, 2.6, 0.3):
+		candidates.append({
+			"kind": "eat", "id": 0, "at": ShipShape.BANANA_BARREL + Vector3.UP * 0.9,
+			"label": "E  eat a banana (%d left)" % game.view_ship.bananas,
+		})
 	if _looking_at(eye, ShipShape.map_table_target(), 2.6, 0.3):
 		var map_label := "E  take a voyage" if game.voyage.is_empty() else "Hold M  read your map"
 		candidates.append({"kind": "voyage", "id": 0, "label": map_label, "at": ShipShape.map_table_target()})
@@ -332,16 +364,28 @@ func nearest_outpost_barrel() -> int:
 	return -1
 
 
-## The ladder (-1 port, 1 starboard) within reach of a swimmer, or 0.
+var _ladder_ship := 0
+
+
+## The ladder (-1 port, 1 starboard) of any ship within reach of a swimmer, or 0.
+## Which ship it belongs to is left in _ladder_ship.
 func nearest_ladder() -> int:
-	if game.ship_view == null or game.view_ship.is_sinking():
-		return 0
 	var p := body.global_position
-	for side: int in [-1, 1]:
-		var bottom: Vector3 = game.ship_view.global_transform * ShipShape.ladder_bottom(side)
-		if Vector2(p.x - bottom.x, p.z - bottom.z).length() < LADDER_REACH and absf(p.y - bottom.y) < 3.0:
-			return side
+	for id in game.ship_views:
+		var s: ShipState = game.view_ships.get(id)
+		if s == null or s.is_sinking():
+			continue
+		for side: int in [-1, 1]:
+			var bottom: Vector3 = game.ship_views[id].global_transform * ShipShape.ladder_bottom(side)
+			if Vector2(p.x - bottom.x, p.z - bottom.z).length() < LADDER_REACH and absf(p.y - bottom.y) < 3.0:
+				_ladder_ship = id
+				return side
 	return 0
+
+
+## The ship whose frame we stand in.
+func frame_ship() -> ShipState:
+	return game.view_ships.get(ship_id, game.view_ship)
 
 
 ## The aim of the cannon we are manning, from where we look: (yaw toward the bow, pitch).
@@ -377,6 +421,8 @@ func prompt() -> String:
 ## The server placed us: on spawn, at a station, up a ladder, on respawn or as a correction.
 func apply_teleport(data: Array) -> void:
 	teleport_seq = data[0]
+	if data.size() > 6 and int(data[6]) >= 0:
+		ship_id = int(data[6])
 	_set_mode(data[1])
 	var p := Vector3(data[2], data[3], data[4])
 	yaw = data[5]
@@ -403,8 +449,9 @@ func update_view() -> void:
 		return
 	var p := _prev.lerp(_curr, Engine.get_physics_interpolation_fraction())
 	var look := Transform3D(Basis(Vector3.UP, yaw), p)
-	head.global_transform = game.ship_view.global_transform * look if mode == Mode.ON_SHIP else look
+	head.global_transform = game.frame_transform(ship_id) * look if mode == Mode.ON_SHIP else look
 	camera.rotation.x = pitch
+	weapon_view.show_weapon(weapon, not dead and station < 0 and carry < 0)
 
 
 func world_position() -> Vector3:

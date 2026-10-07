@@ -14,6 +14,9 @@ var _toast_left := 0.0
 var _compass: Control
 var _gauges: Control
 var _damage: Control
+var _health: Control
+var _hurt: ColorRect
+var _ghost: Label
 var _map: Control
 var _purse: Label
 var _gunner: Label
@@ -91,6 +94,30 @@ func _ready() -> void:
 	_enemy.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_enemy.add_theme_color_override("font_color", Color("b8f5ae"))
 	root.add_child(_enemy)
+
+	_health = Health.new()
+	_health.hud = self
+	_health.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_health.offset_left = -160
+	_health.offset_right = 160
+	_health.offset_top = -64
+	_health.offset_bottom = -24
+	root.add_child(_health)
+
+	_hurt = ColorRect.new()
+	_hurt.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hurt.color = Color(0.8, 0.05, 0.05, 0.0)
+	_hurt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_hurt)
+
+	_ghost = _label(34)
+	_ghost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ghost.visible = false
+	var shroud := StyleBoxFlat.new()
+	shroud.bg_color = Color(0.1, 0.12, 0.18, 0.6)
+	_ghost.add_theme_stylebox_override("normal", shroud)
+	root.add_child(_ghost)
 
 	_purse = _label(22)
 	_purse.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -209,6 +236,11 @@ func _process(delta: float) -> void:
 	_compass.queue_redraw()
 	_gauges.queue_redraw()
 	_damage.queue_redraw()
+	_health.queue_redraw()
+	_hurt.color.a = maxf(0.0, _hurt.color.a - delta * 1.2)
+	_ghost.visible = game.local_player.dead
+	if _ghost.visible:
+		_ghost.text = "You have fallen.\nThe sea will send you back aboard shortly."
 	var ship := game.view_ship
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
 	_map.visible = Input.is_action_pressed("map") and not game.voyage.is_empty() and not _menu.visible
@@ -221,6 +253,10 @@ func _process(delta: float) -> void:
 	if enemy:
 		var d := Vector2(enemy.x - game.view_ship.x, enemy.z - game.view_ship.z)
 		_enemy.text = "Skeleton ship: %d m %s" % [int(d.length()), ServerSim.compass_name(atan2(d.x, -d.y))]
+
+
+func flash_damage() -> void:
+	_hurt.color.a = 0.35
 
 
 func toast(text: String) -> void:
@@ -393,3 +429,22 @@ class TreasureMap:
 		var hint := "%d m to the %s" % [int(to.length()), ServerSim.compass_name(atan2(to.x, -to.y))]
 		draw_string(font, Vector2(0, size.y - 22), hint, HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, INKY)
 		draw_string(font, Vector2(size.x - 40, 40), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("c8302a"))
+
+
+
+## Health bar and the weapon in hand (1 cutlass, 2 pistol).
+class Health:
+	extends Control
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var lp := hud.game.local_player
+		var font := get_theme_default_font()
+		var bar := Rect2(Vector2(0, 22), Vector2(size.x, 14))
+		draw_rect(bar.grow(3), Color(INK, 0.6))
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * lp.hp / 100.0, bar.size.y)), Color("e04a3a") if lp.hp < 35 else Color("63c25a"))
+		var names := ["1 cutlass", "2 pistol"]
+		for i in 2:
+			var col := Toon.color("stripe") if lp.weapon == i else Color(PAPER, 0.6)
+			draw_string(font, Vector2(i * size.x * 0.5, 14), names[i], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.5, 18, col)

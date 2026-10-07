@@ -29,6 +29,15 @@ const OPEN_SHIP_RANGE := 60.0
 const BARREL_BALLS := 15
 const BARREL_PLANKS := 8
 const MAP_TABLE_REACH := 3.0
+const HEALTH := 100
+const GHOST_TIME := 8.0
+const BANANA_HEAL := 50
+const EAT_REACH := 2.2
+const CAMP_SIZE := 3
+const CAMP_WAKE := 80.0
+const CAMP_RESPAWN := 180.0
+const SHIP_SKELETONS := 3
+const ATTACK_SLACK := 0.1
 
 var time := 0.0
 var ships := {}  # ship id -> ShipState
@@ -42,6 +51,7 @@ var stats := {
 	"max_speed": 0.0, "stations_taken": 0, "climbs": 0, "corrections": 0, "shots": 0,
 	"hits": 0, "holes": 0, "patched": 0, "bailed": 0, "ai_spawned": 0, "ai_sunk": 0, "crew_sunk": 0,
 	"voyages": 0, "dug": 0, "sold": 0, "restocked": 0, "loot_spawned": 0, "stowed": 0,
+	"kills": 0, "falls": 0, "eaten": 0, "boarded": 0, "skeleton_swings": 0,
 }
 var items := {}  # item id -> Loot
 ## The crew's shared gold, and the treasure hunt in progress ({} when none).
@@ -50,6 +60,10 @@ var voyage := {}
 ## Test hook: the island the next voyage goes to (-1 for random).
 var options_island := -1
 var _next_item := 1
+var skeletons := {}  # skeleton id -> Skeleton
+var camps := {}  # island index -> {"alive": int, "wake": time it may next wake}
+var _next_skeleton := 1
+var _passive := {}  # skeleton ships that only sit there (tests)
 
 var ai_enabled := true
 var next_ai_time := AI_FIRST_DELAY
@@ -76,6 +90,8 @@ func _init(options: Dictionary = {}) -> void:
 		crew_ship().x = spot.x
 		crew_ship().z = spot.z
 		crew_ship().yaw = Captain.bearing(Vector2(spot.x, spot.z), _island_xz(where))
+	if options.has("test-boarding"):
+		_spawn_passive_skeleton_ship()
 	if options.has("test-chest"):
 		_new_item(Loot.Kind.CHEST, Loot.State.ON_SHIP, Vector3(-1.2, ShipShape.DECK_Y, -2.2), 250)
 	# Test hook: start with this many holes in the crew's ship.
@@ -102,7 +118,7 @@ func tick(dt: float) -> void:
 	for id in ships.keys():
 		var s: ShipState = ships[id]
 		var c := _crew_controls() if id == CREW else ShipControls.new()
-		if captains.has(id) and not s.is_sinking():
+		if captains.has(id) and not s.is_sinking() and not _passive.has(id):
 			var orders: Array = captains[id].think(s, crew_ship(), wind, time, dt, Islands.LAYOUT, c)
 			for shot: Dictionary in orders:
 				_fire(id, shot.gun, shot.yaw, shot.pitch, Captain.RELOAD + _rng.randf())
@@ -115,6 +131,9 @@ func tick(dt: float) -> void:
 	_step_projectiles()
 	_handle_sinking()
 	_step_items(dt)
+	_wake_camps()
+	_step_skeletons(dt)
+	_step_ghosts()
 
 
 func _crew_controls() -> ShipControls:
@@ -145,14 +164,20 @@ func snapshot() -> Array:
 	var list := []
 	for id in players:
 		var r: Dictionary = players[id]
-		list.append([id, r.mode, r.ship, r.pos.x, r.pos.y, r.pos.z, r.yaw, r.pitch, r.station, 1 if r.bucket else 0, r.carry])
+		list.append([
+			id, r.mode, r.ship, r.pos.x, r.pos.y, r.pos.z, r.yaw, r.pitch, r.station, 1 if r.bucket else 0,
+			r.carry, r.hp, 1 if r.dead_until >= 0.0 else 0, r.weapon,
+		])
 	var item_list := []
 	for id in items:
 		var item: Loot = items[id]
 		if item.state != Loot.State.BURIED:
 			item_list.append(item.to_array())
 	var hunt := [] if voyage.is_empty() else [voyage.island, voyage.x, voyage.z]
-	return [time, ship_list, list, item_list, purse, hunt]
+	var bones := []
+	for id in skeletons:
+		bones.append(skeletons[id].to_array())
+	return [time, ship_list, list, item_list, purse, hunt, bones]
 
 
 func log_line() -> String:
@@ -198,6 +223,7 @@ func _maybe_spawn_skeleton() -> void:
 	_next_ship_id += 1
 	ships[id] = s
 	captains[id] = Captain.new(id)
+	_crew_skeleton_ship(id)
 	stats.ai_spawned += 1
 	var from := spot - origin
 	print("[server] skeleton ship %d spawned at (%.0f, %.0f)" % [id, spot.x, spot.y])
@@ -238,6 +264,9 @@ func _handle_sinking() -> void:
 					_crew_respawn_at = time + CREW_RESPAWN_DELAY
 			else:
 				_drop_wreck_loot(s)
+				for sid in skeletons.keys():
+					if skeletons[sid].frame == id:
+						skeletons.erase(sid)
 				ships.erase(id)
 				captains.erase(id)
 				_evacuated.erase(id)
@@ -263,7 +292,7 @@ func _evacuate(ship_id: int) -> void:
 		r.bucket = false
 		var world: Vector3 = pose * r.pos
 		world.y = maxf(world.y, Waves.height(world.x, world.z, time) + 0.5)
-		_teleport(id, LocalPlayer.Mode.WORLD, world, r.yaw + ships[ship_id].yaw)
+		_teleport(id, LocalPlayer.Mode.WORLD, world, r.yaw + ships[ship_id].yaw, -1)
 
 
 func _separate_ships() -> void:
@@ -356,12 +385,14 @@ func _projectile_hits(p: Dictionary, pos: Vector3, age: float, poses: Dictionary
 		return true
 	if pos.y < Waves.height(pos.x, pos.z, time):
 		Net.send_event("impact", [p.id, 0, pos.x, pos.y, pos.z, -1, time])
+		_splash(pos)
 		return true
 	for island in Islands.LAYOUT:
 		var dx: float = pos.x - island.x
 		var dz: float = pos.z - island.z
 		if dx * dx + dz * dz < (island.radius + 14.0) ** 2 and pos.y < IslandMesh.ground(island, dx, dz) + 0.3:
 			Net.send_event("impact", [p.id, 3, pos.x, pos.y, pos.z, -1, time])
+			_splash(pos)
 			return true
 	return false
 
@@ -382,6 +413,7 @@ func _hull_hit(p: Dictionary, ship_id: int, local: Vector3, world: Vector3) -> v
 		else:
 			s.water = minf(ShipPhysics.SINK_LEVEL, s.water + 0.15)
 	Net.send_event("impact", [p.id, kind, world.x, world.y, world.z, ship_id, time])
+	_splash(world)
 
 
 # =====================================================================================
@@ -405,6 +437,7 @@ func add_player(id: int, player_name: String) -> void:
 		"name": clean, "mode": LocalPlayer.Mode.ON_SHIP, "ship": CREW, "pos": Vector3.ZERO,
 		"yaw": 0.0, "pitch": 0.0, "station": -1, "seq": 0, "time": time, "bucket": false,
 		"last_patch": -1.0, "carry": -1, "dig": 0.0, "last_dig": -1.0,
+		"hp": HEALTH, "dead_until": -1.0, "weapon": Weapons.Kind.CUTLASS, "next_attack": 0.0,
 	}
 	roster[id] = clean
 	print("[server] %s joined (peer %d)" % [clean, id])
@@ -436,12 +469,12 @@ func player_state(id: int, data: Array) -> void:
 	if not players.has(id) or data.size() != 7:
 		return
 	var r: Dictionary = players[id]
-	if int(data[0]) != r.seq:
-		return  # still from before our last teleport
+	if int(data[0]) != r.seq or r.dead_until >= 0.0:
+		return  # from before our last teleport, or a ghost that may not move
 	var mode := int(data[1])
 	var pos := Vector3(data[2], data[3], data[4])
 	var elapsed := maxf(time - r.time, 1.0 / GameConfig.PLAYER_SEND_RATE)
-	var crew := crew_ship()
+	var crew: ShipState = ships.get(r.ship, crew_ship())
 
 	var ok := true
 	if mode == r.mode:
@@ -460,6 +493,7 @@ func player_state(id: int, data: Array) -> void:
 	if mode == LocalPlayer.Mode.WORLD:
 		_free_station_of(id)
 		r.bucket = false
+		r.ship = -1
 	r.mode = mode
 	r.pos = pos
 	r.yaw = float(data[5])
@@ -482,6 +516,10 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 	if not players.has(id):
 		return
 	var r: Dictionary = players[id]
+	if r.dead_until >= 0.0:
+		return
+	if r.mode == LocalPlayer.Mode.ON_SHIP and r.ship != CREW and action not in ["attack", "weapon", "drop", "respawn"]:
+		return  # aboard someone else's ship: fight, but no working their gear
 	match action:
 		"station":
 			_take_station(id, r, arg)
@@ -489,7 +527,7 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			if r.station == arg:
 				_free_station_of(id)
 		"climb":
-			_climb(id, r, arg)
+			_climb(id, r, arg, int(data[0]) if data.size() == 1 else -1)
 		"respawn":
 			_free_station_of(id)
 			r.bucket = false
@@ -519,6 +557,13 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_restock(r, arg)
 		"open":
 			_open_barrel(r, arg)
+		"weapon":
+			if arg == Weapons.Kind.CUTLASS or arg == Weapons.Kind.PISTOL:
+				r.weapon = arg
+		"attack":
+			_attack(id, r, data)
+		"eat":
+			_eat(r)
 
 
 func _take_station(id: int, r: Dictionary, station: int) -> void:
@@ -546,18 +591,30 @@ func _take_station(id: int, r: Dictionary, station: int) -> void:
 	_teleport(id, LocalPlayer.Mode.ON_SHIP, st.stand, face)
 
 
-func _climb(id: int, r: Dictionary, side: int) -> void:
-	var crew := crew_ship()
-	if r.mode != LocalPlayer.Mode.WORLD or absi(side) != 1 or crew.is_sinking():
+## Up a ladder from the water: the ship asked for, or else whichever ladder is in reach.
+func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or absi(side) != 1:
 		return
-	var pose := ShipPhysics.pose_of(crew, time)
-	var bottom := pose * ShipShape.ladder_bottom(side)
-	if Vector2(r.pos.x - bottom.x, r.pos.z - bottom.z).length() > LADDER_TOLERANCE:
+	var order: Array = ships.keys()
+	if ships.has(wanted):
+		order.erase(wanted)
+		order.push_front(wanted)
+	for ship_id in order:
+		var s: ShipState = ships[ship_id]
+		if s.is_sinking():
+			continue
+		var bottom := ShipPhysics.pose_of(s, time) * ShipShape.ladder_bottom(side)
+		if Vector2(r.pos.x - bottom.x, r.pos.z - bottom.z).length() > LADDER_TOLERANCE:
+			continue
+		stats.climbs += 1
+		if ship_id != CREW:
+			stats.boarded += 1
+			print("[server] %s boarded skeleton ship %d" % [r.name, ship_id])
+		else:
+			print("[server] %s climbed aboard" % r.name)
+		# Face inboard: starboard ladder looks toward -x, which is a quarter turn left.
+		_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.ladder_top(side), PI / 2.0 * side, ship_id)
 		return
-	stats.climbs += 1
-	print("[server] %s climbed aboard" % r.name)
-	# Face inboard: starboard ladder looks toward -x, which is a quarter turn left.
-	_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.ladder_top(side), PI / 2.0 * side)
 
 
 func _hatch(id: int, r: Dictionary, up: int) -> void:
@@ -649,15 +706,16 @@ func _free_spawn(for_id: int) -> Vector3:
 	return ShipShape.SPAWNS[0]
 
 
-func _teleport(id: int, mode: int, pos: Vector3, yaw: float) -> void:
+## Put a player somewhere. `ship` is the ship whose frame `pos` is in (ON_SHIP), else -1.
+func _teleport(id: int, mode: int, pos: Vector3, yaw: float, ship := CREW) -> void:
 	var r: Dictionary = players[id]
 	r.seq += 1
 	r.mode = mode
-	r.ship = CREW
+	r.ship = ship if mode == LocalPlayer.Mode.ON_SHIP else -1
 	r.pos = pos
 	r.yaw = yaw
 	r.time = time
-	Net.send_teleport(id, [r.seq, mode, pos.x, pos.y, pos.z, yaw])
+	Net.send_teleport(id, [r.seq, mode, pos.x, pos.y, pos.z, yaw, r.ship])
 
 
 static func compass_name(heading: float) -> String:
@@ -724,8 +782,8 @@ func _step_items(dt: float) -> void:
 
 ## Where a player is in the world (converting from the ship frame when aboard).
 func _world_pos(r: Dictionary) -> Vector3:
-	if r.mode == LocalPlayer.Mode.ON_SHIP:
-		return ShipPhysics.pose_of(crew_ship(), time) * r.pos
+	if r.mode == LocalPlayer.Mode.ON_SHIP and ships.has(r.ship):
+		return ShipPhysics.pose_of(ships[r.ship], time) * r.pos
 	return r.pos
 
 
@@ -788,7 +846,7 @@ func _pickup(id: int, r: Dictionary, item_id: int) -> void:
 		Loot.State.GROUND, Loot.State.FLOATING:
 			close = r.mode == LocalPlayer.Mode.WORLD and r.pos.distance_to(item.pos) < ITEM_REACH + 1.0
 		Loot.State.ON_SHIP:
-			close = r.mode == LocalPlayer.Mode.ON_SHIP and r.pos.distance_to(item.pos) < ITEM_REACH + 1.0
+			close = r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == CREW and r.pos.distance_to(item.pos) < ITEM_REACH + 1.0
 	if not close:
 		return
 	item.state = Loot.State.CARRIED
@@ -808,7 +866,7 @@ func _drop_carried(id: int) -> void:
 	r.carry = -1
 	item.carrier = -1
 	var ahead := Basis(Vector3.UP, r.yaw) * Vector3(0, 0, -0.8)
-	if r.mode == LocalPlayer.Mode.ON_SHIP and not crew_ship().is_sinking():
+	if r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == CREW and not crew_ship().is_sinking():
 		item.state = Loot.State.ON_SHIP
 		var p: Vector3 = r.pos + ahead
 		item.pos = Vector3(p.x, r.pos.y, p.z)
@@ -855,6 +913,7 @@ func _restock(r: Dictionary, barrel: int) -> void:
 		return
 	ship.cannonballs = ShipState.MAX_CANNONBALLS
 	ship.planks = ShipState.MAX_PLANKS
+	ship.bananas = ShipState.MAX_BANANAS
 	stats.restocked += 1
 	Net.send_message(0, "Supplies loaded: %d cannonballs, %d planks." % [ship.cannonballs, ship.planks])
 
@@ -871,6 +930,7 @@ func _open_barrel(r: Dictionary, item_id: int) -> void:
 		return
 	ship.cannonballs = mini(ShipState.MAX_CANNONBALLS, ship.cannonballs + BARREL_BALLS)
 	ship.planks = mini(ShipState.MAX_PLANKS, ship.planks + BARREL_PLANKS)
+	ship.bananas = mini(ShipState.MAX_BANANAS, ship.bananas + 5)
 	items.erase(item_id)
 	stats.restocked += 1
 	Net.send_message(0, "Supplies stowed: %d cannonballs, %d planks." % [ship.cannonballs, ship.planks])
@@ -884,3 +944,236 @@ func _drop_wreck_loot(s: ShipState) -> void:
 		var p := at + Vector3(dx, 0.0, _rng.randf_range(-5.0, 5.0))
 		_set_floating(_new_item(Loot.Kind.BARREL, Loot.State.FLOATING, p), p)
 	stats.loot_spawned += 3
+
+
+# =====================================================================================
+# Fighting on foot
+# =====================================================================================
+
+func _new_skeleton(frame: int, pos: Vector3, home := -1) -> Skeleton:
+	var sk := Skeleton.new()
+	sk.id = _next_skeleton
+	_next_skeleton += 1
+	sk.frame = frame
+	sk.pos = pos
+	sk.home = home
+	sk.yaw = _rng.randf() * TAU
+	skeletons[sk.id] = sk
+	return sk
+
+
+func _crew_skeleton_ship(ship_id: int) -> void:
+	var spots: Array[Vector3] = [
+		Vector3(-1.5, ShipShape.DECK_Y, -4.6), Vector3(1.8, ShipShape.DECK_Y, -0.2), Vector3(0, ShipShape.QUARTER_Y, 8.0),
+	]
+	for i in SHIP_SKELETONS:
+		_new_skeleton(ship_id, spots[i % spots.size()])
+
+
+## Test hook: a skeleton ship lying still beside the crew's ship, with its skeletons aboard.
+func _spawn_passive_skeleton_ship() -> void:
+	var crew := crew_ship()
+	var s := ShipState.new()
+	s.kind = ShipState.Kind.SKELETON
+	s.x = crew.x + 40.0
+	s.z = crew.z
+	s.anchored = true
+	var id := _next_ship_id
+	_next_ship_id += 1
+	ships[id] = s
+	captains[id] = Captain.new(id)
+	_passive[id] = true
+	_crew_skeleton_ship(id)
+	ai_enabled = false
+
+
+## Wake an island's camp when a pirate comes near it and it has no skeletons standing.
+func _wake_camps() -> void:
+	for i in Islands.LAYOUT.size():
+		var spec: Dictionary = Islands.LAYOUT[i]
+		if spec.outpost:
+			continue
+		var camp: Dictionary = camps.get(i, {"alive": 0, "wake": 0.0})
+		camps[i] = camp
+		if camp.alive > 0 or time < camp.wake:
+			continue
+		var near := false
+		for id in players:
+			var w := _world_pos(players[id])
+			if Vector2(w.x - spec.x, w.z - spec.z).length() < spec.radius + CAMP_WAKE:
+				near = true
+		if not near:
+			continue
+		for n in CAMP_SIZE:
+			var spot := Islands.dig_spot(i, _rng)
+			_new_skeleton(-1, Vector3(spot.x, Islands.ground_at(i, spot.x, spot.y), spot.y), i)
+		camp.alive = CAMP_SIZE
+		print("[server] the skeletons of %s awake" % spec.name)
+
+
+func _step_skeletons(dt: float) -> void:
+	for sid in skeletons.keys():
+		var sk: Skeleton = skeletons[sid]
+		if not sk.alive():
+			if time - sk.fell > Skeleton.CORPSE_TIME:
+				skeletons.erase(sid)
+			continue
+		if sk.frame >= 0 and not ships.has(sk.frame):
+			skeletons.erase(sid)
+			continue
+		var target := _skeleton_target(sk)
+		var goal: Variant = null if target < 0 else _pos_in_frame(players[target], sk.frame)
+		if sk.step(goal, dt, _floor_for(sk)):
+			stats.skeleton_swings += 1
+			Net.send_event("swing", [sk.id])
+			_hurt_player(target, Skeleton.SWING_DAMAGE, "a skeleton")
+
+
+## The nearest living player the skeleton can get at, or -1.
+func _skeleton_target(sk: Skeleton) -> int:
+	var best := -1
+	var best_d := Skeleton.CHASE_RANGE
+	for id in players:
+		var r: Dictionary = players[id]
+		if r.dead_until >= 0.0:
+			continue
+		if sk.frame >= 0 and (r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != sk.frame):
+			continue
+		if sk.frame < 0 and r.mode != LocalPlayer.Mode.WORLD:
+			continue
+		var d: float = r.pos.distance_to(sk.pos)
+		if d < best_d:
+			best = id
+			best_d = d
+	return best
+
+
+func _pos_in_frame(r: Dictionary, frame: int) -> Vector3:
+	if frame < 0:
+		return _world_pos(r)
+	return r.pos
+
+
+## Where a skeleton may stand: dry land on islands, the decks on ships.
+func _floor_for(sk: Skeleton) -> Callable:
+	if sk.frame >= 0:
+		return func(x: float, z: float) -> float:
+			var p := Vector3(x, ShipShape.DECK_Y, z)
+			if not ShipShape.is_on_board(p) or absf(x) > ShipShape.half_width(z, ShipShape.DECK_Y) - 0.5:
+				return NAN
+			return ShipShape.floor_y(z, x)
+	var island := sk.home
+	return func(x: float, z: float) -> float:
+		var g := Islands.ground_at(island, x, z)
+		return g if g > Waves.height(x, z, time) + Skeleton.SHORE else NAN
+
+
+func _hurt_player(id: int, damage: int, by: String) -> void:
+	if not players.has(id):
+		return
+	var r: Dictionary = players[id]
+	if r.dead_until >= 0.0:
+		return
+	r.hp = maxi(0, r.hp - damage)
+	Net.send_event("hurt_player", [id, damage])
+	if r.hp > 0:
+		return
+	stats.falls += 1
+	r.dead_until = time + GHOST_TIME
+	_free_station_of(id)
+	_drop_carried(id)
+	r.bucket = false
+	print("[server] %s was felled by %s" % [r.name, by])
+	Net.send_message(0, "%s has fallen to %s!" % [r.name, by])
+
+
+func _step_ghosts() -> void:
+	for id in players:
+		var r: Dictionary = players[id]
+		if r.dead_until < 0.0 or time < r.dead_until or crew_ship().is_sinking():
+			continue
+		r.dead_until = -1.0
+		r.hp = HEALTH
+		_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(id), 0.0)
+		Net.send_message(id, "Back from the brink. Welcome aboard.")
+
+
+## A swing or a shot: the client says where it looked; the server decides what it hit.
+func _attack(id: int, r: Dictionary, look: Array) -> void:
+	if look.size() != 2 or r.station >= 0 or r.carry >= 0 or time < r.next_attack - ATTACK_SLACK:
+		return
+	var weapon: int = r.weapon
+	r.next_attack = time + (Weapons.CUTLASS_COOLDOWN if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_RELOAD)
+	var basis := Basis(Vector3.UP, float(look[0])) * Basis(Vector3.RIGHT, float(look[1]))
+	var dir := basis * Vector3.FORWARD
+	var eye := _world_pos(r) + Vector3.UP * Weapons.EYE_HEIGHT
+	if r.mode == LocalPlayer.Mode.ON_SHIP and ships.has(r.ship):
+		var pose := ShipPhysics.pose_of(ships[r.ship], time)
+		dir = pose.basis * dir
+		eye = pose * (r.pos + Vector3.UP * Weapons.EYE_HEIGHT)
+	var ids: Array = []
+	var feet: Array = []
+	for sid in skeletons:
+		var sk: Skeleton = skeletons[sid]
+		if sk.alive():
+			ids.append(sid)
+			feet.append(_skeleton_world(sk))
+	Net.send_event("attack", [id, weapon])
+	if weapon == Weapons.Kind.CUTLASS:
+		for i in Weapons.cutlass_hits(eye, dir, feet):
+			_hurt_skeleton(ids[i], Weapons.CUTLASS_DAMAGE, r.name)
+	else:
+		var i := Weapons.pistol_hit(eye, dir, feet)
+		if i >= 0:
+			_hurt_skeleton(ids[i], Weapons.PISTOL_DAMAGE, r.name)
+
+
+func _skeleton_world(sk: Skeleton) -> Vector3:
+	if sk.frame >= 0 and ships.has(sk.frame):
+		return ShipPhysics.pose_of(ships[sk.frame], time) * sk.pos
+	return sk.pos
+
+
+func _hurt_skeleton(sid: int, damage: int, by: String) -> void:
+	var sk: Skeleton = skeletons[sid]
+	if not sk.alive():
+		return
+	sk.hp -= damage
+	Net.send_event("hurt_skeleton", [sid, damage])
+	if sk.hp > 0:
+		return
+	sk.fell = time
+	stats.kills += 1
+	print("[server] %s felled skeleton %d" % [by, sid])
+	if sk.home >= 0 and camps.has(sk.home):
+		camps[sk.home].alive -= 1
+		if camps[sk.home].alive <= 0:
+			camps[sk.home].wake = time + CAMP_RESPAWN
+			Net.send_message(0, "The skeletons of %s are beaten!" % Islands.LAYOUT[sk.home].name)
+
+
+## A cannonball hurts anyone near where it lands.
+func _splash(world: Vector3) -> void:
+	for id in players:
+		var r: Dictionary = players[id]
+		var dmg := Weapons.splash_damage(_world_pos(r).distance_to(world))
+		if dmg > 0:
+			_hurt_player(id, dmg, "a cannonball")
+	for sid in skeletons.keys():
+		var sk: Skeleton = skeletons[sid]
+		if sk.alive():
+			var dmg := Weapons.splash_damage(_skeleton_world(sk).distance_to(world))
+			if dmg > 0:
+				_hurt_skeleton(sid, dmg, "a cannonball")
+
+
+func _eat(r: Dictionary) -> void:
+	var ship := crew_ship()
+	if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != CREW or ship.bananas <= 0 or r.hp >= HEALTH:
+		return
+	if r.pos.distance_to(ShipShape.BANANA_BARREL) > EAT_REACH + 1.0:
+		return
+	ship.bananas -= 1
+	r.hp = mini(HEALTH, r.hp + BANANA_HEAL)
+	stats.eaten += 1
+	Net.send_message(players.find_key(r), "Mmm, banana. (%d left)" % ship.bananas)

@@ -3,11 +3,12 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: milestone 3, "Treasure hunting".** One galleon, up to 4 players: sailing, swimming,
-cannons, skeleton ships, holes, patching, bailing and sinking, and now treasure maps, digging,
-carrying chests, selling them at the Port Merrow outpost, and limited cannonballs and planks.
-Fighting on foot comes next. Specs: [design](docs/specs/2026-10-07-pirate-game-design.md),
-[milestone 2](docs/specs/2026-10-07-m2-ship-combat.md), [milestone 3](docs/specs/2026-10-07-m3-treasure.md).
+**Status: milestone 4, "Fighting on foot".** One galleon, up to 4 players: sailing, swimming,
+cannons, skeleton ships, holes, patching, bailing and sinking, treasure maps, digging, selling at
+Port Merrow, and now health, a cutlass and a pistol, skeleton camps on the islands, boarding
+skeleton ships, falling and coming back, and bananas. Crew vs crew comes next. Specs:
+[design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
+[3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md).
 
 | | |
 |---|---|
@@ -15,6 +16,7 @@ Fighting on foot comes next. Specs: [design](docs/specs/2026-10-07-pirate-game-d
 | ![Crew on deck, island ahead](docs/screenshots/crew-and-island.png) | ![An island](docs/screenshots/island.png) |
 | ![A skeleton ship firing](docs/screenshots/skeleton-ship.png) | ![Holes on the lower deck](docs/screenshots/lower-deck.png) |
 | ![Port Merrow](docs/screenshots/outpost.png) | ![A treasure map](docs/screenshots/treasure-map.png) |
+| ![Skeletons on Parrot Rock](docs/screenshots/skeletons.png) | |
 
 ## Play
 
@@ -49,6 +51,9 @@ On the title screen:
 | Dig | on an island, hold E for 2 s; at the X a chest comes up |
 | Chests | E picks up and puts down; carry one to the merchant at Port Merrow and press E to sell |
 | Supplies | E at a supply barrel (Port Merrow's pier, or floating after a fight) refills the ship |
+| Fight | 1 cutlass, 2 pistol, left click to attack; skeletons guard every treasure island |
+| Board | swim to a skeleton ship and E at its ladder |
+| Heal | E at the banana barrel on the lower deck |
 
 The ship starts at anchor with its sails furled. Winch the anchor up, let the sails out, and
 watch the wind arrow at the bottom left: sails pull hardest with the wind behind them, and you
@@ -74,6 +79,7 @@ machine, see [server/README.md](server/README.md).
 | Bot smoke test (server + 4 bots) | `tests/smoke/smoke_test.sh` |
 | Combat smoke test (fight + sinking) | `tests/smoke/combat_test.sh` |
 | Treasure smoke test (dig + sell) | `tests/smoke/treasure_test.sh` |
+| Fighting smoke test (island + boarding) | `tests/smoke/fighting_test.sh` |
 | Import and unit tests in one go | `tools/check.sh` |
 | Screenshot without a monitor | `tools/screenshot.sh /tmp/shot.png outside --demo` |
 | Export Windows + server builds | `tools/export.sh` |
@@ -84,7 +90,8 @@ Run `godot --headless --path . --import` once after cloning so Godot registers t
 Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`, `--name NAME`,
 `--demo` (host under full sail), `--bot wheel|sails|anchor|swimmer|gunner|repair`,
 `--quit-after SECONDS`, `--no-ai`, `--ai-delay SECONDS`, `--test-holes N`, `--start-near N|outpost`,
-`--voyage-island N`, `--test-chest`. Bots also take `treasure` and `seller`.
+`--voyage-island N`, `--test-chest`, `--test-boarding`. Bots also take `treasure`, `seller`,
+`fighter` and `boarder`.
 
 ### How it fits together
 

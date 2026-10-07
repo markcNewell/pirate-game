@@ -10,6 +10,8 @@ extends Node
 ##   repair  - go below, patch holes and bail water out with a bucket
 ##   treasure - take a voyage, swim ashore, dig up the chest and stow it aboard
 ##   seller  - carry the chest on deck to the outpost merchant, sell it, then restock
+##   fighter - swim ashore and fight the island's skeletons with cutlass and pistol
+##   boarder - swim to the skeleton ship alongside, climb its ladder and fight its crew
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -46,6 +48,7 @@ func _physics_process(delta: float) -> void:
 	input.interact_held = false
 	input.fire = false
 	input.jump = false
+	input.weapon_key = -1
 	if not _player.active:
 		return
 	_timer += delta
@@ -72,6 +75,10 @@ func _physics_process(delta: float) -> void:
 			_treasure(input)
 		"seller":
 			_seller(input)
+		"fighter":
+			_fighter(input)
+		"boarder":
+			_boarder(input)
 
 
 func _process(_delta: float) -> void:
@@ -285,9 +292,11 @@ func _head_to(input: PlayerInput, target: Vector3, near := 1.0) -> bool:
 	return false
 
 
-## Walk out through the nearest rail gap. Call while on deck.
-func _go_overboard(input: PlayerInput) -> void:
+## Walk out through a rail gap (the nearer one, or the side given). Call while on deck.
+func _go_overboard(input: PlayerInput, side := 0) -> void:
 	var sx := 1.0 if _player.frame_position().x >= 0.0 else -1.0
+	if side != 0:
+		sx = float(side)
 	if _phase.ends_with("_out") or _go(input, Vector3(sx * 2.6, ShipShape.DECK_Y, ShipShape.LADDER_Z)):
 		if not _phase.ends_with("_out"):
 			_phase += "_out"
@@ -417,6 +426,104 @@ func _seller(input: PlayerInput) -> void:
 			if game.view_ship.cannonballs == ShipState.MAX_CANNONBALLS:
 				_say("restocked the ship")
 				_phase = "done"
+
+
+## The nearest standing skeleton in a frame (-1 = world), or null.
+func _nearest_skeleton(frame: int, from: Vector3) -> Skeleton:
+	var best: Skeleton = null
+	var best_d := INF
+	for id in game.view_skeletons:
+		var sk: Skeleton = game.view_skeletons[id]
+		if sk.frame != frame or not sk.alive():
+			continue
+		var d := sk.pos.distance_to(from)
+		if d < best_d:
+			best = sk
+			best_d = d
+	return best
+
+
+## Face a skeleton's chest and attack: the pistol from range, the cutlass up close.
+func _fight(input: PlayerInput, sk: Skeleton, eye: Vector3) -> void:
+	var to := sk.pos + Vector3.UP * 1.0 - eye
+	_player.yaw = atan2(-to.x, -to.z)
+	_player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+	var dist := Vector2(to.x, to.z).length()
+	var want := Weapons.Kind.CUTLASS if dist < 4.0 else Weapons.Kind.PISTOL
+	if _player.weapon != want:
+		input.weapon_key = want
+		return
+	if dist < 2.0 or want == Weapons.Kind.PISTOL:
+		input.fire = true
+	if dist >= 1.6:
+		input.wish = Vector2(0, 1)
+
+
+func _fighter(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var p := _player.body.global_position
+	var sk := _nearest_skeleton(-1, p)
+	if sk and sk.pos.distance_to(p) < 25.0:
+		_fight(input, sk, p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+		return
+	# Head for the middle of the nearest island to wake its camp.
+	var best := Vector3.ZERO
+	var best_d := INF
+	for spec in Islands.LAYOUT:
+		if spec.outpost:
+			continue
+		var c := Vector3(spec.x, 0, spec.z)
+		if c.distance_to(p) < best_d:
+			best = c
+			best_d = c.distance_to(p)
+	_head_to(input, best, 3.0)
+
+
+func _boarder(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		if _player.ship_id == ServerSim.CREW:
+			# Over the side that faces the skeleton ship.
+			var side := 1
+			for id in game.view_ships:
+				if id != ServerSim.CREW:
+					var s: ShipState = game.view_ships[id]
+					var local := game.frame_transform(ServerSim.CREW).affine_inverse() * Vector3(s.x, 0, s.z)
+					side = 1 if local.x >= 0.0 else -1
+			_go_overboard(input, side)
+			return
+		if _phase != "aboard":
+			_say("boarded the skeleton ship")
+			_phase = "aboard"
+		var here := _player.frame_position()
+		var sk := _nearest_skeleton(_player.ship_id, here)
+		if sk == null:
+			return
+		if here.distance_to(sk.pos) > 2.2:
+			_go(input, sk.pos)
+		_fight(input, sk, here + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+		return
+	# In the water: make for the skeleton ship's nearer ladder and climb.
+	var p := _player.body.global_position
+	for id in game.ship_views:
+		if id == ServerSim.CREW:
+			continue
+		var best := Vector3.ZERO
+		var best_d := INF
+		for side: int in [-1, 1]:
+			var b: Vector3 = game.ship_views[id].global_transform * ShipShape.ladder_bottom(side)
+			if b.distance_to(p) < best_d:
+				best = b
+				best_d = b.distance_to(p)
+		var at_theirs: bool = _player.nearest_ladder() != 0 and _player._ladder_ship == id
+		if (_head_to(input, best, 1.5) or at_theirs) and _every(0.5):
+			input.interact = true
+		return
 
 
 func _say(text: String) -> void:

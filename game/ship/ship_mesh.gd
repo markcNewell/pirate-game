@@ -451,7 +451,13 @@ static func _lower_deck(b: MeshBuilder) -> void:
 		b.cylinder(base, base + Vector3(0, 0.9, 0), 0.34, 0.38, 10, _c("trunk"))
 		b.cylinder(base + Vector3(0, 0.25, 0), base + Vector3(0, 0.33, 0), 0.39, 0.39, 10, _c("trim"))
 		b.cylinder(base + Vector3(0, 0.62, 0), base + Vector3(0, 0.7, 0), 0.39, 0.39, 10, _c("trim"))
-	b.box(Vector3(1.0, floor_y + 0.35, 4.6), Vector3(0.4, 0.35, 0.4), _c("deck").darkened(0.15), Basis(Vector3.UP, 0.3))
+	# The banana barrel: an open barrel heaped with yellow bunches.
+	var bb := ShipShape.BANANA_BARREL
+	b.cylinder(bb, bb + Vector3(0, 0.8, 0), 0.4, 0.44, 10, _c("trunk"))
+	b.cylinder(bb + Vector3(0, 0.2, 0), bb + Vector3(0, 0.27, 0), 0.45, 0.45, 10, _c("trim"))
+	for k in 5:
+		var a := TAU * k / 5.0
+		b.ellipsoid(bb + Vector3(cos(a) * 0.18, 0.86, sin(a) * 0.18), 0.17, Vector3(1.4, 0.6, 0.6), 4, 7, Color("ffd84a"))
 	b.box(Vector3(-1.1, floor_y + 0.3, 4.9), Vector3(0.35, 0.3, 0.35), _c("deck").darkened(0.2), Basis(Vector3.UP, -0.2))
 
 

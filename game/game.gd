@@ -31,6 +31,7 @@ var view_ship := ShipState.new()  # the crew's ship
 var view_wind := Vector2(0, -1)
 var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket, carry}
 var view_items := {}  # item id -> Loot
+var view_skeletons := {}  # skeleton id -> Skeleton
 ## The crew's gold and current treasure hunt ({island, x, z} or empty), as last heard.
 var purse := 0
 var voyage := {}
@@ -44,6 +45,7 @@ var hud: Hud
 var effects: Effects
 var avatars := {}  # peer id -> Avatar
 var _item_views := {}  # item id -> LootView
+var _skeleton_views := {}  # skeleton id -> SkeletonView
 
 # --- server ---
 var sim: ServerSim
@@ -203,6 +205,7 @@ func client_on_snapshot(data: Array) -> void:
 		snap_players[int(p[0])] = {
 			"mode": int(p[1]), "ship": int(p[2]), "pos": Vector3(p[3], p[4], p[5]), "yaw": float(p[6]),
 			"pitch": float(p[7]), "station": int(p[8]), "bucket": int(p[9]) == 1, "carry": int(p[10]),
+			"hp": int(p[11]), "dead": int(p[12]) == 1, "weapon": int(p[13]),
 		}
 	var snap_items := {}
 	for entry in data[3]:
@@ -211,7 +214,11 @@ func client_on_snapshot(data: Array) -> void:
 	purse = int(data[4])
 	var hunt: Array = data[5]
 	voyage = {} if hunt.is_empty() else {"island": int(hunt[0]), "x": float(hunt[1]), "z": float(hunt[2])}
-	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players, "items": snap_items})
+	var snap_bones := {}
+	for entry in data[6]:
+		var sk := Skeleton.from_array(entry)
+		snap_bones[sk.id] = sk
+	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players, "items": snap_items, "bones": snap_bones})
 	while _snaps.size() > 2 and _snaps[1].t < t - 1.0:
 		_snaps.pop_front()
 
@@ -264,6 +271,12 @@ func client_on_event(kind: String, data: Array) -> void:
 			if _pending_impacts.has(id):
 				ball.end = _pending_impacts[id]
 				_pending_impacts.erase(id)
+		"swing":
+			if _skeleton_views.has(int(data[0])):
+				_skeleton_views[int(data[0])].swing()
+		"hurt_skeleton":
+			if _skeleton_views.has(int(data[0])):
+				_skeleton_views[int(data[0])].hurt()
 		"impact":
 			var id: int = data[0]
 			var end := {"kind": int(data[1]), "pos": Vector3(data[2], data[3], data[4]), "ship": int(data[5]), "t": float(data[6])}
@@ -296,6 +309,10 @@ func _process(delta: float) -> void:
 		local_player.station = me.station if local_player.mode == LocalPlayer.Mode.ON_SHIP else -1
 		local_player.bucket = me.bucket
 		local_player.carry = me.carry
+		if me.hp < local_player.hp and hud:
+			hud.flash_damage()
+		local_player.hp = me.hp
+		local_player.dead = me.dead
 	local_player.update_view()
 	if local_player.station >= 0 and ShipShape.stations()[local_player.station].kind == ShipShape.Kind.CANNON:
 		# Our own cannon follows the mouse at once rather than waiting for the server.
@@ -312,11 +329,38 @@ func _process(delta: float) -> void:
 		var on_ship: bool = p.mode == LocalPlayer.Mode.ON_SHIP and ship_views.has(p.ship)
 		avatar.place(ship_views[p.ship].global_transform * feet if on_ship else feet, delta)
 		avatar.set_bucket(p.bucket)
+		avatar.visible = not p.dead
 
 	_update_balls()
 	_update_items()
+	_update_skeletons(delta)
 	var cam := get_viewport().get_camera_3d()
 	world.follow(cam.global_position if cam else Vector3.ZERO, render_time, view_ships)
+
+
+## The world transform of a ship's frame (our own ship's if that one is gone).
+func frame_transform(ship_id: int) -> Transform3D:
+	var v: ShipView = ship_views.get(ship_id, ship_view)
+	return v.global_transform
+
+
+func _update_skeletons(delta: float) -> void:
+	for id in _skeleton_views.keys():
+		if not view_skeletons.has(id):
+			_skeleton_views[id].queue_free()
+			_skeleton_views.erase(id)
+	for id in view_skeletons:
+		var sk: Skeleton = view_skeletons[id]
+		if not _skeleton_views.has(id):
+			var v := SkeletonView.new()
+			add_child(v)
+			_skeleton_views[id] = v
+		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
+		if sk.frame >= 0:
+			if not ship_views.has(sk.frame):
+				continue
+			at = ship_views[sk.frame].global_transform * at
+		_skeleton_views[id].place(at, sk.walking, not sk.alive(), delta)
 
 
 ## Place every chest and barrel: on the ground, afloat, stowed aboard or in someone's arms.
@@ -409,6 +453,16 @@ func _interpolate(t: float) -> void:
 			item.pos = ia.pos.lerp(ib.pos, w)
 		view_items[id] = item
 
+	view_skeletons = {}
+	for id in b.bones:
+		var kb: Skeleton = b.bones[id]
+		var ka: Skeleton = a.bones.get(id)
+		var sk := Skeleton.from_array(kb.to_array())
+		if ka and ka.frame == kb.frame:
+			sk.pos = ka.pos.lerp(kb.pos, w)
+			sk.yaw = lerp_angle(ka.yaw, kb.yaw, w)
+		view_skeletons[id] = sk
+
 	view_players.clear()
 	for id in b.players:
 		var pb: Dictionary = b.players[id]
@@ -419,6 +473,7 @@ func _interpolate(t: float) -> void:
 			"mode": pb.mode, "ship": pb.ship, "pos": pa.pos.lerp(pb.pos, w),
 			"yaw": lerp_angle(pa.yaw, pb.yaw, w), "pitch": lerpf(pa.pitch, pb.pitch, w),
 			"station": pb.station, "bucket": pb.bucket, "carry": pb.carry,
+			"hp": pb.hp, "dead": pb.dead, "weapon": pb.weapon,
 		}
 
 
