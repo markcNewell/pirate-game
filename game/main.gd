@@ -163,6 +163,10 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var at := Vector3(spec.x - 12.0, 0, spec.z + 6.0)
 		at.y = Islands.ground_at(1, at.x, at.z)
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, at, -1.0)
+	elif game and view == "swim":
+		# In the sea off the port side, looking back at the ship.
+		var ship := game.view_ship
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, Vector3(ship.x - 14.0, 0.0, ship.z + 4.0), -PI / 2.0)
 	elif game and view == "below":
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, Vector3(-0.8, ShipShape.LOWER_Y, 2.5), 0.25)
 	elif game and view == "enemy":

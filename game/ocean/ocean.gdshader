@@ -152,6 +152,15 @@ void fragment() {
 		}
 	}
 
+	// Faint ripple lines on the water close by, so it never reads as a flat sheet.
+	float close = 1.0 - smoothstep(12.0, 40.0, length(world_pos - CAMERA_POSITION_WORLD));
+	if (close > 0.0 && foam < 0.5) {
+		vec2 q = world_pos.xz * 0.5;
+		float r1 = noise(q + vec2(sea_time * 0.3, -sea_time * 0.12));
+		float r2 = noise(q * 1.4 - vec2(sea_time * 0.18, sea_time * 0.25) + 9.0);
+		col = mix(col, light_color, step(abs(r1 - r2), 0.03) * 0.45 * close);
+	}
+
 	// A few glints of sun on the near sea.
 	float near = length(world_pos - CAMERA_POSITION_WORLD);
 	if (near < 120.0) {

@@ -10,6 +10,9 @@ extends Node3D
 enum Mode { ON_SHIP, WORLD }
 
 const EYE_HEIGHT := 1.6
+## Swimmers see from this much higher than their eyes really are, so passing crests do not
+## fill the view. Only the camera moves; the body and every reach check stay where they are.
+const SWIM_VIEW_LIFT := 0.5
 const STATION_REACH := 2.4
 const LADDER_REACH := 3.5
 const HOLE_REACH := 2.4
@@ -135,6 +138,8 @@ func _physics_process(delta: float) -> void:
 			game.send_request("attack", weapon, [yaw, pitch])
 
 	_curr = frame_position()
+	var lift := SWIM_VIEW_LIFT if swimming and mode == Mode.WORLD else 0.0
+	camera.position.y = move_toward(camera.position.y, EYE_HEIGHT + lift, delta * 1.5)
 	_send_timer += delta
 	if _send_timer >= 1.0 / GameConfig.PLAYER_SEND_RATE:
 		_send_timer = 0.0
