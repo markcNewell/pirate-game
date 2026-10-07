@@ -27,11 +27,8 @@ func _init(color: Color, energy: float, reach: float, fire := false) -> void:
 	_light.visible = false
 	add_child(_light)
 	if fire:
-		var b := MeshBuilder.new()
-		b.cylinder(Vector3(0, 0.0, 0), Vector3(0, 0.75, 0), 0.32, 0.0, 6, Color("ff9a2e"))
-		b.cylinder(Vector3(0.05, 0.0, 0.04), Vector3(0.03, 0.5, 0.02), 0.2, 0.0, 5, Color("ffe06a"))
 		_flame = MeshInstance3D.new()
-		_flame.mesh = b.build()
+		_flame.mesh = Models.part("fx", "flame")
 		var glow := StandardMaterial3D.new()
 		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		glow.vertex_color_use_as_albedo = true

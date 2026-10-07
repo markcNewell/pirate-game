@@ -185,7 +185,7 @@ func _build_rig(mast: int) -> void:
 		sails.append(sail)
 		if mast == 1 and k == 0:
 			# The crew's emblem on the main course, furling with the sail.
-			var badge := Toon.instance(ShipMesh.emblem())
+			var badge := Toon.instance(_part("emblem"))
 			badge.position = Vector3(0, -spec[1] * 0.5, 0)
 			badge.layers = Lantern.UNLIT_LAYER
 			sail.add_child(badge)

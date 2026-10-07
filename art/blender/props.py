@@ -317,6 +317,32 @@ def wreck_plank():
     return kit.join("wreck_plank", parts)
 
 
+def flame():
+    """A toon camp-fire flame about 0.8 m tall: three licking tongues in orange round a yellow
+    heart and a pale core, standing on the origin. Drawn unlit, so its colours are its look."""
+    parts = []
+
+    def tongue(name, height, radius, lean, turn, color):
+        pts, radii = [], []
+        for i in range(9):
+            t = i / 8
+            a = turn + t * 1.2
+            # Bulging low, curling and thinning to a point at the top.
+            pts.append((lean * t * t * math.cos(a), height * t, lean * t * t * math.sin(a)))
+            radii.append(radius * math.sin(math.pi * min(1.0, 0.15 + t * 0.95)) ** 0.8 * (1 - 0.85 * t) + 0.004)
+        return kit.tube(name, pts, radii, 8, color)
+
+    for k in range(3):
+        a = 2 * math.pi * k / 3
+        parts.append(tongue("outer", 0.75 - 0.12 * k, 0.24, 0.16, a, "ff8a2a"))
+    for k in range(2):
+        parts.append(tongue("heart", 0.5 - 0.08 * k, 0.17, 0.08, 1.0 + k * 3.1, "ffd040"))
+    parts.append(tongue("core", 0.3, 0.1, 0.03, 0.4, "fff4c0"))
+    for p in parts:
+        kit.noink(p)
+    return kit.join("flame", parts)
+
+
 def bucket(name="bucket", water=True):
     """A wooden bucket on a rope handle (the handle's top at the origin, where a fist holds
     it), hanging down: staves, two iron hoops and, when full, the water."""
@@ -361,7 +387,7 @@ def hammer():
 
 def main(names):
     builders = {
-        "fx": lambda: [cannonball(), splinter(), wreck_plank()],
+        "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
         "chests": lambda: [chest(t) for t in range(3)],
         "supply_barrel": supply_barrel,

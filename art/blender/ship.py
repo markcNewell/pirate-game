@@ -1379,6 +1379,34 @@ def patch():
     return kit.join("patch", parts)
 
 
+def emblem():
+    """The crew's emblem on the main course: a round flag-coloured disc with a skull and crossed
+    bones, one in front of the sail's bulge and one in its hollow behind, so it shows from both
+    sides. Centred on the sail's middle (where the bulge is SAIL_BELLY deep)."""
+    parts = []
+    depth = SAIL_BELLY * 0.99
+    for side in (-1, 1):
+        z = -depth - 0.09 if side < 0 else -depth + 0.15
+        disc = kit.lathe("disc", [(0.0, z), (1.15, z), (1.15, z + side * 0.012), (0.0, z + side * 0.012)], 28, slot("flag"), axis="z")
+        parts.append(disc)
+        ring = [(1.05 * math.cos(2 * math.pi * k / 32), 1.05 * math.sin(2 * math.pi * k / 32), z + side * 0.02) for k in range(33)]
+        parts.append(kit.noink(kit.tube("ring", ring, 0.035, 5, slot("bone"), caps=False), 0.0))
+        skull = kit.ellipsoid("skull", (0, 0.18, z + side * 0.025), (0.36, 0.34, 0.02), slot("bone"), rings=8, sectors=14)
+        jaw = kit.box("jaw", (0, -0.12, z + side * 0.025), (0.38, 0.18, 0.03), slot("bone"), bevel=0.04)
+        parts += [kit.noink(skull, 0.0), kit.noink(jaw, 0.0)]
+        for sx in (1, -1):
+            parts.append(kit.noink(kit.ellipsoid("socket", (sx * 0.13, 0.2, z + side * 0.045), (0.09, 0.1, 0.012), slot("flag"), rings=4, sectors=8), 0.0))
+        parts.append(kit.noink(kit.prism("nose", [(-0.04, 0.0), (0.04, 0.0), (0.0, 0.08)], 0.015, slot("flag"), centre=(0, 0.02, z + side * 0.045), plane="xy"), 0.0))
+        for a in (0.7, -0.7):
+            parts.append(kit.noink(kit.box("bone", (0, -0.5, z + side * 0.02), (1.25, 0.12, 0.025), slot("bone"), rot=(0, 0, a), bevel=0.04), 0.0))
+            for e in (1, -1):
+                d = Vector((math.cos(a), math.sin(a), 0)) * 0.6 * e
+                for o in (1, -1):
+                    n = Vector((-math.sin(a), math.cos(a), 0)) * 0.05 * o
+                    parts.append(kit.noink(kit.ellipsoid("knob", (d.x + n.x, -0.5 + d.y + n.y, z + side * 0.02), (0.07, 0.07, 0.015), slot("bone"), rings=4, sectors=8), 0.0))
+    return kit.join("emblem", parts)
+
+
 def parts_model():
     objs = []
     for m in range(2):
@@ -1387,6 +1415,7 @@ def parts_model():
             objs.append(sail("sail_%d_%d" % (m, k), width, height))
             objs.append(sail("sail_torn_%d_%d" % (m, k), width, height, torn=True, seed=m * 2 + k + 1))
     objs.append(wheel())
+    objs.append(emblem())
     objs.append(capstan())
     objs.append(cannon())
     objs.append(flag())
