@@ -10,7 +10,7 @@ crew vs crew: fight other crews, sink their ships and steal their chests. The se
 24-minute day with sunsets, starry nights and lanterns, and a storm that roams the map. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
-[5](docs/specs/2026-10-07-m5-crew-vs-crew.md).
+[5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md).
 
 ![The title screen](docs/screenshots/title.png)
 
