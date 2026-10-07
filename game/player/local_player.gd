@@ -40,6 +40,8 @@ var yaw := 0.0
 var pitch := 0.0
 ## Station the server says we are working, or -1.
 var station := -1
+## True while the mission board is open: the number keys pick offers, not weapons.
+var board_open := false
 ## True while carrying a bucket of water (the server says).
 var bucket := false
 ## The item in our arms (a chest), or -1.
@@ -112,6 +114,12 @@ func _physics_process(delta: float) -> void:
 	if not active or game == null:
 		return
 	input.poll()
+	if board_open:
+		# The board takes the keys: no weapon swaps or using things behind it.
+		input.weapon_key = -1
+		input.interact = false
+		input.interact_held = false
+		input.fire = false
 	_prev = _curr
 	if dead:
 		# A ghost: no moving or acting until the server brings us back.
@@ -248,7 +256,7 @@ func _interact(delta: float) -> void:
 		"throw":
 			game.send_request("throw", 0)
 			Audio.play("splash", -8.0, 1.2)
-		"sell", "drop", "voyage", "eat":
+		"sell", "drop", "board", "deliver", "eat":
 			game.send_request(target.kind, 0)
 		"pickup", "open", "restock":
 			game.send_request(target.kind, target.id)
@@ -261,8 +269,17 @@ func current_target() -> Dictionary:
 	if carry >= 0:
 		var held: Loot = game.view_items.get(carry)
 		var what := held.label() if held else "chest"
-		if mode == Mode.WORLD and body.global_position.distance_to(Outpost.sell_spot()) < 3.5:
-			return {"kind": "sell", "id": 0, "label": "E  sell the %s (%d gold)" % [what, held.value if held else 0]}
+		if mode == Mode.WORLD and held:
+			var here := body.global_position
+			if held.kind == Loot.Kind.CHEST and here.distance_to(Outpost.sell_spot()) < 3.5:
+				return {"kind": "sell", "id": 0, "label": "E  sell the %s to the Gold Hoarder (%d gold)" % [what, held.value]}
+			if held.kind == Loot.Kind.SKULL and here.distance_to(Outpost.mystic_spot()) < 3.5:
+				return {"kind": "sell", "id": 0, "label": "E  give the skull to the Order of Souls (%d gold)" % held.value}
+			if held.kind == Loot.Kind.CRATE:
+				for crew in game.traders:
+					var t: Dictionary = game.traders[crew]
+					if here.distance_to(Islands.trader_spot(t.island)) < 3.5:
+						return {"kind": "deliver", "id": 0, "label": "E  hand the %s to the trader" % what}
 		if mode == Mode.WORLD and nearest_ladder() != 0:
 			return {"kind": "ladder", "id": nearest_ladder(), "label": "E  climb the ladder"}
 		return {"kind": "drop", "id": 0, "label": "E  put down the %s" % what}
@@ -311,8 +328,8 @@ func current_target() -> Dictionary:
 			"label": "E  eat a banana (%d left)" % game.view_ship.bananas,
 		})
 	if _looking_at(eye, ShipShape.map_table_target(), 2.6, 0.3):
-		var map_label := "E  take a voyage" if game.voyage.is_empty() else "Hold M  read your map"
-		candidates.append({"kind": "voyage", "id": 0, "label": map_label, "at": ShipShape.map_table_target()})
+		var map_label := "E  the mission board" if game.mission.is_empty() else "E  your mission     Hold M  the map"
+		candidates.append({"kind": "board", "id": 0, "label": map_label, "at": ShipShape.map_table_target()})
 	for c in candidates:
 		var dot := look_direction().dot((c.at - eye).normalized())
 		if dot > best_dot:

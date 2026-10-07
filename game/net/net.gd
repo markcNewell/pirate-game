@@ -146,6 +146,15 @@ func send_event(kind: String, data: Array) -> void:
 		game.client_on_event(kind, data)
 
 
+## A one-off happening for one client only (the mission board's offers).
+func send_event_to(id: int, kind: String, data: Array) -> void:
+	if _is_me(id):
+		if game and game.has_view():
+			game.client_on_event(kind, data)
+	elif _online():
+		_event.rpc_id(id, kind, data)
+
+
 ## id 0 means everyone.
 func send_message(id: int, text: String) -> void:
 	if id == 0:

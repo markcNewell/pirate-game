@@ -117,7 +117,7 @@ func test_falling_makes_a_ghost_then_back_aboard() -> void:
 	sim._hurt_player(1, 150, "a test")
 	check(r.dead_until >= 0.0, "fallen")
 	sim.request(1, "voyage", 0, [])
-	check(sim.crews[1].voyage.is_empty(), "ghosts cannot act")
+	check(sim.crews[1].mission.is_empty(), "ghosts cannot act")
 	for i in int((ServerSim.GHOST_TIME + 0.5) / DT):
 		sim.tick(DT)
 	check_eq(r.dead_until, -1.0, "back again")

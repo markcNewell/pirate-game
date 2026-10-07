@@ -9,7 +9,10 @@ extends Node
 ##   gunner  - man a cannon on the side facing the skeleton ship and shoot at it
 ##   repair  - go below, patch holes and bail water out with a bucket
 ##   treasure - take a voyage, swim ashore, dig up the chest and stow it aboard
-##   seller  - carry the chest on deck to the outpost merchant, sell it, then restock
+##   seller  - carry the chest (or skull) on deck to its buyer at the outpost, sell it, restock
+##   bounty  - take a bounty, swim ashore, beat the captain, carry his skull back aboard
+##   cargo   - take a cargo run at the outpost, fetch a crate from the pier and stow it aboard
+##   courier - carry the crate on deck ashore to the trader and hand it over
 ##   fighter - swim ashore and fight the island's skeletons with cutlass and pistol
 ##   boarder - swim to the skeleton ship alongside, climb its ladder and fight its crew
 ##   duelist - jump in and fight the nearest pirate of another crew
@@ -32,6 +35,7 @@ var _waypoints: Array[Vector3] = []
 var _stuck_check := Vector3.ZERO
 var _stuck_timer := 0.0
 var _sidestep := 0.0
+var _selling := Loot.Kind.CHEST
 
 
 func setup(g: Game, r: String) -> void:
@@ -80,6 +84,12 @@ func _physics_process(delta: float) -> void:
 			_treasure(input)
 		"seller":
 			_seller(input)
+		"bounty":
+			_bounty(input)
+		"cargo":
+			_cargo(input)
+		"courier":
+			_courier(input)
 		"fighter":
 			_fighter(input)
 		"boarder":
@@ -340,10 +350,7 @@ func _treasure(input: PlayerInput) -> void:
 				_say("got a map to %s" % Islands.LAYOUT[game.voyage.island].name)
 				_phase = "leave"
 				return
-			if _go(input, ShipShape.MAP_TABLE + Vector3(0.95, 0, 0.7)):
-				_look_at(ShipShape.map_table_target())
-				if _every(0.5):
-					input.interact = true
+			_take_mission(input, Missions.Company.GOLD)
 		"leave":
 			if _player.mode == LocalPlayer.Mode.WORLD:
 				_say("overboard, heading for the X")
@@ -394,6 +401,146 @@ func _treasure(input: PlayerInput) -> void:
 					input.interact = true
 
 
+## Walk to the map table and take the company's offer (bots skip the board's screen).
+func _take_mission(input: PlayerInput, company: int) -> void:
+	if _go(input, ShipShape.MAP_TABLE + Vector3(0.95, 0, 0.7)):
+		_look_at(ShipShape.map_table_target())
+		if _every(0.5):
+			game.send_request("voyage", company)
+
+
+## Pick up a carried item lying at `at` (world), walking up to it first. True once holding it.
+func _fetch(input: PlayerInput, at: Vector3) -> bool:
+	if _player.carry >= 0:
+		return true
+	if _head_to(input, at, 1.2):
+		var to: Vector3 = at + Vector3.UP * 0.35 - (_player.body.global_position + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+		_player.yaw = atan2(-to.x, -to.z)
+		_player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+		if _every(0.5):
+			var item := _player.nearest_item()
+			if item:
+				game.send_request("pickup", item.id)
+	return false
+
+
+## Climb back aboard by the nearest ladder and put what we carry down on deck.
+func _bring_aboard(input: PlayerInput, what: String) -> void:
+	if _player.mode == LocalPlayer.Mode.WORLD:
+		if _head_to(input, _nearest_ladder_bottom(), 1.5) or _player.nearest_ladder() != 0:
+			if _every(0.5):
+				input.interact = true
+		return
+	if _player.carry < 0:
+		if _phase != "done":
+			_say("stowed the %s" % what)
+		_phase = "done"
+		return
+	if _go(input, Vector3(-1.0, ShipShape.DECK_Y, 0.3)) and _every(0.5):
+		input.interact = true
+
+
+func _bounty(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	match _phase.trim_suffix("_out"):
+		"act":
+			if not game.mission.is_empty():
+				_say("took the bounty on %s" % game.mission.captain)
+				_phase = "hunt"
+				return
+			_take_mission(input, Missions.Company.SOULS)
+		"hunt":
+			if _player.mode == LocalPlayer.Mode.ON_SHIP:
+				_go_overboard(input)
+				return
+			for id in game.view_items:
+				var item: Loot = game.view_items[id]
+				if item.kind == Loot.Kind.SKULL and item.state == Loot.State.GROUND:
+					_say("the captain is down")
+					_waypoints = [item.pos]
+					_phase = "skull"
+					return
+			var p := _player.body.global_position
+			var sk := _nearest_skeleton(-1, p)
+			if sk and sk.pos.distance_to(p) < 25.0:
+				_fight(input, sk, p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+				return
+			var t: Dictionary = game.mission.targets[0]
+			_head_to(input, Vector3(t.x, 0, t.z), 4.0)
+		"skull":
+			if _fetch(input, _waypoints[0]):
+				_say("carrying the skull")
+				_phase = "return"
+		"return", "done":
+			_bring_aboard(input, "skull")
+
+
+func _cargo(input: PlayerInput) -> void:
+	match _phase.trim_suffix("_out"):
+		"act":
+			if not game.mission.is_empty():
+				_say("took the cargo run: %s" % game.mission.title)
+				_phase = "leave"
+				return
+			_take_mission(input, Missions.Company.MERCHANT)
+		"leave":
+			if _player.mode == LocalPlayer.Mode.WORLD:
+				_phase = "fetch"
+				return
+			_go_overboard(input)
+		"fetch":
+			# Up the beach to the pier's root, then along the pier to the crates.
+			if _waypoints.is_empty():
+				var c := Outpost._centre()
+				var r: float = Outpost.spec().radius
+				_waypoints = [c + Vector3(cos(0.15) * (r - 1.0), 0, sin(0.15) * (r - 1.0)), c + Vector3(r - 5.0, 0, 0)]
+			if _waypoints.size() > 0 and _head_to(input, _waypoints[0], 1.0):
+				_waypoints.pop_front()
+			if _waypoints.is_empty():
+				_phase = "pick"
+		"pick":
+			if _fetch(input, Outpost.cargo_spot(0)):
+				_say("carrying a crate")
+				_phase = "return"
+		"return", "done":
+			_bring_aboard(input, "crate")
+
+
+func _courier(input: PlayerInput) -> void:
+	match _phase.trim_suffix("_out"):
+		"act":
+			if _player.carry >= 0:
+				_say("picked up the crate")
+				_phase = "leave"
+				return
+			for id in game.view_items:
+				var item: Loot = game.view_items[id]
+				if item.kind == Loot.Kind.CRATE and item.state == Loot.State.ON_SHIP:
+					if _go(input, item.pos + Vector3(0.9, 0, 0.6)):
+						_look_at(item.pos + Vector3.UP * 0.35)
+						if _every(0.5):
+							input.interact = true
+					return
+		"leave":
+			if _player.mode == LocalPlayer.Mode.WORLD:
+				_say("overboard with the crate, heading for the trader")
+				_phase = "deliver"
+				return
+			_go_overboard(input)
+		"deliver":
+			if _player.carry < 0:
+				_say("delivered the crate, gold %d" % game.purse)
+				_phase = "done"
+				return
+			var t: Dictionary = game.mission.targets[0] if not game.mission.is_empty() else {}
+			if t.is_empty():
+				return
+			var spot := Islands.trader_spot(t.island)
+			if _head_to(input, spot, 1.6) and _every(0.5):
+				game.send_request("deliver", 0)
+
+
 func _seller(input: PlayerInput) -> void:
 	match _phase.trim_suffix("_out"):
 		"act":
@@ -403,7 +550,8 @@ func _seller(input: PlayerInput) -> void:
 				return
 			for id in game.view_items:
 				var item: Loot = game.view_items[id]
-				if item.kind == Loot.Kind.CHEST and item.state == Loot.State.ON_SHIP:
+				if item.kind in [Loot.Kind.CHEST, Loot.Kind.SKULL] and item.state == Loot.State.ON_SHIP:
+					_selling = item.kind
 					if _go(input, item.pos + Vector3(0.9, 0, 0.6)):
 						_look_at(item.pos + Vector3.UP * 0.35)
 						if _every(0.5):
@@ -417,7 +565,7 @@ func _seller(input: PlayerInput) -> void:
 			_go_overboard(input)
 		"to_merchant":
 			if _player.carry < 0:
-				_say("sold the chest, gold %d" % game.purse)
+				_say("sold the %s, gold %d" % ["skull" if _selling == Loot.Kind.SKULL else "chest", game.purse])
 				var c := Outpost._centre()
 				var r: float = Outpost.spec().radius
 				_waypoints = [
@@ -427,8 +575,10 @@ func _seller(input: PlayerInput) -> void:
 				]
 				_phase = "restock"
 				return
-			if _head_to(input, Outpost.sell_spot(), 1.6):
-				_player.yaw = atan2(-(Outpost.merchant_pos().x - _player.body.global_position.x), -(Outpost.merchant_pos().z - _player.body.global_position.z))
+			var spot := Outpost.mystic_spot() if _selling == Loot.Kind.SKULL else Outpost.sell_spot()
+			var buyer := Outpost.mystic_pos() if _selling == Loot.Kind.SKULL else Outpost.merchant_pos()
+			if _head_to(input, spot, 1.6):
+				_player.yaw = atan2(-(buyer.x - _player.body.global_position.x), -(buyer.z - _player.body.global_position.z))
 				if _every(0.5):
 					input.interact = true
 		"restock":

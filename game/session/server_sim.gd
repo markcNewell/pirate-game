@@ -53,7 +53,8 @@ var ships := {}  # ship id -> ShipState
 var captains := {}  # ship id -> Captain (skeleton ships only)
 var players := {}  # peer id -> record (see add_player)
 var roster := {}  # peer id -> name
-## Crews by number (1-4): {"purse", "voyage" ({} or {island, x, z, item}), "respawn_at", "empty_since"}.
+## Crews by number (1-4): {"purse", "mission" ({} or see _take_mission), "rep" (points per
+## company), "offers" (the board's last offers), "respawn_at", "empty_since"}.
 var crews := {}
 var station_owner := {}  # ship id * 100 + station id -> peer id
 var station_input := {}  # peer id -> {axes, aim, time}
@@ -63,11 +64,14 @@ var stats := {
 	"hits": 0, "holes": 0, "patched": 0, "bailed": 0, "ai_spawned": 0, "ai_sunk": 0, "crew_sunk": 0,
 	"voyages": 0, "dug": 0, "sold": 0, "restocked": 0, "loot_spawned": 0, "stowed": 0,
 	"kills": 0, "falls": 0, "eaten": 0, "boarded": 0, "skeleton_swings": 0, "pvp_falls": 0, "stolen": 0,
-	"lightning": 0,
+	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0,
 }
 var items := {}  # item id -> Loot
-## Test hook: the island the next voyage goes to (-1 for random).
+## Test hooks: the island missions go to (-1 for random), the mission kind the board always
+## gives (-1 for the player's choice), and the level every crew starts at with each company.
 var options_island := -1
+var options_mission := -1
+var options_level := 1
 var _next_item := 1
 var skeletons := {}  # skeleton id -> Skeleton
 var camps := {}  # island index -> {"alive": int, "wake": time it may next wake}
@@ -94,10 +98,13 @@ func _init(options: Dictionary = {}) -> void:
 	next_ai_time = float(options.get("ai-delay", AI_FIRST_DELAY))
 	if options.has("crews-close"):
 		_spawns = CREW_SPAWNS_CLOSE
-	_ensure_crew(CREW)
 	# Test hooks: start near an island or the outpost, with a chest aboard.
 	if options.has("voyage-island"):
 		options_island = int(options["voyage-island"])
+	if options.has("mission"):
+		options_mission = ["treasure", "bounty", "cargo"].find(str(options["mission"]))
+	options_level = clampi(int(options.get("rep", 1)), 1, Missions.MAX_LEVEL)
+	_ensure_crew(CREW)
 	if options.has("start-near"):
 		var where := str(options["start-near"])
 		var spot := Outpost.anchorage() if where == "outpost" else _anchorage(int(where))
@@ -108,6 +115,17 @@ func _init(options: Dictionary = {}) -> void:
 		_spawn_passive_skeleton_ship()
 	if options.has("test-chest"):
 		_new_item(Loot.Kind.CHEST, Loot.State.ON_SHIP, Vector3(-1.2, ShipShape.DECK_Y, -2.2), 250).ship = CREW
+	if options.has("test-skull"):
+		_new_item(Loot.Kind.SKULL, Loot.State.ON_SHIP, Vector3(-1.2, ShipShape.DECK_Y, -2.2), 300).ship = CREW
+	if options.has("test-cargo"):
+		# A cargo run to the mission island under way, its crate already on deck.
+		var to := options_island if options_island >= 0 else Islands.mission_islands()[0]
+		var offer := Missions.make_offer(Missions.Company.MERCHANT, options_level, Islands.mission_islands(), _rng, to)
+		_start_mission(CREW, offer)
+		for id in crews[CREW].mission.items:
+			items[id].state = Loot.State.ON_SHIP
+			items[id].ship = CREW
+			items[id].pos = Vector3(-1.2, ShipShape.DECK_Y, -2.2)
 	if options.has("test-steal"):
 		# Crew 2 starts with a chest on its deck for crew 1 to steal (and stays put meanwhile).
 		_ensure_crew(2)
@@ -133,7 +151,11 @@ func _own(r: Dictionary) -> ShipState:
 func _ensure_crew(crew: int) -> void:
 	if crews.has(crew):
 		return
-	crews[crew] = {"purse": 0, "voyage": {}, "respawn_at": -1.0, "empty_since": -1.0, "pinned": false}
+	var start := (options_level - 1) * Missions.LEVEL_POINTS
+	crews[crew] = {
+		"purse": 0, "mission": {}, "rep": [start, start, start], "offers": [],
+		"respawn_at": -1.0, "empty_since": -1.0, "pinned": false,
+	}
 	_launch_crew_ship(crew)
 
 
@@ -291,8 +313,7 @@ func snapshot() -> Array:
 			item_list.append(item.to_array())
 	var crew_list := []
 	for c in crews:
-		var v: Dictionary = crews[c].voyage
-		crew_list.append([c, crews[c].purse] + ([] if v.is_empty() else [v.island, v.x, v.z]))
+		crew_list.append([c, crews[c].purse] + crews[c].rep + _mission_array(c))
 	var bones := []
 	for id in skeletons:
 		bones.append(skeletons[id].to_array())
@@ -732,8 +753,14 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_throw(r)
 		"fire":
 			_player_fire(r, arg, data)
+		"board":
+			_show_board(id, r)
 		"voyage":
-			_take_voyage(r)
+			_take_offer(id, r, arg)
+		"abandon":
+			_abandon(id, r)
+		"deliver":
+			_deliver(r)
 		"dig":
 			_dig(r)
 		"pickup":
@@ -952,6 +979,10 @@ func _anchorage(index: int) -> Vector3:
 
 
 func _set_floating(item: Loot, world: Vector3) -> void:
+	if item.kind == Loot.Kind.CRATE and not item.soaked:
+		# Cargo that goes in the sea is spoilt: it pays less from now on.
+		item.soaked = true
+		item.value = int(round(item.value * Missions.SOAKED_PAY))
 	item.state = Loot.State.FLOATING
 	item.carrier = -1
 	item.pos = Vector3(world.x, Waves.height(world.x, world.z, time) - 0.15, world.z)
@@ -974,6 +1005,7 @@ func _step_items(dt: float) -> void:
 				else:
 					gone.append(id)
 	for id in gone:
+		_mission_item_done(items[id], 0, false)
 		items.erase(id)
 
 
@@ -984,26 +1016,170 @@ func _world_pos(r: Dictionary) -> Vector3:
 	return r.pos
 
 
-func _take_voyage(r: Dictionary) -> void:
-	if r.mode != LocalPlayer.Mode.ON_SHIP or not crews[r.crew].voyage.is_empty():
+# =====================================================================================
+# Missions (docs/specs/2026-10-07-m6-missions.md)
+# =====================================================================================
+
+## A crew's level with each company.
+func _levels(crew: int) -> Array:
+	var out := []
+	for points: int in crews[crew].rep:
+		out.append(Missions.level(points))
+	return out
+
+
+## E at the map table: the board's three offers (fresh ones while no mission is running).
+func _show_board(id: int, r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != r.crew:
 		return
 	if r.pos.distance_to(ShipShape.map_table_target()) > MAP_TABLE_REACH + 1.0:
 		return
-	var choices: Array[int] = []
-	for i in Islands.LAYOUT.size():
-		if not Islands.LAYOUT[i].outpost:
-			choices.append(i)
-	var index: int = choices[_rng.randi() % choices.size()]
-	if options_island >= 0:
-		index = options_island
-	var spot := Islands.dig_spot(index, _rng)
-	var ground := Islands.ground_at(index, spot.x, spot.y)
-	var gold := _rng.randi_range(80, 320)
-	var chest := _new_item(Loot.Kind.CHEST, Loot.State.BURIED, Vector3(spot.x, ground, spot.y), gold)
-	crews[r.crew].voyage = {"island": index, "x": spot.x, "z": spot.y, "item": chest.id}
+	var crew: Dictionary = crews[r.crew]
+	if crew.mission.is_empty():
+		crew.offers = _make_offers(r.crew)
+	var shown := []
+	for offer: Dictionary in crew.offers:
+		shown.append(Missions.offer_to_array(offer))
+	Net.send_event_to(id, "board", shown)
+
+
+func _make_offers(crew: int) -> Array[Dictionary]:
+	# Test hook: every mission goes to options_island first.
+	return Missions.make_offers(_levels(crew), Islands.mission_islands(), _rng, options_island)
+
+
+## Take one of the board's offers (by company), if no mission is running.
+func _take_offer(_id: int, r: Dictionary, company: int) -> void:
+	if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != r.crew or not crews[r.crew].mission.is_empty():
+		return
+	if r.pos.distance_to(ShipShape.map_table_target()) > MAP_TABLE_REACH + 1.0:
+		return
+	var crew: Dictionary = crews[r.crew]
+	if crew.offers.is_empty():
+		crew.offers = _make_offers(r.crew)
+	if options_mission >= 0:
+		company = options_mission
+	if company < 0 or company >= crew.offers.size():
+		return
+	_start_mission(r.crew, crew.offers[company])
+	crew.offers = []
+
+
+## Set a mission going for a crew: bury the chests, raise the bounty, load the cargo.
+func _start_mission(crew: int, offer: Dictionary) -> void:
+	var m := {
+		"company": offer.company, "kind": offer.kind, "title": offer.title, "islands": offer.islands,
+		"items": [], "total": 0, "handled": 0, "own": 0, "deadline": -1.0, "captain": -1, "name": "",
+	}
+	match int(offer.kind):
+		Missions.Kind.TREASURE:
+			for island: int in offer.islands:
+				var spot := Islands.dig_spot(island, _rng)
+				var gold := int(_rng.randi_range(Missions.CHEST_GOLD.x, Missions.CHEST_GOLD.y) * offer.pay)
+				var chest := _new_item(Loot.Kind.CHEST, Loot.State.BURIED, Vector3(spot.x, Islands.ground_at(island, spot.x, spot.y), spot.y), gold)
+				m.items.append(chest.id)
+			m.total = m.items.size()
+			_tell_crew(crew, "A treasure map! Hold M to read it.")
+		Missions.Kind.BOUNTY:
+			var island: int = offer.islands[0]
+			m.name = offer.captain
+			m.total = 1
+			m.skull_gold = int(_rng.randi_range(Missions.SKULL_GOLD.x, Missions.SKULL_GOLD.y) * offer.pay)
+			var spec: Dictionary = Islands.LAYOUT[island]
+			var camp: Dictionary = camps.get(island, {"alive": 0, "wake": 0.0})
+			camps[island] = camp
+			for n in int(offer.size) + 1:
+				var spot := Islands.dig_spot(island, _rng)
+				if n == 0:
+					spot = Vector2(spec.x, spec.z) + (spot - Vector2(spec.x, spec.z)) * 0.4
+				var sk := _new_skeleton(-1, Vector3(spot.x, Islands.ground_at(island, spot.x, spot.y), spot.y), island)
+				if n == 0:
+					sk.make_captain()
+					m.captain = sk.id
+				camp.alive += 1
+			_tell_crew(crew, "%s waits on %s. Bring his skull to the Order of Souls!" % [offer.captain, spec.name])
+		Missions.Kind.CARGO:
+			for n in int(offer.size):
+				var gold := int(_rng.randi_range(Missions.CRATE_GOLD.x, Missions.CRATE_GOLD.y) * offer.pay)
+				var crate := _new_item(Loot.Kind.CRATE, Loot.State.GROUND, Outpost.cargo_spot(n), gold)
+				crate.variant = int(offer.goods)
+				crate.yaw = 0.1 * n
+				m.items.append(crate.id)
+			m.total = m.items.size()
+			m.deadline = time + Missions.cargo_time(m.total)
+			_tell_crew(crew, "Cargo waits on Port Merrow's pier for %s." % Islands.LAYOUT[offer.islands[0]].name)
+	crews[crew].mission = m
 	stats.voyages += 1
-	print("[server] voyage to %s, X at (%.0f, %.0f)" % [Islands.LAYOUT[index].name, spot.x, spot.y])
-	Net.send_message(0, "A treasure map! Hold M to read it.")
+	print("[server] crew %d took a %s mission: %s" % [crew, ["treasure", "bounty", "cargo"][m.kind], m.title])
+
+
+## Give up the running mission (its chests, skulls and crates stay where they are).
+func _abandon(id: int, r: Dictionary) -> void:
+	if crews[r.crew].mission.is_empty():
+		return
+	crews[r.crew].mission = {}
+	crews[r.crew].offers = []
+	_tell_crew(r.crew, "%s gave up the mission." % r.name)
+	Net.send_event_to(id, "board", [])
+
+
+## The mission's state for clients: [kind, company, title, deadline, captain, handled, total,
+## n targets, then island, x, z, done for each], or [] with none.
+func _mission_array(crew: int) -> Array:
+	var m: Dictionary = crews[crew].mission
+	if m.is_empty():
+		return []
+	var targets := []
+	match int(m.kind):
+		Missions.Kind.TREASURE:
+			for i in m.islands.size():
+				var item: Loot = items.get(m.items[i])
+				var x: float = item.pos.x if item else 0.0
+				var z: float = item.pos.z if item else 0.0
+				targets.append_array([m.islands[i], x, z, 0 if item and item.state == Loot.State.BURIED else 1])
+		Missions.Kind.BOUNTY:
+			var island: int = m.islands[0]
+			var spec: Dictionary = Islands.LAYOUT[island]
+			var cap: Skeleton = skeletons.get(m.captain)
+			targets.append_array([island, spec.x, spec.z, 0 if cap and cap.alive() else 1])
+		Missions.Kind.CARGO:
+			var spot := Islands.trader_spot(m.islands[0])
+			targets.append_array([m.islands[0], spot.x, spot.z, 0])
+	return [m.kind, m.company, m.title, m.deadline, m.name, m.handled, m.total, targets.size() / 4] + targets
+
+
+## An item has left play: sold or delivered (by a crew) or lost. Counts toward the mission it
+## belongs to, which ends once all its items are handled.
+func _mission_item_done(item: Loot, by_crew: int, handed_in: bool) -> void:
+	for c in crews:
+		var m: Dictionary = crews[c].mission
+		if m.is_empty() or not m.items.has(item.id):
+			continue
+		m.handled += 1
+		if handed_in and by_crew == c:
+			m.own += 1
+		if m.handled >= m.total:
+			_finish_mission(c)
+
+
+func _finish_mission(crew: int) -> void:
+	var m: Dictionary = crews[crew].mission
+	crews[crew].mission = {}
+	if m.own <= 0:
+		_tell_crew(crew, "The mission is over, with nothing to show for it.")
+		return
+	_add_rep(crew, m.company, Missions.FINISH_POINTS)
+	stats.missions += 1
+	print("[server] crew %d finished %s" % [crew, m.title])
+	_tell_crew(crew, "Mission done! The %s are pleased with you." % Missions.COMPANY_NAMES[m.company])
+
+
+func _add_rep(crew: int, company: int, points: int) -> void:
+	var before := Missions.level(crews[crew].rep[company])
+	crews[crew].rep[company] += points
+	var after := Missions.level(crews[crew].rep[company])
+	if after > before:
+		_tell_crew(crew, "You are now level %d with the %s!" % [after, Missions.COMPANY_NAMES[company]])
 
 
 func _dig(r: Dictionary) -> void:
@@ -1036,7 +1212,7 @@ func _pickup(id: int, r: Dictionary, item_id: int) -> void:
 	if r.carry >= 0 or r.station >= 0 or not items.has(item_id):
 		return
 	var item: Loot = items[item_id]
-	if item.kind != Loot.Kind.CHEST:
+	if not item.carried():
 		return
 	var close := false
 	match item.state:
@@ -1087,22 +1263,58 @@ func _drop_carried(id: int) -> void:
 		_set_floating(item, world)
 
 
+## Sell what you carry to the company that buys it: chests to the Gold Hoarder at his stall,
+## skulls to the Order of Souls' mystic.
 func _sell(r: Dictionary) -> void:
 	if r.mode != LocalPlayer.Mode.WORLD or r.carry < 0 or not items.has(r.carry):
 		return
-	if r.pos.distance_to(Outpost.sell_spot()) > SELL_REACH + 1.0:
-		return
 	var item: Loot = items[r.carry]
+	var at := Outpost.sell_spot() if item.kind == Loot.Kind.CHEST else Outpost.mystic_spot()
+	if item.kind not in [Loot.Kind.CHEST, Loot.Kind.SKULL] or r.pos.distance_to(at) > SELL_REACH + 1.0:
+		return
 	crews[r.crew].purse += item.value
 	stats.sold += 1
 	items.erase(item.id)
 	r.carry = -1
-	for c in crews:
-		var v: Dictionary = crews[c].voyage
-		if not v.is_empty() and v.item == item.id:
-			crews[c].voyage = {}
+	if item.kind == Loot.Kind.CHEST:
+		_add_rep(r.crew, Missions.Company.GOLD, Missions.CHEST_POINTS)
+	if _belongs_to_mission(item.id, r.crew):
+		_add_rep(r.crew, Missions.Company.GOLD if item.kind == Loot.Kind.CHEST else Missions.Company.SOULS, Missions.ITEM_POINTS)
+	_mission_item_done(item, r.crew, true)
 	print("[server] %s sold a %s for %d gold (purse %d)" % [r.name, item.label(), item.value, crews[r.crew].purse])
 	Net.send_message(0, "Sold a %s for %d gold!" % [item.label(), item.value])
+
+
+## Hand a crate over to the trader on a cargo run's island (any crew's run: cargo pays
+## whoever brings it).
+func _deliver(r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or r.carry < 0 or not items.has(r.carry):
+		return
+	var item: Loot = items[r.carry]
+	if item.kind != Loot.Kind.CRATE:
+		return
+	for c in crews:
+		var m: Dictionary = crews[c].mission
+		if m.is_empty() or m.kind != Missions.Kind.CARGO or not m.items.has(item.id):
+			continue
+		if r.pos.distance_to(Islands.trader_spot(m.islands[0])) > SELL_REACH + 1.0:
+			return
+		var gold := Missions.crate_pay(item.value, time, m.deadline)
+		crews[r.crew].purse += gold
+		stats.delivered += 1
+		items.erase(item.id)
+		r.carry = -1
+		_add_rep(r.crew, Missions.Company.MERCHANT, Missions.ITEM_POINTS)
+		var late := " (late, half pay)" if time > m.deadline else ""
+		print("[server] %s delivered a %s for %d gold%s" % [r.name, item.label(), gold, late])
+		Net.send_message(0, "Delivered a %s for %d gold%s!" % [item.label(), gold, late])
+		_mission_item_done(item, r.crew, true)
+		return
+
+
+func _belongs_to_mission(item_id: int, crew: int) -> bool:
+	var m: Dictionary = crews[crew].mission
+	return not m.is_empty() and m.items.has(item_id)
 
 
 func _restock(r: Dictionary, barrel: int) -> void:
@@ -1230,7 +1442,7 @@ func _step_skeletons(dt: float) -> void:
 		if sk.step(goal, dt, _floor_for(sk)):
 			stats.skeleton_swings += 1
 			Net.send_event("swing", [sk.id])
-			_hurt_player(target, Skeleton.SWING_DAMAGE, "a skeleton")
+			_hurt_player(target, sk.damage, "a skeleton captain" if sk.captain else "a skeleton")
 
 
 ## The nearest living player the skeleton can get at, or -1.
@@ -1365,11 +1577,27 @@ func _hurt_skeleton(sid: int, damage: int, by: String) -> void:
 	sk.fell = time
 	stats.kills += 1
 	print("[server] %s felled skeleton %d" % [by, sid])
+	if sk.captain:
+		_drop_skull(sk)
 	if sk.home >= 0 and camps.has(sk.home):
 		camps[sk.home].alive -= 1
 		if camps[sk.home].alive <= 0:
 			camps[sk.home].wake = time + CAMP_RESPAWN
 			Net.send_message(0, "The skeletons of %s are beaten!" % Islands.LAYOUT[sk.home].name)
+
+
+## A bounty's captain has fallen: his skull lies where he fell, for whoever picks it up.
+func _drop_skull(sk: Skeleton) -> void:
+	for c in crews:
+		var m: Dictionary = crews[c].mission
+		if m.is_empty() or m.kind != Missions.Kind.BOUNTY or m.captain != sk.id:
+			continue
+		var skull := _new_item(Loot.Kind.SKULL, Loot.State.GROUND, _skeleton_world(sk) + Vector3(0, 0.05, 0), m.skull_gold)
+		m.items.append(skull.id)
+		stats.skulls += 1
+		print("[server] %s has fallen; his skull is worth %d" % [m.name, skull.value])
+		Net.send_message(0, "%s has fallen! His skull glows on the sand." % m.name)
+		return
 
 
 func _crew_of_ship(ship_id: int) -> int:

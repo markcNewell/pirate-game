@@ -50,6 +50,9 @@ jobs:
       - name: Storm smoke test
         run: tests/smoke/storm_test.sh
 
+      - name: Missions smoke test
+        run: tests/smoke/missions_test.sh
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test

@@ -51,6 +51,26 @@ static func ground_at(index: int, x: float, z: float) -> float:
 	return IslandMesh.ground(spec, x - spec.x, z - spec.z)
 
 
+## Where the cargo trader waits on an island (world): up the beach, on its own side of the
+## island (away from where its camp usually is).
+static func trader_spot(index: int) -> Vector3:
+	var spec: Dictionary = LAYOUT[index]
+	var a := 0.8 + index * 2.3
+	var r: float = spec.radius - 7.5
+	var x: float = spec.x + cos(a) * r
+	var z: float = spec.z + sin(a) * r
+	return Vector3(x, ground_at(index, x, z), z)
+
+
+## Islands missions can go to (every island but the outpost).
+static func mission_islands() -> Array[int]:
+	var out: Array[int] = []
+	for i in LAYOUT.size():
+		if not LAYOUT[i].outpost:
+			out.append(i)
+	return out
+
+
 ## A random dry spot on an island (world x, z), for buried treasure.
 static func dig_spot(index: int, rng: RandomNumberGenerator) -> Vector2:
 	var spec: Dictionary = LAYOUT[index]

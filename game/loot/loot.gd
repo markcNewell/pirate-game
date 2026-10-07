@@ -1,9 +1,10 @@
 class_name Loot
 extends RefCounted
-## A thing in the world you can find, carry or open: a treasure chest or a supply barrel.
-## The server owns every item; snapshots carry all but the buried ones.
+## A thing in the world you can find, carry or open: a treasure chest, a supply barrel, a
+## skeleton captain's skull (bounties) or a crate of cargo. The server owns every item;
+## snapshots carry all but the buried ones.
 
-enum Kind { CHEST, BARREL }
+enum Kind { CHEST, BARREL, SKULL, CRATE }
 enum State { BURIED, GROUND, FLOATING, CARRIED, ON_SHIP }
 
 const CHEST_NAMES := ["castaway's chest", "seafarer's chest", "captain's chest"]
@@ -20,6 +21,10 @@ var carrier := -1
 var value := 0
 ## The ship it is stowed on (ON_SHIP).
 var ship := -1
+## A crate's goods (Missions.GOODS), else 0.
+var variant := 0
+## A crate that has been in the sea: it pays less.
+var soaked := false
 ## Server only: when it started floating.
 var born := 0.0
 
@@ -33,11 +38,23 @@ static func chest_tier(gold: int) -> int:
 
 
 func label() -> String:
-	return CHEST_NAMES[chest_tier(value)] if kind == Kind.CHEST else "supply barrel"
+	match kind:
+		Kind.CHEST:
+			return CHEST_NAMES[chest_tier(value)]
+		Kind.SKULL:
+			return "captain's skull"
+		Kind.CRATE:
+			return "%scrate of %s" % ["soaked " if soaked else "", Missions.GOODS[variant % Missions.GOODS.size()]]
+	return "supply barrel"
+
+
+## Carried in both arms, like a chest (everything but a barrel, which is opened where it lies).
+func carried() -> bool:
+	return kind != Kind.BARREL
 
 
 func to_array() -> Array:
-	return [id, kind, state, pos.x, pos.y, pos.z, yaw, carrier, value, ship]
+	return [id, kind, state, pos.x, pos.y, pos.z, yaw, carrier, value, ship, variant, 1 if soaked else 0]
 
 
 static func from_array(a: Array) -> Loot:
@@ -50,4 +67,7 @@ static func from_array(a: Array) -> Loot:
 	l.carrier = a[7]
 	l.value = a[8]
 	l.ship = a[9]
+	if a.size() > 11:
+		l.variant = a[10]
+		l.soaked = int(a[11]) == 1
 	return l

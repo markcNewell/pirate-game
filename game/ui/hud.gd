@@ -73,6 +73,9 @@ var _ring: HoldRing
 var _help: PanelContainer
 var _help_hint: Label
 var _map: Control
+var _board: PanelContainer
+var _board_box: VBoxContainer
+var _card: Control
 var _purse: Label
 var _gunner: Label
 var _enemy: Label
@@ -215,6 +218,22 @@ func _ready() -> void:
 	_purse.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	root.add_child(_purse)
 
+	_card = MissionCard.new()
+	_card.hud = self
+	_card.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_card.offset_left = 20
+	_card.offset_top = 16
+	_card.offset_right = 360
+	_card.offset_bottom = 200
+	root.add_child(_card)
+
+	_board = _parchment_card()
+	_board_box = VBoxContainer.new()
+	_board_box.add_theme_constant_override("separation", 10)
+	_board.add_child(_board_box)
+	_board.visible = false
+	root.add_child(_board)
+
 	_map = TreasureMap.new()
 	_map.hud = self
 	_map.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -296,6 +315,10 @@ func _build_menu(root: Control) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _board.visible and event is InputEventKey and event.pressed and not event.echo:
+		_board_key(event as InputEventKey)
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("menu"):
 		if _menu.visible:
 			_close_menu()
@@ -356,8 +379,11 @@ func _process(delta: float) -> void:
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
 	if Input.is_action_just_pressed("help") and not _menu.visible:
 		toggle_help()
-	_map.visible = Input.is_action_pressed("map") and not game.voyage.is_empty() and not _menu.visible
-	_prompt.visible = not _map.visible and not game.local_player.dead
+	_map.visible = Input.is_action_pressed("map") and not game.mission.is_empty() and not _menu.visible
+	_prompt.visible = not _map.visible and not _board.visible and not game.local_player.dead
+	if _board.visible and game.local_player.frame_position().distance_to(ShipShape.map_table_target()) > 3.5:
+		close_board()
+	_card.queue_redraw()
 	if _map.visible:
 		_map.queue_redraw()
 	var reload := game.local_player.cannon_reload()
@@ -367,6 +393,89 @@ func _process(delta: float) -> void:
 	if enemy:
 		var d := Vector2(enemy.x - game.view_ship.x, enemy.z - game.view_ship.z)
 		_enemy.text = "%s: %d m %s" % [Game.ship_name(enemy), int(d.length()), ServerSim.compass_name(atan2(d.x, -d.y))]
+
+
+# --- the mission board (E at the map table) ---
+
+## Show the board: the three offers (game.offers), or the running mission with a way to give
+## it up. Keys: 1-3 take an offer, 4 gives up, E or Esc close.
+func show_board() -> void:
+	for child in _board_box.get_children():
+		child.queue_free()
+	var title := _card_label("Mission board", 40, Color("5a3e22"))
+	title.add_theme_font_override("font", display_font())
+	_board_box.add_child(title)
+	var m: Dictionary = game.mission
+	if not m.is_empty():
+		_board_box.add_child(_card_label("Your mission for the %s:" % Missions.COMPANY_NAMES[m.company], 20, Color("2a1a10")))
+		_board_box.add_child(_card_label(m.title, 30, Missions.COMPANY_COLOURS[m.company].darkened(0.45)))
+		_board_box.add_child(_card_label("4  give up this mission        E  close", 18, Color("8a2a1a")))
+	else:
+		for i in game.offers.size():
+			var offer: Dictionary = game.offers[i]
+			var c: int = offer.company
+			var head := _card_label("%d   %s  (level %d)" % [i + 1, Missions.COMPANY_NAMES[c], offer.level], 22, Missions.COMPANY_COLOURS[c].darkened(0.5))
+			head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			_board_box.add_child(head)
+			var line := _card_label("      %s: %s.  %d-%d gold" % [offer.title, offer.text, offer.gold.x, offer.gold.y], 18, Color("2a1a10"))
+			line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			line.custom_minimum_size = Vector2(640, 0)
+			_board_box.add_child(line)
+		_board_box.add_child(_card_label("1 / 2 / 3  take a mission        E  close", 18, Color("8a2a1a")))
+	_board.visible = true
+	_board.reset_size()
+	game.local_player.board_open = true
+
+
+func close_board() -> void:
+	_board.visible = false
+	game.local_player.board_open = false
+
+
+func board_visible() -> bool:
+	return _board.visible
+
+
+func _board_key(event: InputEventKey) -> void:
+	var key := event.physical_keycode
+	if key in [KEY_1, KEY_2, KEY_3] and game.mission.is_empty():
+		var i := key - KEY_1
+		if i < game.offers.size():
+			game.send_request("voyage", game.offers[i].company)
+			Audio.play("click")
+			close_board()
+	elif key == KEY_4 and not game.mission.is_empty():
+		game.send_request("abandon", 0)
+		Audio.play("click")
+		close_board()
+	elif key in [KEY_E, KEY_ESCAPE]:
+		close_board()
+
+
+func _card_label(text: String, size: int, colour: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", colour)
+	return l
+
+
+## A sheet of parchment in the middle of the screen (the controls card, the mission board).
+func _parchment_card() -> PanelContainer:
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("f2e2b8")
+	sb.border_color = Color("5a3e22")
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(22)
+	card.add_theme_stylebox_override("panel", sb)
+	card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	return card
 
 
 func flash_damage() -> void:
@@ -430,7 +539,8 @@ func _controls_card() -> PanelContainer:
 		["Hold E", "patch a hole (needs planks), dig at the X"],
 		["Bucket", "E in the water below decks, then E on deck to throw it out"],
 		["1 / 2, left click", "cutlass or pistol, attack"],
-		["M (hold)", "read your treasure map"],
+		["E at the map table", "the mission board: treasure, bounties, cargo"],
+		["M (hold)", "read your mission's map"],
 		["Tab / Esc", "crew list / menu"],
 		["Storms", "big seas and lightning that holes the hull: patch, bail, or sail out"],
 	]:
@@ -592,8 +702,63 @@ class Damage:
 
 
 
-## The treasure map (hold M): the voyage island's outline on parchment, its name, the X,
-## and where the island lies from the ship.
+## The running mission, top left: the company, the title and the steps, done ones dimmed and
+## struck through; a cargo run's time left.
+class MissionCard:
+	extends Control
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var m: Dictionary = hud.game.mission
+		if m.is_empty():
+			return
+		var lines := MissionCard.steps(m, hud.game.render_time)
+		var font := get_theme_default_font()
+		var height := 74 + lines.size() * 24
+		Hud.panel(self, Rect2(Vector2.ZERO, Vector2(size.x, height)))
+		var colour: Color = Missions.COMPANY_COLOURS[m.company]
+		draw_string(font, Vector2(16, 26), Missions.COMPANY_NAMES[m.company].to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, colour)
+		draw_string(Hud.display_font(), Vector2(16, 56), m.title, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 28, PAPER)
+		for i in lines.size():
+			var y := 84 + i * 24
+			var done: bool = lines[i][1]
+			var text: String = lines[i][0]
+			var col := Color(PAPER, 0.45) if done else PAPER
+			if text.begins_with("!"):
+				text = text.substr(1)
+				col = Color("ffb04a")
+			draw_string(font, Vector2(16, y), text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 18, col)
+			if done:
+				var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+				draw_line(Vector2(14, y - 6), Vector2(18 + w, y - 6), Color(PAPER, 0.6), 2.0)
+
+	## The steps as [text, done] (text starting "!" is a warning).
+	static func steps(m: Dictionary, now: float) -> Array:
+		var out := []
+		match int(m.kind):
+			Missions.Kind.TREASURE:
+				for t: Dictionary in m.targets:
+					out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
+				out.append(["Sell to the Gold Hoarder (%d of %d)" % [m.handled, m.total], m.handled >= m.total])
+			Missions.Kind.BOUNTY:
+				var t: Dictionary = m.targets[0]
+				out.append(["Beat %s on %s" % [m.captain, Islands.LAYOUT[t.island].name], t.done])
+				out.append(["Bring his skull to the Order of Souls", m.handled >= m.total])
+			Missions.Kind.CARGO:
+				var t: Dictionary = m.targets[0]
+				out.append(["Collect the cargo on Port Merrow's pier", false])
+				out.append(["Deliver to the trader on %s (%d of %d)" % [Islands.LAYOUT[t.island].name, m.handled, m.total], false])
+				var left: float = m.deadline - now
+				if left > 0.0:
+					out.append(["%d:%02d left" % [int(left) / 60, int(left) % 60], false])
+				else:
+					out.append(["!Late: crates pay half now", false])
+		return out
+
+
+## The mission's map (hold M): the next island to visit on parchment, its name, its mark (the
+## X, the captain's skull, or the trader's crate) and where the island lies from the ship.
 class TreasureMap:
 	extends Control
 
@@ -603,9 +768,14 @@ class TreasureMap:
 	var hud: Hud
 
 	func _draw() -> void:
-		var v: Dictionary = hud.game.voyage
-		if v.is_empty():
+		var m: Dictionary = hud.game.mission
+		if m.is_empty():
 			return
+		var v: Dictionary = m.targets[0]
+		for t: Dictionary in m.targets:
+			if not t.done:
+				v = t
+				break
 		var spec: Dictionary = Islands.LAYOUT[v.island]
 		var font := get_theme_default_font()
 		var rng := RandomNumberGenerator.new()
@@ -638,10 +808,19 @@ class TreasureMap:
 			var p := centre + Vector2(cos(TAU * k / 64.0), sin(TAU * k / 64.0)) * grass_r[k] * rng.randf_range(0.25, 0.8)
 			_palm(p)
 		var x := centre + Vector2(v.x - spec.x, v.z - spec.z) * scale
-		_trail(beach, x, rng)
-		for d: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
-			draw_line(x - d * 13.0, x + d * 13.0, Color("c8302a"), 7.0, true)
+		match int(m.kind):
+			Missions.Kind.TREASURE:
+				_trail(beach, x, rng)
+				for d: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
+					draw_line(x - d * 13.0, x + d * 13.0, Color("c8302a"), 7.0, true)
+			Missions.Kind.BOUNTY:
+				_skull(x)
+			Missions.Kind.CARGO:
+				_crate(x)
 		draw_string(Hud.display_font(), Vector2(0, 50), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 42, INKY)
+		if m.targets.size() > 1:
+			var k: int = m.targets.find(v)
+			draw_string(font, Vector2(0, 74), "island %d of %d" % [k + 1, m.targets.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x, 16, INKY)
 		_compass_rose(Vector2(size.x - 52, 62))
 		var ship := hud.game.view_ship
 		var to := Vector2(spec.x - ship.x, spec.z - ship.z)
@@ -696,6 +875,25 @@ class TreasureMap:
 			var t := float(i) / dots
 			var p := start.lerp(mid, t).lerp(mid.lerp(x, t), t)
 			draw_circle(p, 2.2, Color(INKY, 0.8))
+
+	## A skull and crossbones in ink, where a bounty's captain waits.
+	func _skull(at: Vector2) -> void:
+		for a: float in [0.7, -0.7]:
+			var d := Vector2(cos(a), sin(a)) * 18.0
+			draw_line(at - d, at + d, INKY, 5.0, true)
+		draw_circle(at + Vector2(0, -6), 12.0, PARCHMENT)
+		draw_arc(at + Vector2(0, -6), 12.0, 0.0, TAU, 20, INKY, 3.0, true)
+		draw_rect(Rect2(at + Vector2(-6, 2), Vector2(12, 7)), INKY)
+		for sx: float in [-5.0, 5.0]:
+			draw_circle(at + Vector2(sx, -7), 3.2, Color("c8302a"))
+
+	## A crate marked with the Merchant Alliance's anchor, where the trader waits.
+	func _crate(at: Vector2) -> void:
+		var r := Rect2(at - Vector2(13, 13), Vector2(26, 26))
+		draw_rect(r, Color("c08a50"))
+		draw_rect(r, INKY, false, 3.0)
+		draw_line(r.position, r.end, INKY, 2.0, true)
+		draw_line(r.position + Vector2(r.size.x, 0), r.position + Vector2(0, r.size.y), INKY, 2.0, true)
 
 	func _compass_rose(at: Vector2) -> void:
 		for k in 4:

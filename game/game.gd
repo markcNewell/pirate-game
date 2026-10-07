@@ -36,9 +36,17 @@ var view_wind := Vector2(0, -1)
 var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket, carry}
 var view_items := {}  # item id -> Loot
 var view_skeletons := {}  # skeleton id -> Skeleton
-## The crew's gold and current treasure hunt ({island, x, z} or empty), as last heard.
+## The crew's gold, its reputation points with each company and its mission (see
+## _decode_mission; empty with none), as last heard. `voyage` is the next X still to dig on
+## a treasure voyage ({island, x, z} or empty).
 var purse := 0
+var rep: Array = [0, 0, 0]
+var mission := {}
 var voyage := {}
+## Every crew's cargo run, for drawing the traders: crew -> {island, x, z}.
+var traders := {}
+## The mission board's offers when it was last opened (see Hud.show_board).
+var offers: Array = []
 
 var world: World
 var ship_views := {}  # ship id -> ShipView
@@ -226,13 +234,24 @@ func client_on_snapshot(data: Array) -> void:
 	if not mine.is_empty():
 		own_crew = mine.crew
 		own_ship = mine.crew
+	traders.clear()
 	for entry in data[4]:
 		purses[int(entry[0])] = int(entry[1])
+		var crew_mission := _decode_mission(entry.slice(5))
+		if not crew_mission.is_empty() and crew_mission.kind == Missions.Kind.CARGO:
+			traders[int(entry[0])] = crew_mission.targets[0]
 		if int(entry[0]) == own_crew:
 			if int(entry[1]) > purse and has_view():
 				Audio.play("coins", -2.0)
 			purse = int(entry[1])
-			voyage = {} if entry.size() < 5 else {"island": int(entry[2]), "x": float(entry[3]), "z": float(entry[4])}
+			rep = [int(entry[2]), int(entry[3]), int(entry[4])]
+			mission = crew_mission
+			voyage = {}
+			if not mission.is_empty() and mission.kind == Missions.Kind.TREASURE:
+				for target: Dictionary in mission.targets:
+					if not target.done:
+						voyage = target
+						break
 	var snap_bones := {}
 	for entry in data[5]:
 		var sk := Skeleton.from_array(entry)
@@ -319,6 +338,12 @@ func client_on_event(kind: String, data: Array) -> void:
 				Audio.play_at("thud", avatars[int(data[0])].global_position + Vector3.UP)
 		"alarm":
 			Audio.play("bell", -3.0, 1.0, 0.0)
+		"board":
+			offers = []
+			for entry: Array in data:
+				offers.append(Missions.offer_from_array(entry))
+			if hud:
+				hud.show_board()
 		"lightning":
 			if world:
 				world.strike(Vector3(data[1], data[2], data[3]))
@@ -605,6 +630,21 @@ func send_station_input(axes: Vector2, aim: Vector2) -> void:
 		server_station_input(local_id, axes, aim)
 	else:
 		Net.send_station_input(axes, aim)
+
+
+## A crew's mission from a snapshot: {kind, company, title, deadline, captain, handled, total,
+## targets: [{island, x, z, done}]}, or {} with none.
+static func _decode_mission(a: Array) -> Dictionary:
+	if a.size() < 8:
+		return {}
+	var targets: Array[Dictionary] = []
+	for i in int(a[7]):
+		var k := 8 + i * 4
+		targets.append({"island": int(a[k]), "x": float(a[k + 1]), "z": float(a[k + 2]), "done": int(a[k + 3]) == 1})
+	return {
+		"kind": int(a[0]), "company": int(a[1]), "title": str(a[2]), "deadline": float(a[3]),
+		"captain": str(a[4]), "handled": int(a[5]), "total": int(a[6]), "targets": targets,
+	}
 
 
 func send_request(action: String, arg: int, data: Array = []) -> void:

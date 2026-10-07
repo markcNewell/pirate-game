@@ -18,6 +18,9 @@ const PROP_FILES := {
 }
 ## What washes up on the beaches, picked in turn.
 const BEACH_BITS := ["shell_0", "pebbles_0", "starfish_0", "shell_1", "pebbles_0", "starfish_1", "shell_0", "driftwood_0"]
+## On the outpost, keep scenery off the beach from the mystic round past the pier to the hut.
+const OUTPOST_CLEAR := 0.1
+const OUTPOST_CLEAR_HALF := 1.0
 ## Heights the three palm models are built to (art/blender/nature.py).
 const PALM_HEIGHTS: Array[float] = [6.5, 8.0, 9.5]
 
@@ -153,7 +156,7 @@ static func _palms(_decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rn
 		if y < SAND_TOP - 0.1:
 			continue
 		# Keep the outpost's pier and hut clear of palms.
-		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
+		if spec.get("outpost", false) and absf(angle_difference(OUTPOST_CLEAR, a)) < OUTPOST_CLEAR_HALF:
 			continue
 		var height := rng.randf_range(6.0, 9.5)
 		var turn := rng.randf() * TAU
@@ -260,7 +263,7 @@ static func _tufts(spec: Dictionary) -> void:
 		var z := sin(a) * r
 		if not is_grass(spec, x, z):
 			continue
-		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
+		if spec.get("outpost", false) and absf(angle_difference(OUTPOST_CLEAR, a)) < OUTPOST_CLEAR_HALF:
 			continue
 		var grow := rng.randf_range(0.7, 1.4)
 		_prop("tuft_%d" % (i % 2), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(grow, grow, grow)), Vector3(x, ground(spec, x, z) - 0.03, z)))
@@ -327,7 +330,7 @@ static func _bushes(_b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerato
 		var z := sin(a) * r
 		if not is_grass(spec, x, z):
 			continue
-		if spec.get("outpost", false) and absf(angle_difference(0.3, a)) < 0.75:
+		if spec.get("outpost", false) and absf(angle_difference(OUTPOST_CLEAR, a)) < OUTPOST_CLEAR_HALF:
 			continue
 		var y := ground(spec, x, z)
 		if i % 3 == 0:

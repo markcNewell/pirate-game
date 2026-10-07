@@ -5,7 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
-tests=(smoke_test combat_test treasure_test fighting_test crew_test storm_test)
+tests=(smoke_test combat_test treasure_test fighting_test crew_test storm_test missions_test)
 port=24800
 pids=()
 for t in "${tests[@]}"; do

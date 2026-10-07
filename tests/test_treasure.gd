@@ -60,15 +60,18 @@ func test_voyage_dig_carry_and_sell() -> void:
 	sim.options_island = 1
 	var r: Dictionary = sim.players[1]
 	r.pos = ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6)
-	sim.request(1, "voyage", 0, [])
-	check(not sim.crews[1].voyage.is_empty(), "the map table gives a voyage")
-	check_eq(sim.crews[1].voyage.island, 1)
+	sim.request(1, "voyage", Missions.Company.GOLD, [])
+	var m: Dictionary = sim.crews[1].mission
+	check(not m.is_empty(), "the map table gives a treasure voyage")
+	check_eq(m.kind, Missions.Kind.TREASURE)
+	check_eq(m.islands[0], 1)
 
 	# Dig in the wrong place first: nothing.
 	var spec: Dictionary = Islands.LAYOUT[1]
 	r.mode = LocalPlayer.Mode.WORLD
-	var x: float = sim.crews[1].voyage.x
-	var z: float = sim.crews[1].voyage.z
+	var buried: Loot = sim.items[m.items[0]]
+	var x: float = buried.pos.x
+	var z: float = buried.pos.z
 	var wrong := Vector2(x, z) + (Vector2(spec.x, spec.z) - Vector2(x, z)).normalized() * 8.0
 	r.pos = Vector3(wrong.x, Islands.ground_at(1, wrong.x, wrong.y) + 0.05, wrong.y)
 	_hold(sim, "dig", 2.6)
@@ -77,7 +80,7 @@ func test_voyage_dig_carry_and_sell() -> void:
 	r.pos = Vector3(x + 1.0, Islands.ground_at(1, x + 1.0, z) + 0.05, z)
 	_hold(sim, "dig", 2.6)
 	check_eq(sim.stats.dug, 1, "a chest at the X")
-	var chest: Loot = sim.items[sim.crews[1].voyage.item]
+	var chest: Loot = sim.items[m.items[0]]
 	check_eq(chest.state, Loot.State.GROUND)
 
 	sim.request(1, "pickup", chest.id, [])
@@ -85,8 +88,9 @@ func test_voyage_dig_carry_and_sell() -> void:
 	r.pos = Outpost.sell_spot()
 	sim.request(1, "sell", 0, [])
 	check_eq(sim.crews[1].purse, chest.value, "sold for its value")
-	check(sim.crews[1].voyage.is_empty(), "voyage over")
+	check(sim.crews[1].mission.is_empty(), "voyage over")
 	check_eq(r.carry, -1)
+	check_eq(sim.crews[1].rep[Missions.Company.GOLD], Missions.CHEST_POINTS + Missions.ITEM_POINTS + Missions.FINISH_POINTS, "the Gold Hoarders are pleased")
 
 
 func test_chest_put_down_aboard_rides_with_the_ship() -> void:

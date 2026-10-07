@@ -16,6 +16,10 @@ const REACH := 3.2
 const LIGHTHOUSE_ANGLE := -2.0
 const LIGHTHOUSE_IN := 8.0
 const LIGHTHOUSE_HEIGHT := 13.0
+## The Order of Souls' mystic stands on the beach the other side of the pier from the hut.
+const MYSTIC_ANGLE := -0.62
+## The Merchant Alliance's agent stands at the root of the pier, beside the cargo.
+const AGENT_AT := Vector3(3.0, 0.0, -1.05)
 ## The tavern sits inland, round from the hut, its door facing the sea.
 const TAVERN_ANGLE := 1.45
 const TAVERN_IN := 13.0
@@ -44,6 +48,33 @@ static func merchant_pos() -> Vector3:
 static func sell_spot() -> Vector3:
 	var r: float = spec().radius - HUT_RADIUS_IN
 	return _at(r + 1.8, HUT_ANGLE, PIER_Y)
+
+
+## Where the Order of Souls' mystic stands (world), and where you stand to sell him a skull.
+static func mystic_pos() -> Vector3:
+	var r: float = spec().radius - HUT_RADIUS_IN - 2.0
+	var x := cos(MYSTIC_ANGLE) * r
+	var z := sin(MYSTIC_ANGLE) * r
+	return _centre() + Vector3(x, IslandMesh.ground(spec(), x, z), z)
+
+
+static func mystic_spot() -> Vector3:
+	var r: float = spec().radius - HUT_RADIUS_IN + 0.2
+	var x := cos(MYSTIC_ANGLE) * r
+	var z := sin(MYSTIC_ANGLE) * r
+	return _centre() + Vector3(x, IslandMesh.ground(spec(), x, z), z)
+
+
+## The Merchant Alliance's agent, on the pier (world).
+static func agent_pos() -> Vector3:
+	var r0: float = spec().radius + PIER_START
+	return _centre() + Vector3(r0 + AGENT_AT.x, PIER_Y, AGENT_AT.z)
+
+
+## Where a cargo run's crates wait on the pier (world): along it, beside the agent.
+static func cargo_spot(i: int) -> Vector3:
+	var r0: float = spec().radius + PIER_START
+	return _centre() + Vector3(r0 + 4.4 + 1.05 * i, PIER_Y, 0.75)
 
 
 static func barrels() -> Array[Vector3]:

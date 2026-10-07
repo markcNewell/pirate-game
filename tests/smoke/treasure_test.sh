@@ -31,7 +31,7 @@ fail=0
 check() {
 	if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
 }
-check "a voyage was taken" 'grep -q "voyage to Parrot Rock" "$LOGS/hunt.log"'
+check "a treasure voyage was taken" 'grep -q "took a treasure mission: The hoard of Parrot Rock" "$LOGS/hunt.log"'
 check "the chest was dug up" 'grep -q "dug up a" "$LOGS/hunt.log"'
 check "it was carried back aboard and put down" 'grep -q "stowed the chest" "$LOGS/hunt_bot.log"'
 check "a chest was sold" 'grep -q "sold a .* for [0-9]* gold" "$LOGS/sell.log"'

@@ -26,6 +26,18 @@ var cooldown := 0.0
 ## Time it fell, or -1 while it stands.
 var fell := -1.0
 var walking := false
+## A bounty's skeleton captain: tougher, harder-hitting, slower, and he drops his skull.
+var captain := false
+var damage := SWING_DAMAGE
+var swing_cooldown := SWING_COOLDOWN
+
+
+## Make this skeleton a bounty's captain.
+func make_captain() -> void:
+	captain = true
+	hp = Missions.CAPTAIN_HEALTH
+	damage = Missions.CAPTAIN_DAMAGE
+	swing_cooldown = Missions.CAPTAIN_COOLDOWN
 
 
 func alive() -> bool:
@@ -34,7 +46,7 @@ func alive() -> bool:
 
 func to_array() -> Array:
 	var state := 2 if not alive() else (1 if walking else 0)
-	return [id, frame, pos.x, pos.y, pos.z, yaw, hp, state]
+	return [id, frame, pos.x, pos.y, pos.z, yaw, hp, state, 1 if captain else 0]
 
 
 static func from_array(a: Array) -> Skeleton:
@@ -46,6 +58,7 @@ static func from_array(a: Array) -> Skeleton:
 	s.hp = a[6]
 	s.fell = 0.0 if int(a[7]) == 2 else -1.0
 	s.walking = int(a[7]) == 1
+	s.captain = a.size() > 8 and int(a[8]) == 1
 	return s
 
 
@@ -64,7 +77,7 @@ func step(target: Variant, dt: float, floor_at: Callable) -> bool:
 	yaw = atan2(-flat.x, -flat.y)
 	if dist <= SWING_REACH:
 		if cooldown <= 0.0 and absf(goal.y - pos.y) < 2.0:
-			cooldown = SWING_COOLDOWN
+			cooldown = swing_cooldown
 			return true
 		return false
 	var step_len := minf(SPEED * dt, dist - SWING_REACH * 0.8)
