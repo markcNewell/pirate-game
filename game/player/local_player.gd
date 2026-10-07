@@ -5,19 +5,24 @@ extends Node3D
 ## On board, the body walks on the still deck proxy and the camera is that position carried
 ## onto the moving ship, so the deck never slides away underfoot. Overboard, the body lives in
 ## the world: it swims on the waves or walks on islands. Walking is decided here and reported
-## to the server, which checks it and can snap the player back (see Game.server_player_state).
+## to the server, which checks it and can snap the player back (see ServerSim.player_state).
 
 enum Mode { ON_SHIP, WORLD }
 
 const EYE_HEIGHT := 1.6
 const STATION_REACH := 2.4
 const LADDER_REACH := 3.5
-const OVERBOARD_DROP := 1.2
+const HOLE_REACH := 2.4
+const HATCH_REACH := 2.4
+const PATCH_SEND_EVERY := 0.2
+## The cannon sights sit a little above the barrel, so aim a touch higher than the eye looks.
+const SIGHT_PITCH := 0.04
 
 const STATION_HELP := {
 	ShipShape.Kind.WHEEL: "A / D  turn the wheel      E  let go",
 	ShipShape.Kind.SAILS: "W / S  let out / take in sail      A / D  swing the sails      E  let go",
 	ShipShape.Kind.ANCHOR: "W (hold)  winch the anchor up      S  drop the anchor      E  let go",
+	ShipShape.Kind.CANNON: "Mouse  aim      Left click  fire      E  let go",
 }
 
 var game: Game
@@ -30,6 +35,8 @@ var yaw := 0.0
 var pitch := 0.0
 ## Station the server says we are working, or -1.
 var station := -1
+## True while carrying a bucket of water (the server says).
+var bucket := false
 var teleport_seq := 0
 var swimming := false
 var sensitivity := 0.0025
@@ -41,6 +48,7 @@ var camera: Camera3D
 var _prev := Vector3.ZERO
 var _curr := Vector3.ZERO
 var _send_timer := 0.0
+var _patch_timer := 0.0
 var _stations := ShipShape.stations()
 
 
@@ -90,13 +98,15 @@ func _physics_process(delta: float) -> void:
 		body.velocity = Vector3.ZERO
 		if input.interact:
 			game.send_request("leave", station)
+		elif input.fire and _stations[station].kind == ShipShape.Kind.CANNON:
+			var aim := cannon_aim()
+			game.send_request("fire", station, [aim.x, aim.y])
 	else:
 		if mode == Mode.ON_SHIP:
 			_move_on_ship(delta)
 		else:
 			_move_in_world(delta)
-		if input.interact:
-			_interact()
+		_interact(delta)
 
 	_curr = frame_position()
 	_send_timer += delta
@@ -104,14 +114,18 @@ func _physics_process(delta: float) -> void:
 		_send_timer = 0.0
 		game.send_player_state(state_array())
 		if station >= 0:
-			game.send_station_input(input.wish)
+			game.send_station_input(input.wish, cannon_aim())
 
 
 func _move_on_ship(delta: float) -> void:
-	body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), input.jump, delta)
-	body.move_and_slide()
 	var local := DeckProxy.from_proxy(body.global_position)
-	if local.y < ShipShape.DECK_Y - OVERBOARD_DROP or absf(local.z) > ShipShape.HALF_LENGTH + 4.0:
+	# Wading through a flooded lower deck is slow going.
+	var depth := game.view_ship.water - (local.y - ShipShape.LOWER_Y)
+	var scale := 0.55 if ShipShape.is_below_deck(local) and depth > 0.6 else 1.0
+	body.velocity = PlayerMotor.walk(body.velocity, input.wish, yaw, input.run, body.is_on_floor(), input.jump, delta, scale)
+	body.move_and_slide()
+	local = DeckProxy.from_proxy(body.global_position)
+	if not ShipShape.is_on_board(local):
 		_go_overboard(local)
 
 
@@ -138,21 +152,87 @@ func _go_overboard(local: Vector3) -> void:
 	_prev = body.global_position
 
 
-func _interact() -> void:
-	if mode == Mode.ON_SHIP:
-		var id := nearest_station()
-		if id >= 0:
-			game.send_request("station", id)
-	else:
+func _interact(delta: float) -> void:
+	var target := current_target()
+	if target.is_empty():
+		return
+	if target.kind == "patch":
+		_patch_timer -= delta
+		if input.interact_held and _patch_timer <= 0.0:
+			_patch_timer = PATCH_SEND_EVERY
+			game.send_request("patch", target.id)
+		return
+	if not input.interact:
+		return
+	match target.kind:
+		"station":
+			game.send_request("station", target.id)
+		"ladder":
+			game.send_request("climb", target.id)
+		"hatch":
+			game.send_request("hatch", target.id)
+		"scoop":
+			game.send_request("scoop", 0)
+		"throw":
+			game.send_request("throw", 0)
+
+
+## What E would do right now: {kind, id, label}, or empty.
+func current_target() -> Dictionary:
+	if not active or station >= 0:
+		return {}
+	if mode == Mode.WORLD:
 		var side := nearest_ladder()
-		if side != 0:
-			game.send_request("climb", side)
+		return {"kind": "ladder", "id": side, "label": "E  climb the ladder"} if side != 0 else {}
+	# Of everything in reach, use the thing we are looking at most directly.
+	var local := frame_position()
+	var eye := local + Vector3.UP * EYE_HEIGHT
+	var best := {}
+	var best_dot := -2.0
+	var candidates: Array[Dictionary] = []
+	var st := nearest_station()
+	if st >= 0:
+		candidates.append({"kind": "station", "id": st, "label": "E  %s" % _stations[st].label, "at": _stations[st].at})
+	var hole := nearest_hole()
+	if not hole.is_empty():
+		candidates.append({
+			"kind": "patch", "id": int(hole[0]), "at": Vector3(hole[1], hole[2], hole[3]),
+			"label": "Hold E  patch the hole (%d%%)" % int(float(hole[4]) * 100.0),
+		})
+	if local.y > ShipShape.DECK_Y - 0.5 and _looking_at(eye, ShipShape.hatch_top_target(), HATCH_REACH, 0.3):
+		candidates.append({"kind": "hatch", "id": 0, "label": "E  climb down the hatch", "at": ShipShape.hatch_top_target()})
+	if ShipShape.is_below_deck(local) and eye.distance_to(ShipShape.hatch_bottom_target()) < HATCH_REACH:
+		candidates.append({"kind": "hatch", "id": 1, "label": "E  climb up", "at": ShipShape.hatch_bottom_target()})
+	for c in candidates:
+		var dot := look_direction().dot((c.at - eye).normalized())
+		if dot > best_dot:
+			best = c
+			best_dot = dot
+	if not best.is_empty():
+		return best
+	if bucket and local.y > ShipShape.DECK_Y - 0.5:
+		return {"kind": "throw", "id": 0, "label": "E  throw the water overboard"}
+	var water := game.view_ship.water
+	if not bucket and water > 0.1 and ShipShape.is_below_deck(local) and local.y < ShipShape.LOWER_Y + water + 0.2:
+		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket"}
+	return {}
+
+
+func _looking_at(eye: Vector3, point: Vector3, reach: float, min_dot: float) -> bool:
+	var to := point - eye
+	var dist := to.length()
+	return dist < reach and look_direction().dot(to / maxf(dist, 1e-3)) > min_dot
+
+
+## Where we are looking, in our current frame.
+func look_direction() -> Vector3:
+	return Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch) * Vector3.FORWARD
 
 
 ## The station in reach that we are looking at, or -1.
 func nearest_station() -> int:
 	var eye := DeckProxy.from_proxy(body.global_position) + Vector3.UP * EYE_HEIGHT
-	var look := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch) * Vector3.FORWARD
+	var look := look_direction()
 	var best := -1
 	var best_dist := STATION_REACH
 	for st in _stations:
@@ -164,9 +244,26 @@ func nearest_station() -> int:
 	return best
 
 
+## The hole in reach that we are looking at ([id, x, y, z, progress]), or empty.
+func nearest_hole() -> Array:
+	var local := frame_position()
+	if not ShipShape.is_below_deck(local):
+		return []
+	var eye := local + Vector3.UP * EYE_HEIGHT
+	var best: Array = []
+	var best_dist := HOLE_REACH
+	for h: Array in game.view_ship.holes:
+		var at := Vector3(h[1], h[2], h[3])
+		var dist := eye.distance_to(at)
+		if dist < best_dist and _looking_at(eye, at, HOLE_REACH, 0.4):
+			best = h
+			best_dist = dist
+	return best
+
+
 ## The ladder (-1 port, 1 starboard) within reach of a swimmer, or 0.
 func nearest_ladder() -> int:
-	if game.ship_view == null:
+	if game.ship_view == null or game.view_ship.is_sinking():
 		return 0
 	var p := body.global_position
 	for side: int in [-1, 1]:
@@ -176,16 +273,34 @@ func nearest_ladder() -> int:
 	return 0
 
 
+## The aim of the cannon we are manning, from where we look: (yaw toward the bow, pitch).
+func cannon_aim() -> Vector2:
+	if station < 0 or _stations[station].kind != ShipShape.Kind.CANNON:
+		return Vector2.ZERO
+	var side: int = _stations[station].side
+	var outboard := -PI / 2.0 * side
+	var swing := angle_difference(outboard, yaw) * side
+	return Vector2(
+		clampf(swing, -ShipShape.CANNON_YAW_LIMIT, ShipShape.CANNON_YAW_LIMIT),
+		clampf(pitch + SIGHT_PITCH, ShipShape.CANNON_PITCH_MIN, ShipShape.CANNON_PITCH_MAX),
+	)
+
+
+## Seconds until our cannon can fire again (0 when loaded), or -1 if not at a cannon.
+func cannon_reload() -> float:
+	if station < 0 or _stations[station].kind != ShipShape.Kind.CANNON:
+		return -1.0
+	return game.view_ship.gun_reload[_stations[station].gun]
+
+
 ## What the HUD should offer right now.
 func prompt() -> String:
 	if not active:
 		return ""
 	if station >= 0:
 		return STATION_HELP[_stations[station].kind]
-	if mode == Mode.ON_SHIP:
-		var id := nearest_station()
-		return "E  %s" % _stations[id].label if id >= 0 else ""
-	return "E  climb the ladder" if nearest_ladder() != 0 else ""
+	var target := current_target()
+	return target.get("label", "")
 
 
 ## The server placed us: on spawn, at a station, up a ladder, on respawn or as a correction.

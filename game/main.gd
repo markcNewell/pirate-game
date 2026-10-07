@@ -20,6 +20,7 @@ func _ready() -> void:
 	PlayerInput.register_actions()
 	Settings.load_saved()
 	_args = _parse(OS.get_cmdline_user_args())
+	Net.options = _args
 	# Start next frame: the scene root refuses new children while it is still being built.
 	_start.call_deferred()
 
@@ -56,9 +57,10 @@ func _start() -> void:
 	if _args.has("host"):
 		Net.host(port, player_name)
 		if _args.has("demo"):
-			Net.game.ship.anchored = false
-			Net.game.ship.sail_height = [1.0, 1.0]
-			Net.game.ship.speed = 6.0
+			var ship := Net.game.sim.crew_ship()
+			ship.anchored = false
+			ship.sail_height = [1.0, 1.0]
+			ship.speed = 6.0
 	elif _args.has("join"):
 		Net.join(_args.join, port, player_name)
 	if _args.has("screenshot"):
@@ -94,11 +96,15 @@ func _print_summary() -> void:
 		print("RESULT no-session")
 		return
 	if game.is_server():
-		var moved := Vector2(game.ship.x, game.ship.z).length()
-		print("RESULT server moved=%.1f max_speed=%.2f anchored=%s sails=%.2f/%.2f stations_taken=%d climbs=%d corrections=%d players=%d" % [
-			moved, game.stats.max_speed, game.ship.anchored, game.ship.sail_height[0], game.ship.sail_height[1], game.stats.stations_taken,
-			game.stats.climbs, game.stats.corrections, game.players.size(),
-		])
+		var sim := game.sim
+		var ship := sim.crew_ship()
+		var line := "RESULT server moved=%.1f x=%.1f anchored=%s sails=%.2f/%.2f water=%.2f players=%d" % [
+			Vector2(ship.x, ship.z).length(), ship.x, ship.anchored, ship.sail_height[0], ship.sail_height[1],
+			ship.water, sim.players.size(),
+		]
+		for key in sim.stats:
+			line += " %s=%s" % [key, sim.stats[key]]
+		print(line)
 	if game.local_player:
 		var lp := game.local_player
 		print("RESULT client id=%d active=%s mode=%d station=%d ship_seen=(%.1f, %.1f) snapshots_ok=%s" % [
@@ -113,8 +119,27 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 	var game := Net.game
 	if game and view == "wheel":
 		# Walk there instantly: the wheel is out of reach from the spawn point.
-		game._server_teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.stations()[0].stand, 0.0)
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.stations()[0].stand, 0.0)
 		game.send_request("station", 0)
+	elif game and view == "cannon":
+		var st: Dictionary = ShipShape.stations()[5]
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, st.stand, -PI / 2.0)
+		game.send_request("station", 5)
+	elif game and view == "below":
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, Vector3(-0.8, ShipShape.LOWER_Y, 2.5), 0.25)
+	elif game and view == "enemy":
+		var cam := Camera3D.new()
+		cam.far = 3000.0
+		cam.fov = 50.0
+		game.add_child(cam)
+		cam.make_current()
+		var watch := func() -> void:
+			var enemy := game.nearest_enemy()
+			var me := game.ship_view.global_transform.origin + Vector3(0, 9, 0)
+			if enemy:
+				var at := Vector3(enemy.x, 4.0, enemy.z)
+				cam.look_at_from_position(me + (at - me).normalized() * 30.0 + Vector3(0, 3, 0), at)
+		get_tree().process_frame.connect(watch)
 	elif game and view != "deck":
 		var cam := Camera3D.new()
 		cam.far = 3000.0

@@ -22,6 +22,19 @@ const QUARTER_Y := 5.2
 const STAIR_BOTTOM_Z := 2.4
 const STAIR_HALF_WIDTH := 1.1
 
+## The lower deck: below the waterline, under the main deck from near the bow to the quarterdeck.
+const LOWER_Y := -0.8
+const LOWER_Z0 := -9.5
+const LOWER_Z1 := 5.8
+const WALL_INSET := 0.1
+
+## The hatch down to the lower deck: an opening in the main deck with a raised rim (coaming)
+## you cannot walk through; E climbs the ladder.
+const HATCH_Z0 := -5.5
+const HATCH_Z1 := -4.0
+const HATCH_X := 0.55
+const COAMING := 0.4
+
 const MAST_Z: Array[float] = [-6.5, 0.8]
 const MAST_HEIGHT: Array[float] = [18.0, 22.0]
 const MAST_RADIUS := 0.35
@@ -33,15 +46,30 @@ const LADDER_GAP := 0.75
 const CAPSTAN := Vector3(0.0, DECK_Y, -3.2)
 const WHEEL := Vector3(0.0, QUARTER_Y, 9.0)
 
-enum Kind { WHEEL, SAILS, ANCHOR }
+## Four deck cannons, a pair at each of these lengths, one each side.
+const CANNON_Z: Array[float] = [-1.2, 3.6]
+const CANNON_PIVOT_INSET := 1.15
+const CANNON_STAND_INSET := 2.25
+const CANNON_HEIGHT := 1.2
+const BARREL_LENGTH := 2.3
+## How far a cannon swings from straight out, and its elevation limits (radians).
+const CANNON_YAW_LIMIT := 0.7
+const CANNON_PITCH_MIN := -0.17
+const CANNON_PITCH_MAX := 0.55
+
+enum Kind { WHEEL, SAILS, ANCHOR, CANNON }
 
 ## Spots on the main deck where players appear.
 const SPAWNS: Array[Vector3] = [
-	Vector3(-1.8, DECK_Y, -4.6),
-	Vector3(1.8, DECK_Y, -4.6),
-	Vector3(-1.8, DECK_Y, -0.6),
-	Vector3(2.0, DECK_Y, -1.0),
+	Vector3(-1.6, DECK_Y, 0.0),
+	Vector3(1.9, DECK_Y, 0.2),
+	Vector3(-2.0, DECK_Y, -4.0),
+	Vector3(2.4, DECK_Y, -3.4),
 ]
+
+## Where the hatch ladder puts you: at the bottom (facing aft) and back on deck beside the hatch.
+const HATCH_BOTTOM := Vector3(0.0, LOWER_Y, -3.3)
+const HATCH_TOP := Vector3(-1.3, DECK_Y, -4.75)
 
 
 ## Half the hull's width at length `z` and height `y`. Narrow and pointed at the bow, a
@@ -63,7 +91,7 @@ static func rail_top(z: float) -> float:
 	return DECK_Y + RAIL_HEIGHT + 0.45 * t * t
 
 
-## Floor height under a point on board (main deck or quarterdeck; stairs are a ramp).
+## Floor height under a point on the upper decks (main deck or quarterdeck; stairs are a ramp).
 static func floor_y(z: float, x: float) -> float:
 	if z >= QUARTER_Z:
 		return QUARTER_Y
@@ -72,33 +100,73 @@ static func floor_y(z: float, x: float) -> float:
 	return DECK_Y
 
 
-## True when a ship-frame point is above the deck and inside the bulwarks.
+## The inside face of the lower deck's walls: straight up and down, set in from the hull
+## where it is narrowest (at the floor) so the walls never poke out through it.
+static func lower_wall_x(z: float) -> float:
+	return half_width(z, LOWER_Y) - WALL_INSET
+
+
+## True when a ship-frame point is somewhere a crew member can be: on the upper decks or
+## on the lower deck, inside the hull's sides.
 static func is_on_board(p: Vector3) -> bool:
-	if p.z < BOW_DECK_Z - 0.5 or p.z > STERN_Z + 0.5:
+	if p.z < BOW_DECK_Z - 0.5 or p.z > STERN_Z + 0.5 or p.y < LOWER_Y - 1.0:
 		return false
-	if absf(p.x) > half_width(p.z, DECK_Y) + 0.3:
+	# Up on deck allow a little slack at the rail; lower down the hull narrows.
+	var margin := 0.3 if p.y >= DECK_Y - 0.5 else 0.15
+	return absf(p.x) <= half_width(p.z, minf(p.y, DECK_Y)) + margin
+
+
+static func is_below_deck(p: Vector3) -> bool:
+	return p.y < DECK_Y - 0.6 and p.z > LOWER_Z0 - 0.5 and p.z < LOWER_Z1 + 0.5
+
+
+## True if a ship-frame point is inside the solid hull (for cannonball hits).
+static func inside_hull(p: Vector3) -> bool:
+	if absf(p.z) > HALF_LENGTH or p.y < KEEL_Y or p.y > rail_top(p.z):
 		return false
-	return p.y > DECK_Y - 1.2
+	return absf(p.x) < half_width(p.z, p.y)
+
+
+## A hit at or below the main deck holes the hull; higher hits only splinter the bulwark.
+static func makes_hole(hit: Vector3) -> bool:
+	return hit.y < DECK_Y - 0.15
+
+
+## Where a hull hit shows up on the lower deck: on the inside wall, at a height a crew member
+## can reach to patch it.
+static func hole_point(hit: Vector3) -> Vector3:
+	var side := 1.0 if hit.x >= 0.0 else -1.0
+	var z := clampf(hit.z, LOWER_Z0 + 0.8, LOWER_Z1 - 0.8)
+	var y := clampf(hit.y, LOWER_Y + 0.35, LOWER_Y + 1.5)
+	return Vector3(side * (lower_wall_x(z) - 0.02), y, z)
 
 
 static func stations() -> Array[Dictionary]:
 	var list: Array[Dictionary] = [
 		{
-			"id": 0, "kind": Kind.WHEEL, "mast": -1, "label": "take the wheel",
+			"id": 0, "kind": Kind.WHEEL, "mast": -1, "side": 0, "label": "take the wheel",
 			"at": WHEEL + Vector3(0, 1.05, 0.25), "stand": WHEEL + Vector3(0, 0, 1.3),
 		},
 		{
-			"id": 3, "kind": Kind.ANCHOR, "mast": -1, "label": "work the anchor",
+			"id": 3, "kind": Kind.ANCHOR, "mast": -1, "side": 0, "label": "work the anchor",
 			"at": CAPSTAN + Vector3(0, 0.8, 0), "stand": CAPSTAN + Vector3(0, 0, 1.4),
 		},
 	]
 	for m in MAST_Z.size():
 		var post := sail_post(m)
 		list.append({
-			"id": 1 + m, "kind": Kind.SAILS, "mast": m,
+			"id": 1 + m, "kind": Kind.SAILS, "mast": m, "side": 0,
 			"label": "work the %s sails" % ["fore", "main"][m],
 			"at": post + Vector3(0, 1.0, 0), "stand": post + Vector3(0, 0, 1.0),
 		})
+	for i in CANNON_Z.size():
+		for side: int in [-1, 1]:
+			var pivot := cannon_pivot(i, side)
+			list.append({
+				"id": cannon_station(i, side), "kind": Kind.CANNON, "mast": -1, "side": side,
+				"gun": cannon_index(i, side), "label": "man the cannon",
+				"at": pivot - Vector3(side * 0.4, 0.2, 0), "stand": cannon_stand(i, side),
+			})
 	list.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.id < b.id)
 	return list
 
@@ -108,6 +176,51 @@ static func sail_post(mast: int) -> Vector3:
 	return Vector3(1.6, DECK_Y, MAST_Z[mast] + 0.9)
 
 
+## Cannons are numbered 0-3: pair 0 port, pair 0 starboard, pair 1 port, pair 1 starboard.
+static func cannon_index(pair: int, side: int) -> int:
+	return pair * 2 + (1 if side > 0 else 0)
+
+
+static func cannon_station(pair: int, side: int) -> int:
+	return 4 + cannon_index(pair, side)
+
+
+static func cannon_count() -> int:
+	return CANNON_Z.size() * 2
+
+
+static func cannon_side(gun: int) -> int:
+	return 1 if gun % 2 == 1 else -1
+
+
+static func cannon_pivot(pair: int, side: int) -> Vector3:
+	var z: float = CANNON_Z[pair]
+	return Vector3(side * (half_width(z, DECK_Y) - CANNON_PIVOT_INSET), DECK_Y + CANNON_HEIGHT, z)
+
+
+static func cannon_pivot_of(gun: int) -> Vector3:
+	return cannon_pivot(gun / 2, cannon_side(gun))
+
+
+static func cannon_stand(pair: int, side: int) -> Vector3:
+	var z: float = CANNON_Z[pair]
+	return Vector3(side * (half_width(z, DECK_Y) - CANNON_STAND_INSET), DECK_Y, z)
+
+
+## Barrel direction in the ship frame for a gun's aim. `yaw` swings toward the bow (positive)
+## or the stern; `pitch` raises the muzzle.
+static func barrel_direction(gun: int, yaw: float, pitch: float) -> Vector3:
+	var side := cannon_side(gun)
+	var y := clampf(yaw, -CANNON_YAW_LIMIT, CANNON_YAW_LIMIT)
+	var p := clampf(pitch, CANNON_PITCH_MIN, CANNON_PITCH_MAX)
+	var out := Vector3(side * cos(y), 0.0, -sin(y)).normalized()
+	return (out * cos(p) + Vector3.UP * sin(p)).normalized()
+
+
+static func muzzle(gun: int, yaw: float, pitch: float) -> Vector3:
+	return cannon_pivot_of(gun) + barrel_direction(gun, yaw, pitch) * BARREL_LENGTH
+
+
 ## Bottom of a ladder at the waterline (where swimmers grab it) and its top on deck.
 static func ladder_bottom(side: int) -> Vector3:
 	return Vector3(side * (half_width(LADDER_Z, 0.0) + 0.35), 0.0, LADDER_Z)
@@ -115,6 +228,15 @@ static func ladder_bottom(side: int) -> Vector3:
 
 static func ladder_top(side: int) -> Vector3:
 	return Vector3(side * (half_width(LADDER_Z, DECK_Y) - 1.0), DECK_Y, LADDER_Z)
+
+
+## Points you look at to use the hatch ladder from above and from below.
+static func hatch_top_target() -> Vector3:
+	return Vector3(0.0, DECK_Y + 0.3, (HATCH_Z0 + HATCH_Z1) * 0.5)
+
+
+static func hatch_bottom_target() -> Vector3:
+	return Vector3(0.0, LOWER_Y + 1.4, HATCH_Z1 - 0.3)
 
 
 ## Collision triangles for the deck proxy: floors, stairs, rails, masts and fittings.
@@ -129,14 +251,19 @@ static func deck_faces() -> PackedVector3Array:
 		var w0 := half_width(z0, DECK_Y)
 		var w1 := half_width(z1, DECK_Y)
 		var y := QUARTER_Y if z0 >= QUARTER_Z else DECK_Y
-		b.quad(Vector3(-w0, y, z0), Vector3(w0, y, z0), Vector3(w1, y, z1), Vector3(-w1, y, z1), ink, Vector3.UP)
-		var rail := RAIL_BLOCK
+		if z0 >= HATCH_Z0 and z1 <= HATCH_Z1:
+			# Floor either side of the hatch opening.
+			for side: int in [-1, 1]:
+				var inner := side * HATCH_X
+				b.quad(Vector3(inner, y, z0), Vector3(side * w0, y, z0), Vector3(side * w1, y, z1), Vector3(inner, y, z1), ink, Vector3.UP)
+		else:
+			b.quad(Vector3(-w0, y, z0), Vector3(w0, y, z0), Vector3(w1, y, z1), Vector3(-w1, y, z1), ink, Vector3.UP)
 		for side: int in [-1, 1]:
 			if absf((z0 + z1) * 0.5 - LADDER_Z) < LADDER_GAP:
 				continue
 			var a := Vector3(side * w0, y, z0)
 			var c := Vector3(side * w1, y, z1)
-			b.quad(a, c, c + Vector3.UP * rail, a + Vector3.UP * rail, ink, Vector3(-side, 0, 0))
+			b.quad(a, c, c + Vector3.UP * RAIL_BLOCK, a + Vector3.UP * RAIL_BLOCK, ink, Vector3(-side, 0, 0))
 
 	var wq := half_width(QUARTER_Z, DECK_Y)
 	var s := STAIR_HALF_WIDTH
@@ -162,15 +289,62 @@ static func deck_faces() -> PackedVector3Array:
 		Vector3(wb, DECK_Y + RAIL_BLOCK, BOW_DECK_Z), Vector3(-wb, DECK_Y + RAIL_BLOCK, BOW_DECK_Z), ink, Vector3.BACK,
 	)
 
+	_hatch_faces(b)
+	_lower_deck_faces(b)
 	for m in MAST_Z.size():
-		b.box(Vector3(0, DECK_Y + 2.0, MAST_Z[m]), Vector3(MAST_RADIUS, 2.0, MAST_RADIUS), ink)
+		var top := DECK_Y + 4.0
+		b.box(Vector3(0, (LOWER_Y + top) * 0.5, MAST_Z[m]), Vector3(MAST_RADIUS, (top - LOWER_Y) * 0.5, MAST_RADIUS), ink)
 		b.box(sail_post(m) + Vector3(0, 0.6, 0), Vector3(0.15, 0.6, 0.15), ink)
 	b.box(CAPSTAN + Vector3(0, 0.5, 0), Vector3(0.6, 0.5, 0.6), ink)
 	b.box(WHEEL + Vector3(0, 0.6, 0), Vector3(0.3, 0.6, 0.25), ink)
+	for i in CANNON_Z.size():
+		for side: int in [-1, 1]:
+			var pivot := cannon_pivot(i, side)
+			b.box(Vector3(pivot.x - side * 0.05, DECK_Y + 0.45, pivot.z), Vector3(0.6, 0.45, 0.45), ink)
 	return b.faces()
 
 
-## Lengthwise sample points for the deck, with extra cuts at the ladder gaps and the quarterdeck.
+## The rim around the hatch, high enough that you climb rather than fall.
+static func _hatch_faces(b: MeshBuilder) -> void:
+	var ink := Color.BLACK
+	var top := DECK_Y + COAMING
+	var x := HATCH_X
+	var corners: Array[Vector3] = [
+		Vector3(-x, DECK_Y, HATCH_Z0), Vector3(x, DECK_Y, HATCH_Z0),
+		Vector3(x, DECK_Y, HATCH_Z1), Vector3(-x, DECK_Y, HATCH_Z1),
+	]
+	for i in 4:
+		var a := corners[i]
+		var c := corners[(i + 1) % 4]
+		var mid := (a + c) * 0.5
+		b.quad(a, c, c + Vector3.UP * COAMING, a + Vector3.UP * COAMING, ink, mid - Vector3(0, mid.y, (HATCH_Z0 + HATCH_Z1) * 0.5))
+	b.quad(corners[0] + Vector3.UP * (top - DECK_Y), corners[1] + Vector3.UP * (top - DECK_Y),
+		corners[2] + Vector3.UP * (top - DECK_Y), corners[3] + Vector3.UP * (top - DECK_Y), ink, Vector3.UP)
+
+
+## Lower deck floor, its walls along the hull and its two end walls.
+static func _lower_deck_faces(b: MeshBuilder) -> void:
+	var ink := Color.BLACK
+	var z := LOWER_Z0
+	var step := 0.8
+	while z < LOWER_Z1 - 1e-3:
+		var z1 := minf(z + step, LOWER_Z1)
+		var w0 := lower_wall_x(z)
+		var w1 := lower_wall_x(z1)
+		b.quad(Vector3(-w0, LOWER_Y, z), Vector3(w0, LOWER_Y, z), Vector3(w1, LOWER_Y, z1), Vector3(-w1, LOWER_Y, z1), ink, Vector3.UP)
+		for side: int in [-1, 1]:
+			var a := Vector3(side * w0, LOWER_Y, z)
+			var c := Vector3(side * w1, LOWER_Y, z1)
+			var h := DECK_Y - LOWER_Y
+			b.quad(a, c, c + Vector3.UP * h, a + Vector3.UP * h, ink, Vector3(-side, 0, 0))
+		z = z1
+	for end: float in [LOWER_Z0, LOWER_Z1]:
+		var w := lower_wall_x(end)
+		var out := Vector3.BACK if end > 0.0 else Vector3.FORWARD
+		b.quad(Vector3(-w, LOWER_Y, end), Vector3(w, LOWER_Y, end), Vector3(w, DECK_Y, end), Vector3(-w, DECK_Y, end), ink, -out)
+
+
+## Lengthwise sample points for the deck, with extra cuts at the ladder gaps, the hatch and the quarterdeck.
 static func _deck_z_steps() -> Array[float]:
 	var steps: Array[float] = []
 	var z := BOW_DECK_Z
@@ -178,8 +352,13 @@ static func _deck_z_steps() -> Array[float]:
 		steps.append(z)
 		z += 0.8
 	steps.append(STERN_Z)
-	for cut: float in [QUARTER_Z, LADDER_Z - LADDER_GAP, LADDER_Z + LADDER_GAP]:
+	for cut: float in [QUARTER_Z, LADDER_Z - LADDER_GAP, LADDER_Z + LADDER_GAP, HATCH_Z0, HATCH_Z1]:
 		if not steps.has(cut):
 			steps.append(cut)
 	steps.sort()
-	return steps
+	# Drop slivers left by the extra cuts.
+	var clean: Array[float] = [steps[0]]
+	for v in steps.slice(1):
+		if v - clean.back() > 0.05:
+			clean.append(v)
+	return clean

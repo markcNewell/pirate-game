@@ -4,6 +4,7 @@ extends MeshInstance3D
 ## the camera so the sea never ends. The shader moves and colours it (ocean.gdshader).
 
 const RADIUS := 1500.0
+const MAX_SHIPS := 4
 const SECTORS := 160
 
 var _material: ShaderMaterial
@@ -26,12 +27,25 @@ func _ready() -> void:
 	material_override = _material
 
 
-## Call every frame with the camera position, the shared sea clock and the ship to ring.
-func follow(camera_pos: Vector3, sea_time: float, ship: ShipState) -> void:
+## Call every frame with the camera position, the shared sea clock and the ships (id -> ShipState).
+func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:
 	global_position = Vector3(camera_pos.x, 0.0, camera_pos.z)
 	_material.set_shader_parameter("sea_time", sea_time)
-	if ship:
-		_material.set_shader_parameter("ship", Vector4(ship.x, ship.z, ship.yaw, 1.0))
+	var a := PackedVector4Array()
+	var b := PackedVector4Array()
+	for id in ships:
+		var s: ShipState = ships[id]
+		if a.size() >= MAX_SHIPS:
+			break
+		a.append(Vector4(s.x, s.z, s.yaw, 0.0))
+		b.append(Vector4(s.sink, s.water, 0.0, 0.0))
+	var count := a.size()
+	while a.size() < MAX_SHIPS:
+		a.append(Vector4.ZERO)
+		b.append(Vector4.ZERO)
+	_material.set_shader_parameter("ships", a)
+	_material.set_shader_parameter("ships_b", b)
+	_material.set_shader_parameter("ship_count", count)
 
 
 ## Rings 1 m apart near the middle, spreading out by 3.5 % per ring toward the horizon.

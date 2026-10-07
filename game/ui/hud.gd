@@ -13,6 +13,9 @@ var _toast: Label
 var _toast_left := 0.0
 var _compass: Control
 var _gauges: Control
+var _damage: Control
+var _gunner: Label
+var _enemy: Label
 var _crew: PanelContainer
 var _crew_list: Label
 var _menu: PanelContainer
@@ -63,6 +66,29 @@ func _ready() -> void:
 	_gauges.offset_bottom = -20
 	_gauges.offset_left = 20
 	root.add_child(_gauges)
+
+	_damage = Damage.new()
+	_damage.hud = self
+	_damage.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_damage.offset_left = -280
+	_damage.offset_top = -120
+	_damage.offset_right = -20
+	_damage.offset_bottom = -20
+	root.add_child(_damage)
+
+	_gunner = _label(24)
+	_gunner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_gunner.offset_top = 40
+	_gunner.offset_bottom = 80
+	_gunner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	root.add_child(_gunner)
+
+	_enemy = _label(20)
+	_enemy.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_enemy.offset_top = 104
+	_enemy.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_enemy.add_theme_color_override("font_color", Color("b8f5ae"))
+	root.add_child(_enemy)
 
 	_crew = _panel()
 	_crew.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -162,6 +188,14 @@ func _process(delta: float) -> void:
 		_crew_list.text = "\n".join(lines)
 	_compass.queue_redraw()
 	_gauges.queue_redraw()
+	_damage.queue_redraw()
+	var reload := game.local_player.cannon_reload()
+	_gunner.text = "" if reload < 0.0 else ("Loaded - left click to fire" if reload <= 0.0 else "Reloading %.1f s" % reload)
+	var enemy := game.nearest_enemy()
+	_enemy.text = ""
+	if enemy:
+		var d := Vector2(enemy.x - game.view_ship.x, enemy.z - game.view_ship.z)
+		_enemy.text = "Skeleton ship: %d m %s" % [int(d.length()), ServerSim.compass_name(atan2(d.x, -d.y))]
 
 
 func toast(text: String) -> void:
@@ -261,3 +295,28 @@ class Gauges:
 		draw_string(font, Vector2(130, 108), "sails %d%% / %d%%" % [
 			int(game.view_ship.sail_height[0] * 100.0), int(game.view_ship.sail_height[1] * 100.0)
 		], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)
+
+
+## The lower deck: water level against the sinking point, open holes, and your bucket.
+class Damage:
+	extends Control
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var ship := hud.game.view_ship
+		var leaks := ship.leaks()
+		if ship.water < 0.01 and leaks == 0 and not hud.game.local_player.bucket:
+			return
+		draw_rect(Rect2(Vector2.ZERO, size), Color(INK, 0.45))
+		var font := get_theme_default_font()
+		var frac := clampf(ship.water / ShipPhysics.SINK_LEVEL, 0.0, 1.0)
+		var bar := Rect2(Vector2(16, 40), Vector2(size.x - 32, 16))
+		draw_rect(bar, Color(PAPER, 0.2))
+		var fill := Color("4fb6f5") if frac < 0.6 else Color("ff5a4a")
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y)), fill)
+		draw_string(font, Vector2(16, 28), "water below: %d cm" % int(ship.water * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)
+		var leak_text := "no leaks" if leaks == 0 else ("1 leak!" if leaks == 1 else "%d leaks!" % leaks)
+		draw_string(font, Vector2(16, 80), leak_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("ffd23a") if leaks > 0 else PAPER)
+		if hud.game.local_player.bucket:
+			draw_string(font, Vector2(130, 80), "bucket full", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("4fb6f5"))

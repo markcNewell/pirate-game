@@ -26,9 +26,10 @@ static func wish_direction(wish: Vector2, yaw: float) -> Vector3:
 
 
 static func walk(
-	velocity: Vector3, wish: Vector2, yaw: float, run: bool, on_floor: bool, jump: bool, dt: float
+	velocity: Vector3, wish: Vector2, yaw: float, run: bool, on_floor: bool, jump: bool, dt: float,
+	speed_scale := 1.0
 ) -> Vector3:
-	var target := wish_direction(wish, yaw) * (RUN if run else WALK)
+	var target := wish_direction(wish, yaw) * (RUN if run else WALK) * speed_scale
 	var accel := GROUND_ACCEL if on_floor else AIR_ACCEL
 	var flat := Vector3(velocity.x, 0.0, velocity.z).move_toward(target, accel * dt)
 	var y := velocity.y

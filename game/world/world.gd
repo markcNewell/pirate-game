@@ -22,8 +22,8 @@ func _ready() -> void:
 	_make_clouds()
 
 
-func follow(camera_pos: Vector3, sea_time: float, ship: ShipState) -> void:
-	ocean.follow(camera_pos, sea_time, ship)
+func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:
+	ocean.follow(camera_pos, sea_time, ships)
 	# Clouds ride along with the camera so they always sit on the horizon, drifting slowly.
 	_clouds.global_position = Vector3(camera_pos.x, 0.0, camera_pos.z)
 	_clouds.rotation.y = sea_time * 0.002

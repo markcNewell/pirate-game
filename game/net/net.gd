@@ -8,6 +8,8 @@ signal session_failed(reason: String)
 signal session_ended(reason: String)
 
 var game: Game = null
+## Command-line options handed to each new session (AI timing and the like).
+var options := {}
 var _player_name := ""
 var _bot_role := ""
 var _signals_connected := false
@@ -77,7 +79,7 @@ func _connect_signals() -> void:
 
 
 func _start_game(role: Game.Role, my_id: int, bot := "") -> void:
-	game = Game.new().setup(role, my_id, bot)
+	game = Game.new().setup(role, my_id, bot, options)
 	game.name = "Game"
 	get_tree().root.add_child(game)
 	session_started.emit(game)
@@ -120,6 +122,13 @@ func send_roster(roster: Dictionary) -> void:
 		game.client_on_roster(roster)
 
 
+## A one-off happening for every client (a shot, an impact).
+func send_event(kind: String, data: Array) -> void:
+	_event.rpc(kind, data)
+	if game.has_view():
+		game.client_on_event(kind, data)
+
+
 ## id 0 means everyone.
 func send_message(id: int, text: String) -> void:
 	if id == 0:
@@ -138,12 +147,12 @@ func send_player_state(data: Array) -> void:
 	_player_state.rpc_id(1, data)
 
 
-func send_station_input(axes: Vector2) -> void:
-	_station_input.rpc_id(1, axes)
+func send_station_input(axes: Vector2, aim: Vector2) -> void:
+	_station_input.rpc_id(1, axes, aim)
 
 
-func send_request(action: String, arg: int) -> void:
-	_request.rpc_id(1, action, arg)
+func send_request(action: String, arg: int, data: Array = []) -> void:
+	_request.rpc_id(1, action, arg, data)
 
 
 # --- RPC endpoints ---
@@ -197,6 +206,12 @@ func _roster(roster: Dictionary) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
+func _event(kind: String, data: Array) -> void:
+	if game:
+		game.client_on_event(kind, data)
+
+
+@rpc("authority", "call_remote", "reliable")
 func _message(text: String) -> void:
 	if game:
 		game.client_on_message(text)
@@ -209,12 +224,12 @@ func _player_state(data: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _station_input(axes: Vector2) -> void:
+func _station_input(axes: Vector2, aim: Vector2) -> void:
 	if game and game.is_server():
-		game.server_station_input(multiplayer.get_remote_sender_id(), axes)
+		game.server_station_input(multiplayer.get_remote_sender_id(), axes, aim)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _request(action: String, arg: int) -> void:
+func _request(action: String, arg: int, data: Array) -> void:
 	if game and game.is_server():
-		game.server_request(multiplayer.get_remote_sender_id(), action, arg)
+		game.server_request(multiplayer.get_remote_sender_id(), action, arg, data)

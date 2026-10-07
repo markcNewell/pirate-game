@@ -16,7 +16,7 @@ trap 'rm -rf "$LOGS"' EXIT
 
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 
-run --server --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/server.log" 2>&1 &
+run --server --no-ai --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/server.log" 2>&1 &
 server=$!
 sleep 2
 bots=()

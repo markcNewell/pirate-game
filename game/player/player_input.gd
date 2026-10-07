@@ -7,6 +7,9 @@ var wish := Vector2.ZERO
 var run := false
 var jump := false
 var interact := false
+## E held down (for patching), and the left mouse button pressed this tick (cannons).
+var interact_held := false
+var fire := false
 ## Radians to turn this tick: x = yaw left/right, y = pitch up/down.
 var look := Vector2.ZERO
 var is_bot := false
@@ -28,6 +31,8 @@ func poll() -> void:
 	run = playing and Input.is_action_pressed("run")
 	jump = playing and Input.is_action_just_pressed("jump")
 	interact = playing and Input.is_action_just_pressed("interact")
+	interact_held = playing and Input.is_action_pressed("interact")
+	fire = playing and Input.is_action_just_pressed("fire")
 	look = _mouse
 	_mouse = Vector2.ZERO
 
@@ -48,3 +53,8 @@ static func register_actions() -> void:
 			var event := InputEventKey.new()
 			event.physical_keycode = key
 			InputMap.action_add_event(action, event)
+	if not InputMap.has_action("fire"):
+		InputMap.add_action("fire")
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		InputMap.action_add_event("fire", click)

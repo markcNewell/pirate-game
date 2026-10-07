@@ -3,14 +3,17 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: milestone 1, "Sail together".** One galleon, up to 4 players, sails, wheel, anchor,
-swimming, ladders and three islands to sail around. Combat, treasure and skeletons come in later
-milestones; see the [design spec](docs/specs/2026-10-07-pirate-game-design.md).
+**Status: milestone 2, "Ship combat".** One galleon, up to 4 players, sails, wheel, anchor,
+swimming, ladders and three islands, plus four deck cannons, skeleton ships that hunt you, holes
+on the new lower deck, patching, bailing and sinking. Treasure and fighting on foot come next; see
+the [design spec](docs/specs/2026-10-07-pirate-game-design.md) and the
+[milestone 2 spec](docs/specs/2026-10-07-m2-ship-combat.md).
 
 | | |
 |---|---|
 | ![Under sail](docs/screenshots/ship-under-sail.png) | ![At the wheel](docs/screenshots/at-the-wheel.png) |
 | ![Crew on deck, island ahead](docs/screenshots/crew-and-island.png) | ![An island](docs/screenshots/island.png) |
+| ![A skeleton ship firing](docs/screenshots/skeleton-ship.png) | ![Holes on the lower deck](docs/screenshots/lower-deck.png) |
 
 ## Play
 
@@ -35,6 +38,13 @@ On the title screen:
 | Shift / Space | run / jump | | | |
 | Tab / Esc | crew list / menu | | | |
 
+| Below decks and at the guns | |
+|---|---|
+| Cannon | E to man it, mouse to aim, left click to fire (3 s reload) |
+| Hatch | E at the hatch in front of the main mast climbs down; E at the ladder foot climbs up |
+| Patch a hole | look at it and hold E for 2 s |
+| Bail | E in the water below fills your bucket; E on deck throws it overboard |
+
 The ship starts at anchor with its sails furled. Winch the anchor up, let the sails out, and
 watch the wind arrow at the bottom left: sails pull hardest with the wind behind them, and you
 can swing them (A / D at the ropes) to catch a side wind.
@@ -57,6 +67,7 @@ machine, see [server/README.md](server/README.md).
 |---|---|
 | Unit tests | `godot --headless --path . -s tests/run_tests.gd` |
 | Bot smoke test (server + 4 bots) | `tests/smoke/smoke_test.sh` |
+| Combat smoke test (fight + sinking) | `tests/smoke/combat_test.sh` |
 | Screenshot without a monitor | `tools/screenshot.sh /tmp/shot.png outside --demo` |
 | Export Windows + server builds | `tools/export.sh` |
 | Release | push a tag like `v0.1.0`; CI builds both and publishes a GitHub release |
@@ -64,7 +75,8 @@ machine, see [server/README.md](server/README.md).
 Run `godot --headless --path . --import` once after cloning so Godot registers the script classes.
 
 Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`, `--name NAME`,
-`--demo` (host under full sail), `--bot wheel|sails|anchor|swimmer`, `--quit-after SECONDS`.
+`--demo` (host under full sail), `--bot wheel|sails|anchor|swimmer|gunner|repair`,
+`--quit-after SECONDS`, `--no-ai`, `--ai-delay SECONDS`, `--test-holes N`.
 
 ### How it fits together
 

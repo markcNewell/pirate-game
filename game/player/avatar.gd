@@ -6,6 +6,7 @@ const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"),
 
 var _model: MeshInstance3D
 var _label: Label3D
+var _bucket: MeshInstance3D
 var _last := Vector3.ZERO
 var _bob := 0.0
 
@@ -22,6 +23,17 @@ func _init(player_name: String, index: int) -> void:
 	_label.position.y = 2.3
 	_label.no_depth_test = false
 	add_child(_label)
+	var b := MeshBuilder.new()
+	b.cylinder(Vector3(0, 0, 0), Vector3(0, 0.32, 0), 0.15, 0.2, 10, Color("8a5a32"))
+	b.cylinder(Vector3(0, 0.27, 0), Vector3(0, 0.29, 0), 0.19, 0.19, 10, Color("4fb6f5"))
+	_bucket = Toon.instance(b.build())
+	_bucket.position = Vector3(0.45, 0.62, -0.1)
+	_bucket.visible = false
+	_model.add_child(_bucket)
+
+
+func set_bucket(full: bool) -> void:
+	_bucket.visible = full
 
 
 ## `pose` is where the feet are and which way the pirate faces, in world space.

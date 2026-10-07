@@ -1,11 +1,13 @@
 // The toon sea. Vertices move with the same formula as game/ocean/waves.gd (the numbers come
 // from Waves.shader_params()), then the surface is coloured in three flat blue bands with
-// white caps on high crests, broken foam rings round each island and a ring round the hull.
+// white caps on high crests, broken foam rings round each island and a ring round each hull.
+// Inside a hull the surface is cut away, so the lower deck stays dry until it floods.
 shader_type spatial;
 render_mode unshaded, cull_disabled;
 
 const int WAVES = 4;
 const int MAX_ISLANDS = 8;
+const int MAX_SHIPS = 4;
 
 uniform vec4 wave_a[WAVES];  // direction x, direction z, wavenumber k, amplitude
 uniform vec4 wave_b[WAVES];  // angular speed, phase, unused, unused
@@ -19,7 +21,9 @@ uniform vec3 far_color : source_color = vec3(0.137, 0.537, 0.890);
 
 uniform vec4 islands[MAX_ISLANDS];  // x, z, waterline radius, unused
 uniform int island_count = 0;
-uniform vec4 ship = vec4(0.0, 0.0, 0.0, 0.0);  // x, z, heading, 1 if present
+uniform vec4 ships[MAX_SHIPS];  // x, z, heading, unused
+uniform vec4 ships_b[MAX_SHIPS];  // sinking progress, unused...
+uniform int ship_count = 0;
 
 varying vec3 world_pos;
 varying float wave_height;
@@ -41,6 +45,14 @@ float noise(vec2 p) {
 	vec2 f = fract(p);
 	f = f * f * (3.0 - 2.0 * f);
 	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+
+// Same shape as ShipShape.half_width.
+float hull_half_width(float z, float y) {
+	float t = z / 13.0;
+	float plan = 1.0 - 0.92 * pow(max(0.0, -t), 2.0) - 0.25 * pow(max(0.0, t), 4.0);
+	float v = clamp((y + 2.2) / 5.2, 0.0, 1.0);
+	return 3.75 * plan * (0.35 + 0.65 * pow(v, 0.6));
 }
 
 void vertex() {
@@ -77,15 +89,26 @@ void fragment() {
 		foam = max(foam, max(ring1, ring2 * broken));
 	}
 
-	if (ship.w > 0.5) {
+	for (int i = 0; i < MAX_SHIPS; i++) {
+		if (i >= ship_count) {
+			break;
+		}
 		// Into the ship's frame: x across the beam, z along the keel (bow at -z).
-		vec2 d = world_pos.xz - ship.xy;
-		float c = cos(ship.z);
-		float s = sin(ship.z);
+		vec2 d = world_pos.xz - ships[i].xy;
+		if (dot(d, d) > 900.0) {
+			continue;
+		}
+		float c = cos(ships[i].z);
+		float s = sin(ships[i].z);
 		vec2 local = vec2(c * d.x - s * d.y, s * d.x + c * d.y);
-		float e = length(vec2(local.x / 4.4, local.y / 13.6));
-		float hull = step(abs(e - 1.0), 0.05 + 0.03 * noise(local * 0.8 + sea_time));
-		foam = max(foam, hull);
+		float sinking = ships_b[i].x;
+		if (sinking < 0.3 && abs(local.y) < 13.0 && abs(local.x) < hull_half_width(local.y, wave_height) - 0.05) {
+			discard;
+		}
+		if (sinking < 0.2) {
+			float e = length(vec2(local.x / 4.4, local.y / 13.6));
+			foam = max(foam, step(abs(e - 1.0), 0.05 + 0.03 * noise(local * 0.8 + sea_time)));
+		}
 	}
 
 	col = mix(col, foam_color, foam);

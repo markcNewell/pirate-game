@@ -12,3 +12,5 @@ var sail_turn: Array[float] = [0.0, 0.0]
 var anchor_drop := false
 ## Held: winch the anchor up.
 var anchor_winch := false
+## Metres of water bailed out of the lower deck this tick.
+var bail := 0.0

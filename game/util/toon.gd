@@ -26,6 +26,23 @@ const PALETTE := {
 	"leaf": Color("3cc24e"),
 	"cloud": Color("ffffff"),
 	"gold": Color("ffd23a"),
+	"iron": Color("2e2e36"),
+}
+
+## The skeleton ships: a weathered black-green hull, ghostly green trim and tattered grey sails.
+const SKELETON := {
+	"hull": Color("3d4741"),
+	"hull_dark": Color("262d2a"),
+	"bottom": Color("1f2622"),
+	"stripe": Color("78c36d"),
+	"deck": Color("6e6a5c"),
+	"rail": Color("333b33"),
+	"mast": Color("5c5546"),
+	"rope": Color("8a8470"),
+	"trim": Color("121614"),
+	"sail": Color("9a9c90"),
+	"lantern": Color("9cff8a"),
+	"gold": Color("78c36d"),
 }
 
 static var _object: ShaderMaterial
@@ -56,12 +73,25 @@ static func sky_object_material() -> ShaderMaterial:
 
 
 ## Unlit, for lanterns.
-static func glow_material() -> StandardMaterial3D:
-	if _glow == null:
-		_glow = StandardMaterial3D.new()
-		_glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_glow.albedo_color = color("lantern")
+static func glow_material(tint: Color = PALETTE["lantern"]) -> StandardMaterial3D:
+	if _glow == null or _glow.albedo_color != tint:
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = tint
+		if tint != PALETTE["lantern"]:
+			return m
+		_glow = m
 	return _glow
+
+
+## Unlit see-through colour (sea water inside a hull, effects).
+static func clear_material(tint: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = tint
+	return m
 
 
 static func instance(mesh: Mesh, material: Material = null) -> MeshInstance3D:

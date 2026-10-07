@@ -2,8 +2,8 @@ class_name Game
 extends Node3D
 ## One play session. The same node plays up to two parts:
 ##
-## - Server (dedicated or host): owns the ship, the wind and the crew list, steps the sailing
-##   physics, checks what players report, and sends snapshots ~30 times a second.
+## - Server (dedicated or host): runs the ServerSim (ships, cannonballs, skeletons, crew) and
+##   sends snapshots ~30 times a second.
 ## - Client (joined or host): keeps a short buffer of snapshots, draws everything
 ##   GameConfig.RENDER_DELAY in the past by blending the two snapshots around that moment,
 ##   and runs the local player.
@@ -14,53 +14,50 @@ extends Node3D
 enum Role { SERVER, CLIENT, HOST }
 
 const WIND_TURN_SECONDS := 1200.0
-const STATION_INPUT_TIMEOUT := 0.5
-const MAX_PLAYER_SPEED := 15.0
-const LADDER_TOLERANCE := 6.0
+const CREW := ServerSim.CREW
 
 var role := Role.CLIENT
 var local_id := 0
 ## Non-empty for a test bot: which job it heads for.
 var bot_role := ""
+var options := {}
 
 var roster := {}  # peer id -> name
 
 # --- what is drawn this frame (clients) ---
 var render_time := 0.0
-var view_ship := ShipState.new()
+var view_ships := {}  # ship id -> ShipState
+var view_ship := ShipState.new()  # the crew's ship
 var view_wind := Vector2(0, -1)
-var view_players := {}  # peer id -> {mode, pos, yaw, pitch, station}
+var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket}
 
 var world: World
-var ship_view: ShipView
+var ship_views := {}  # ship id -> ShipView
+var ship_view: ShipView  # the crew's ship
 var proxy: DeckProxy
 var local_player: LocalPlayer
 var hud: Hud
+var effects: Effects
 var avatars := {}  # peer id -> Avatar
-var free_camera: Camera3D
 
-# --- authoritative state (server) ---
-var server_time := 0.0
-var ship := ShipState.new()
-var players := {}  # peer id -> record, see _new_record
-var station_owner := {}  # station id -> peer id
-var station_axes := {}  # peer id -> {"axes": Vector2, "time": float}
-var _stations := ShipShape.stations()
+# --- server ---
+var sim: ServerSim
 var _snapshot_timer := 0.0
 var _log_timer := 0.0
-var _ship_start := Vector2.ZERO
-var stats := {"max_speed": 0.0, "stations_taken": 0, "climbs": 0, "corrections": 0}
 
-# --- snapshot buffer (clients) ---
+# --- snapshot buffer and cannonballs in flight (clients) ---
 var _snaps: Array[Dictionary] = []
 var _clock_offset := 0.0
 var _have_clock := false
+var _balls := {}  # projectile id -> {t0, p0, v0, node, end}
+var _pending_impacts := {}  # projectile id -> impact data that arrived before the shot
 
 
-func setup(r: Role, my_id: int, bot := "") -> Game:
+func setup(r: Role, my_id: int, bot := "", opts: Dictionary = {}) -> Game:
 	role = r
 	local_id = my_id
 	bot_role = bot
+	options = opts
 	return self
 
 
@@ -73,19 +70,19 @@ func has_view() -> bool:
 
 
 func _ready() -> void:
+	if is_server():
+		sim = ServerSim.new(options)
+		print("[server] session started, version %s" % GameConfig.VERSION)
 	if has_view():
 		_build_view()
-	if is_server():
-		ship = ShipState.new()
-		_ship_start = Vector2(ship.x, ship.z)
-		print("[server] session started, version %s" % GameConfig.VERSION)
 
 
 func _build_view() -> void:
 	world = World.new()
 	add_child(world)
-	ship_view = ShipView.new()
-	add_child(ship_view)
+	effects = Effects.new()
+	add_child(effects)
+	ship_view = _ship_view_for(CREW, ShipState.Kind.CREW)
 	proxy = DeckProxy.new()
 	add_child(proxy)
 	local_player = LocalPlayer.new()
@@ -102,6 +99,15 @@ func _build_view() -> void:
 		add_child(hud)
 
 
+func _ship_view_for(id: int, kind: int) -> ShipView:
+	if not ship_views.has(id):
+		var v := ShipView.new()
+		v.kind = kind
+		add_child(v)
+		ship_views[id] = v
+	return ship_views[id]
+
+
 static func wind_angle(t: float) -> float:
 	return wrapf(t * TAU / WIND_TURN_SECONDS, -PI, PI)
 
@@ -111,228 +117,60 @@ static func wind_dir(t: float) -> Vector2:
 
 
 # =====================================================================================
-# Server
+# Server side: thin wrappers around the sim
 # =====================================================================================
 
 func _physics_process(delta: float) -> void:
-	if is_server():
-		_server_tick(delta)
-
-
-func _server_tick(dt: float) -> void:
-	server_time += dt
-	ShipPhysics.step(ship, _gather_controls(), wind_dir(server_time), dt, Islands.ship_blockers())
-	stats.max_speed = maxf(stats.max_speed, ship.speed)
-
-	_snapshot_timer += dt
+	if not is_server():
+		return
+	sim.tick(delta)
+	_snapshot_timer += delta
 	if _snapshot_timer >= 1.0 / GameConfig.SNAPSHOT_RATE:
 		_snapshot_timer = 0.0
-		var snap := _snapshot()
+		var snap := sim.snapshot()
 		Net.send_snapshot(snap)
 		if has_view():
 			client_on_snapshot(snap)
-
-	_log_timer += dt
+	_log_timer += delta
 	if _log_timer >= 2.0 and (role == Role.SERVER or DisplayServer.get_name() == "headless"):
 		_log_timer = 0.0
-		print("[server] t=%.0f players=%d ship=(%.1f, %.1f) speed=%.2f anchored=%s sails=%.2f/%.2f stations=%s" % [
-			server_time, players.size(), ship.x, ship.z, ship.speed, ship.anchored,
-			ship.sail_height[0], ship.sail_height[1], station_owner,
-		])
+		print("[server] " + sim.log_line())
 
 
-func _gather_controls() -> ShipControls:
-	var c := ShipControls.new()
-	for id in station_owner:
-		var peer: int = station_owner[id]
-		var input: Dictionary = station_axes.get(peer, {})
-		if input.is_empty() or server_time - input.time > STATION_INPUT_TIMEOUT:
-			continue
-		var axes: Vector2 = input.axes
-		var st: Dictionary = _stations[id]
-		match st.kind:
-			ShipShape.Kind.WHEEL:
-				c.wheel = axes.x
-			ShipShape.Kind.SAILS:
-				c.sail_raise[st.mast] = axes.y
-				c.sail_turn[st.mast] = axes.x
-			ShipShape.Kind.ANCHOR:
-				c.anchor_winch = axes.y > 0.5
-				c.anchor_drop = axes.y < -0.5
-	return c
-
-
-func _snapshot() -> Array:
-	var list := []
-	for id in players:
-		var r: Dictionary = players[id]
-		list.append([id, r.mode, r.pos.x, r.pos.y, r.pos.z, r.yaw, r.pitch, r.station])
-	return [server_time, ship.to_array(), list]
-
-
-## "" if a new player may join, otherwise the reason they may not.
 func server_can_join(version: String) -> String:
-	if version != GameConfig.VERSION:
-		return "This server runs version %s; you have %s." % [GameConfig.VERSION, version]
-	if players.size() >= GameConfig.MAX_PLAYERS:
-		return "The crew is full (%d players)." % GameConfig.MAX_PLAYERS
-	return ""
+	return sim.can_join(version)
 
 
 func server_add_player(id: int, player_name: String) -> void:
-	var clean := player_name.strip_edges().substr(0, 20)
-	if clean == "":
-		clean = "Pirate %d" % (players.size() + 1)
-	var spawn := _free_spawn()
-	players[id] = {
-		"name": clean, "mode": LocalPlayer.Mode.ON_SHIP, "pos": spawn, "yaw": 0.0, "pitch": 0.0,
-		"station": -1, "seq": 0, "time": server_time,
-	}
-	roster[id] = clean
-	print("[server] %s joined (peer %d)" % [clean, id])
-	Net.send_roster(roster)
-	_server_teleport(id, LocalPlayer.Mode.ON_SHIP, spawn, 0.0)
-	Net.send_message(0, "%s came aboard" % clean)
+	sim.add_player(id, player_name)
+	roster = sim.roster
 
 
 func server_remove_player(id: int) -> void:
-	if not players.has(id):
-		return
-	_free_station_of(id)
-	var who: String = players[id].name
-	print("[server] %s left (peer %d)" % [who, id])
-	players.erase(id)
-	roster.erase(id)
-	station_axes.erase(id)
-	# Tell the others next frame, once the departed peer is off the send list.
-	_announce_departure.call_deferred(who)
+	var who := sim.remove_player(id)
+	roster = sim.roster
+	if who != "":
+		# Tell the others next frame, once the departed peer is off the send list.
+		_announce_departure.call_deferred(who)
 
 
 func _announce_departure(who: String) -> void:
 	if multiplayer.get_peers().is_empty() and not has_view():
 		return
 	Net.send_message(0, "%s left the crew" % who)
-	Net.send_roster(roster)
+	Net.send_roster(sim.roster)
 
 
-## A player reports where they are: [teleport seq, mode, x, y, z, yaw, pitch].
 func server_player_state(id: int, data: Array) -> void:
-	if not players.has(id) or data.size() != 7:
-		return
-	var r: Dictionary = players[id]
-	if int(data[0]) != r.seq:
-		return  # still from before our last teleport
-	var mode := int(data[1])
-	var pos := Vector3(data[2], data[3], data[4])
-	var elapsed := maxf(server_time - r.time, 1.0 / GameConfig.PLAYER_SEND_RATE)
-
-	var ok := true
-	if mode == r.mode:
-		ok = pos.distance_to(r.pos) <= MAX_PLAYER_SPEED * elapsed + 2.0
-		if mode == LocalPlayer.Mode.ON_SHIP:
-			ok = ok and absf(pos.x) < 8.0 and absf(pos.z) < 22.0 and pos.y > -4.0 and pos.y < 40.0
-	elif r.mode == LocalPlayer.Mode.ON_SHIP and mode == LocalPlayer.Mode.WORLD:
-		ok = Vector2(pos.x, pos.z).distance_to(Vector2(ship.x, ship.z)) < 40.0
-	else:
-		ok = false  # only the server moves people back aboard
-
-	if not ok:
-		stats.corrections += 1
-		_server_teleport(id, r.mode, r.pos, r.yaw)
-		return
-	if mode == LocalPlayer.Mode.WORLD:
-		_free_station_of(id)
-	r.mode = mode
-	r.pos = pos
-	r.yaw = float(data[5])
-	r.pitch = float(data[6])
-	r.time = server_time
+	sim.player_state(id, data)
 
 
-func server_station_input(id: int, axes: Vector2) -> void:
-	if players.has(id):
-		station_axes[id] = {"axes": axes.limit_length(1.4), "time": server_time}
+func server_station_input(id: int, axes: Vector2, aim: Vector2) -> void:
+	sim.set_station_input(id, axes, aim)
 
 
-func server_request(id: int, action: String, arg: int) -> void:
-	if not players.has(id):
-		return
-	var r: Dictionary = players[id]
-	match action:
-		"station":
-			_take_station(id, r, arg)
-		"leave":
-			if r.station == arg:
-				_free_station_of(id)
-		"climb":
-			_climb(id, r, arg)
-		"respawn":
-			_free_station_of(id)
-			_server_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(), 0.0)
-
-
-func _take_station(id: int, r: Dictionary, station: int) -> void:
-	if station < 0 or station >= _stations.size() or r.mode != LocalPlayer.Mode.ON_SHIP:
-		return
-	var st: Dictionary = _stations[station]
-	if r.station == station:
-		return
-	if station_owner.has(station) and station_owner[station] != id:
-		Net.send_message(id, "%s is already on it" % roster.get(station_owner[station], "Someone"))
-		return
-	if r.pos.distance_to(st.stand) > 4.0:
-		return
-	_free_station_of(id)
-	station_owner[station] = id
-	r.station = station
-	stats.stations_taken += 1
-	print("[server] %s took station %d" % [r.name, station])
-	_server_teleport(id, LocalPlayer.Mode.ON_SHIP, st.stand, 0.0)
-
-
-func _climb(id: int, r: Dictionary, side: int) -> void:
-	if r.mode != LocalPlayer.Mode.WORLD or absi(side) != 1:
-		return
-	var pose := ShipPhysics.pose(ship.x, ship.z, ship.yaw, server_time)
-	var bottom := pose * ShipShape.ladder_bottom(side)
-	if Vector2(r.pos.x - bottom.x, r.pos.z - bottom.z).length() > LADDER_TOLERANCE:
-		return
-	stats.climbs += 1
-	print("[server] %s climbed aboard" % r.name)
-	# Face inboard: starboard ladder looks toward -x, which is a quarter turn left.
-	_server_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.ladder_top(side), PI / 2.0 * side)
-
-
-func _free_station_of(id: int) -> void:
-	if not players.has(id):
-		return
-	var r: Dictionary = players[id]
-	if r.station >= 0 and station_owner.get(r.station) == id:
-		station_owner.erase(r.station)
-	r.station = -1
-	station_axes.erase(id)
-
-
-func _free_spawn() -> Vector3:
-	for spot in ShipShape.SPAWNS:
-		var taken := false
-		for id in players:
-			var r: Dictionary = players[id]
-			if r.mode == LocalPlayer.Mode.ON_SHIP and r.pos.distance_to(spot) < 0.8:
-				taken = true
-		if not taken:
-			return spot
-	return ShipShape.SPAWNS[0]
-
-
-func _server_teleport(id: int, mode: int, pos: Vector3, yaw: float) -> void:
-	var r: Dictionary = players[id]
-	r.seq += 1
-	r.mode = mode
-	r.pos = pos
-	r.yaw = yaw
-	r.time = server_time
-	Net.send_teleport(id, [r.seq, mode, pos.x, pos.y, pos.z, yaw])
+func server_request(id: int, action: String, arg: int, data: Array) -> void:
+	sim.request(id, action, arg, data)
 
 
 # =====================================================================================
@@ -350,15 +188,18 @@ func client_on_snapshot(data: Array) -> void:
 	else:
 		_clock_offset = lerpf(_clock_offset, sample, 0.02)
 
+	if not _snaps.is_empty() and t <= _snaps.back().t:
+		return
+	var snap_ships := {}
+	for entry in data[1]:
+		snap_ships[int(entry[0])] = ShipState.from_array(entry[1])
 	var snap_players := {}
 	for p in data[2]:
 		snap_players[int(p[0])] = {
-			"mode": int(p[1]), "pos": Vector3(p[2], p[3], p[4]), "yaw": float(p[5]),
-			"pitch": float(p[6]), "station": int(p[7]),
+			"mode": int(p[1]), "ship": int(p[2]), "pos": Vector3(p[3], p[4], p[5]), "yaw": float(p[6]),
+			"pitch": float(p[7]), "station": int(p[8]), "bucket": int(p[9]) == 1,
 		}
-	if not _snaps.is_empty() and t <= _snaps.back().t:
-		return
-	_snaps.append({"t": t, "ship": ShipState.from_array(data[1]), "players": snap_players})
+	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players})
 	while _snaps.size() > 2 and _snaps[1].t < t - 1.0:
 		_snaps.pop_front()
 
@@ -395,6 +236,31 @@ func client_on_message(text: String) -> void:
 		print("[bot %s] message: %s" % [bot_role, text])
 
 
+## Reliable one-off happenings: a cannon fired, a ball landed.
+func client_on_event(kind: String, data: Array) -> void:
+	if not has_view():
+		return
+	match kind:
+		"shot":
+			var id: int = data[0]
+			var ball := {
+				"t0": float(data[1]), "p0": Vector3(data[2], data[3], data[4]),
+				"v0": Vector3(data[5], data[6], data[7]), "ship": int(data[8]), "gun": int(data[9]),
+				"node": effects.cannonball(), "end": {}, "fired": false,
+			}
+			_balls[id] = ball
+			if _pending_impacts.has(id):
+				ball.end = _pending_impacts[id]
+				_pending_impacts.erase(id)
+		"impact":
+			var id: int = data[0]
+			var end := {"kind": int(data[1]), "pos": Vector3(data[2], data[3], data[4]), "ship": int(data[5]), "t": float(data[6])}
+			if _balls.has(id):
+				_balls[id].end = end
+			else:
+				_pending_impacts[id] = end
+
+
 func _process(delta: float) -> void:
 	if not has_view() or _snaps.is_empty():
 		return
@@ -402,13 +268,26 @@ func _process(delta: float) -> void:
 	_interpolate(render_time)
 	view_wind = wind_dir(render_time)
 
-	var pose := ShipPhysics.pose(view_ship.x, view_ship.z, view_ship.yaw, render_time)
-	ship_view.apply(view_ship, pose, view_wind, delta)
+	for id in ship_views.keys():
+		if not view_ships.has(id):
+			if id != CREW:
+				ship_views[id].queue_free()
+				ship_views.erase(id)
+	for id in view_ships:
+		var s: ShipState = view_ships[id]
+		var v := _ship_view_for(id, s.kind)
+		v.apply(s, ShipPhysics.pose_of(s, render_time), view_wind, delta)
+	view_ship = view_ships.get(CREW, view_ship)
 
 	var me: Dictionary = view_players.get(local_id, {})
 	if not me.is_empty():
 		local_player.station = me.station if local_player.mode == LocalPlayer.Mode.ON_SHIP else -1
+		local_player.bucket = me.bucket
 	local_player.update_view()
+	if local_player.station >= 0 and ShipShape.stations()[local_player.station].kind == ShipShape.Kind.CANNON:
+		# Our own cannon follows the mouse at once rather than waiting for the server.
+		var gun: int = ShipShape.stations()[local_player.station].gun
+		ship_view.aim_gun(gun, local_player.cannon_aim())
 
 	for id in avatars:
 		var avatar: Avatar = avatars[id]
@@ -417,10 +296,39 @@ func _process(delta: float) -> void:
 		if p.is_empty():
 			continue
 		var feet := Transform3D(Basis(Vector3.UP, p.yaw), p.pos)
-		avatar.place(ship_view.global_transform * feet if p.mode == LocalPlayer.Mode.ON_SHIP else feet, delta)
+		var on_ship: bool = p.mode == LocalPlayer.Mode.ON_SHIP and ship_views.has(p.ship)
+		avatar.place(ship_views[p.ship].global_transform * feet if on_ship else feet, delta)
+		avatar.set_bucket(p.bucket)
 
+	_update_balls()
 	var cam := get_viewport().get_camera_3d()
-	world.follow(cam.global_position if cam else Vector3.ZERO, render_time, view_ship)
+	world.follow(cam.global_position if cam else Vector3.ZERO, render_time, view_ships)
+
+
+func _update_balls() -> void:
+	for id in _balls.keys():
+		var b: Dictionary = _balls[id]
+		var age: float = render_time - b.t0
+		var node: Node3D = b.node
+		node.visible = age >= 0.0
+		if age < 0.0:
+			continue
+		if not b.fired:
+			b.fired = true
+			if ship_views.has(b.ship):
+				ship_views[b.ship].recoil(b.gun)
+			effects.muzzle_smoke(b.p0, b.v0.normalized())
+		var end: Dictionary = b.end
+		if not end.is_empty() and render_time >= end.t:
+			effects.impact(end.kind, end.pos)
+			node.queue_free()
+			_balls.erase(id)
+			continue
+		if age > Ballistics.LIFETIME + 1.0:
+			node.queue_free()
+			_balls.erase(id)
+			continue
+		node.global_position = Ballistics.position(b.p0, b.v0, age)
 
 
 func _interpolate(t: float) -> void:
@@ -438,23 +346,29 @@ func _interpolate(t: float) -> void:
 				break
 	var span: float = b.t - a.t
 	var w := clampf((t - a.t) / span, 0.0, 1.0) if span > 1e-6 else 1.0
-	view_ship = ShipState.blend(a.ship, b.ship, w)
-	if past_end:
-		# Ran past the newest snapshot (a late packet): coast along for a moment.
-		var ahead := minf(t - b.t, 0.25)
-		var f := ShipPhysics.forward(view_ship.yaw) * view_ship.speed * ahead
-		view_ship.x += f.x
-		view_ship.z += f.y
+
+	view_ships = {}
+	for id in b.ships:
+		var sb: ShipState = b.ships[id]
+		var s: ShipState = ShipState.blend(a.ships[id], sb, w) if a.ships.has(id) else sb.copy()
+		if past_end:
+			# Ran past the newest snapshot (a late packet): coast along for a moment.
+			var ahead := minf(t - b.t, 0.25)
+			var f := ShipPhysics.forward(s.yaw) * s.speed * ahead
+			s.x += f.x
+			s.z += f.y
+		view_ships[id] = s
 
 	view_players.clear()
 	for id in b.players:
 		var pb: Dictionary = b.players[id]
 		var pa: Dictionary = a.players.get(id, pb)
-		if pa.mode != pb.mode:
+		if pa.mode != pb.mode or pa.ship != pb.ship:
 			pa = pb
 		view_players[id] = {
-			"mode": pb.mode, "pos": pa.pos.lerp(pb.pos, w), "yaw": lerp_angle(pa.yaw, pb.yaw, w),
-			"pitch": lerpf(pa.pitch, pb.pitch, w), "station": pb.station,
+			"mode": pb.mode, "ship": pb.ship, "pos": pa.pos.lerp(pb.pos, w),
+			"yaw": lerp_angle(pa.yaw, pb.yaw, w), "pitch": lerpf(pa.pitch, pb.pitch, w),
+			"station": pb.station, "bucket": pb.bucket,
 		}
 
 
@@ -467,18 +381,18 @@ func send_player_state(data: Array) -> void:
 		Net.send_player_state(data)
 
 
-func send_station_input(axes: Vector2) -> void:
+func send_station_input(axes: Vector2, aim: Vector2) -> void:
 	if is_server():
-		server_station_input(local_id, axes)
+		server_station_input(local_id, axes, aim)
 	else:
-		Net.send_station_input(axes)
+		Net.send_station_input(axes, aim)
 
 
-func send_request(action: String, arg: int) -> void:
+func send_request(action: String, arg: int, data: Array = []) -> void:
 	if is_server():
-		server_request(local_id, action, arg)
+		server_request(local_id, action, arg, data)
 	else:
-		Net.send_request(action, arg)
+		Net.send_request(action, arg, data)
 
 
 ## Distance from the local player to the ship (for the respawn offer).
@@ -487,3 +401,18 @@ func distance_to_ship() -> float:
 		return 0.0
 	var p := local_player.body.global_position
 	return Vector2(p.x - view_ship.x, p.z - view_ship.z).length()
+
+
+## The nearest skeleton ship being drawn, or null.
+func nearest_enemy() -> ShipState:
+	var best: ShipState = null
+	var best_d := INF
+	for id in view_ships:
+		var s: ShipState = view_ships[id]
+		if s.kind != ShipState.Kind.SKELETON or s.is_sinking():
+			continue
+		var d := Vector2(s.x - view_ship.x, s.z - view_ship.z).length()
+		if d < best_d:
+			best = s
+			best_d = d
+	return best
