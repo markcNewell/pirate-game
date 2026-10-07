@@ -202,6 +202,77 @@ def tuft(name, seed):
     return kit.join(name, parts)
 
 
+def starfish(name, color, seed):
+    """A five-armed starfish lying flat on the sand, a little humped, with bumps along its arms."""
+    rng = random.Random(seed)
+    parts = []
+    for k in range(5):
+        a = 2 * math.pi * k / 5 + rng.uniform(-0.1, 0.1)
+        d = Vector((math.cos(a), 0, math.sin(a)))
+        length = rng.uniform(0.15, 0.19)
+        bend = Vector((-d.z, 0, d.x)) * rng.uniform(-0.03, 0.03)
+        pts = [tuple(d * 0.02 + Vector((0, 0.03, 0))), tuple(d * length * 0.5 + bend + Vector((0, 0.025, 0))), tuple(d * length + bend * 2 + Vector((0, 0.012, 0)))]
+        arm = kit.tube("arm", pts, [0.045, 0.03, 0.008], 6, color)
+        arm.scale = (1, 1, 1)
+        parts.append(arm)
+        for t in (0.35, 0.65):
+            p = d * length * t + bend * t * 2
+            parts.append(kit.noink(kit.ellipsoid("bump", tuple(p + Vector((0, 0.045 - 0.02 * t, 0))), (0.009, 0.007, 0.009), "fff2d0", rings=3, sectors=5), 0.0))
+    parts.append(kit.ellipsoid("disc", (0, 0.03, 0), (0.05, 0.025, 0.05), color, rings=5, sectors=10))
+    ob = kit.join(name, parts)
+    for v in ob.data.vertices:
+        if v.co.z < 0.0:
+            v.co.z = 0.0
+    # Small things on the sand read as specks of dirt with an ink line: let them go without.
+    return kit.noink(ob)
+
+
+def shell(name, color, seed):
+    """A scallop shell, ribbed, lying on the sand."""
+    parts = []
+    outline = [(0.0, -0.02)]
+    for k in range(13):
+        a = math.pi * (0.1 + 0.8 * k / 12)
+        r = 0.09 * (1 + 0.06 * (k % 2))
+        outline.append((r * math.cos(a), r * math.sin(a) - 0.02))
+    sh = kit.prism("shell", outline, 0.03, color, plane="xz", bevel=0.008)
+    kit.apply_all(sh)
+    for v in sh.data.vertices:
+        x, y, z = kit.G(v.co)
+        v.co = kit.V(x, y + 0.035 - 0.25 * (x * x + (z - 0.03) ** 2), z)
+    for k in range(7):
+        a = math.pi * (0.18 + 0.64 * k / 6)
+        parts.append(kit.noink(kit.tube("rib", [(0.0, 0.035, -0.02), (0.085 * math.cos(a), 0.01, 0.085 * math.sin(a) - 0.02)], 0.005, 3, "f4e4d0"), 0.0))
+    parts.append(sh)
+    return kit.noink(kit.join(name, parts))
+
+
+def pebbles(name, seed):
+    rng = random.Random(seed)
+    parts = []
+    for k in range(6):
+        x, z = rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3)
+        r = rng.uniform(0.04, 0.09)
+        c = rng.choice(["a8a29a", "8f8b86", "c4bcb0", "7a7672"])
+        pb = kit.ellipsoid("pebble", (x, r * 0.4, z), (r * 1.2, r * 0.6, r), c, rings=5, sectors=8)
+        parts.append(pb)
+    return kit.noink(kit.join(name, parts))
+
+
+def driftwood(name, seed):
+    """A bleached branch washed up on the beach: a crooked log with a forked end."""
+    rng = random.Random(seed)
+    pts = [(-1.0, 0.1, 0.0), (-0.4, 0.12, 0.08), (0.2, 0.11, -0.05), (0.8, 0.09, 0.04)]
+    parts = [kit.tube("log", pts, [0.1, 0.12, 0.1, 0.06], 7, "c8b8a0")]
+    parts.append(kit.tube("fork", [(0.4, 0.11, -0.02), (0.75, 0.14, -0.3), (0.95, 0.16, -0.38)], [0.06, 0.04, 0.02], 6, "c8b8a0"))
+    for k in range(3):
+        x = -0.6 + k * 0.5
+        parts.append(kit.noink(kit.tube("knot", [(x, 0.12, 0.09), (x + 0.05, 0.13, 0.13)], [0.03, 0.01], 4, "a89880"), 0.3))
+    ob = kit.join(name, parts)
+    kit.paint_where(ob, "b0a088", lambda x, y, z: y < 0.06)
+    return ob
+
+
 def camp():
     """A skeleton camp, its fire at the origin: a patched canvas tent on poles with guy ropes,
     a ring of stones round charred logs, a cooking pot on a tripod, a crate, a barrel and bones.
@@ -343,6 +414,8 @@ def main(names):
         "bushes": bushes,
         "flowers": flower_beds,
         "tufts": lambda: [tuft("tuft_%d" % i, 40 + i) for i in range(2)],
+        "beach": lambda: [starfish("starfish_0", "ff7a4a", 1), starfish("starfish_1", "e05a8a", 2), shell("shell_0", "f8e8d4", 3),
+                          shell("shell_1", "f0b8a0", 4), pebbles("pebbles_0", 5), driftwood("driftwood_0", 6)],
         "camp": lambda: [camp()],
         "wreck": lambda: [wreck(), mast_log()],
     }

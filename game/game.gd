@@ -93,6 +93,8 @@ func _ready() -> void:
 
 func _build_view() -> void:
 	world = World.new()
+	# Colour every ship's model now, so a ship sailing into view later does not stall a frame.
+	ShipView.warm_up()
 	add_child(world)
 	effects = Effects.new()
 	add_child(effects)
@@ -409,6 +411,7 @@ func _update_skeletons(delta: float) -> void:
 		var sk: Skeleton = view_skeletons[id]
 		if not _skeleton_views.has(id):
 			var v := SkeletonView.new()
+			v.look = id
 			add_child(v)
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)

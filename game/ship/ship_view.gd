@@ -42,6 +42,18 @@ var _hammer_wait := 0.0
 var _paint := {}
 
 
+## Prepare the hull and parts in every crew's colours and the skeleton ship's (Models caches
+## them), so no ship's first appearance costs a frame.
+static func warm_up() -> void:
+	for crew_number in range(1, 5):
+		var paint := Models.palette_recolor(Toon.crew_palette(crew_number))
+		Models.mesh("ship_hull", paint)
+		Models.part("ship_parts", "sail_0_0", paint)
+	var wreck := Models.palette_recolor(Toon.SKELETON)
+	Models.mesh("ship_wreck", wreck)
+	Models.part("ship_parts", "sail_torn_0_0", wreck)
+
+
 func _part(name: String) -> ArrayMesh:
 	return Models.part("ship_parts", name, _paint)
 

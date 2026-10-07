@@ -13,13 +13,20 @@ const PROP_FILES := {
 	"bush_0": "bushes", "bush_1": "bushes", "bush_2": "bushes",
 	"flowers_0": "flowers", "flowers_1": "flowers", "flowers_2": "flowers", "flowers_3": "flowers",
 	"tuft_0": "tufts", "tuft_1": "tufts", "camp": "camp", "wreck": "wreck", "mast_log": "wreck",
+	"starfish_0": "beach", "starfish_1": "beach", "shell_0": "beach", "shell_1": "beach",
+	"pebbles_0": "beach", "driftwood_0": "beach",
 }
+## What washes up on the beaches, picked in turn.
+const BEACH_BITS := ["shell_0", "pebbles_0", "starfish_0", "shell_1", "pebbles_0", "starfish_1", "shell_0", "driftwood_0"]
 ## Heights the three palm models are built to (art/blender/nature.py).
 const PALM_HEIGHTS: Array[float] = [6.5, 8.0, 9.5]
 
 const BEACH_SLOPE := 0.33
 const SAND_TOP := 1.2
 const SEA_FLOOR := -4.0
+const GRASS_EDGE := Color("367a2c")
+const GRASS_LIGHT := Color("5cad46")
+const DRY_SAND := Color("eed59c")
 
 
 ## The ground height at a point, from the island's radial profile plus a little wobble so
@@ -69,6 +76,7 @@ static func build(spec: Dictionary) -> Dictionary:
 		"stacks":
 			_stacks(decor, solid, spec, rng)
 	_tufts(spec)
+	_beach(spec)
 	var faces := ground_b.faces()
 	faces.append_array(solid.faces())
 	return {"ground": ground_b.build(), "decor": decor.build(), "props": _props, "faces": faces, "fire": fire}
@@ -100,14 +108,28 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 			row.append(Vector3(x, ground(spec, x, z), z))
 		rows.append(row)
 
+	var noise := FastNoiseLite.new()
+	noise.seed = int(spec.seed)
+	noise.frequency = 0.045
+	noise.fractal_octaves = 2
 	var color_at := func(p: Vector3) -> Color:
 		if p.y < 0.25:
 			return Toon.color("wet_sand")
 		if is_grass(spec, p.x, p.z):
-			# Two-tone patches, like brush strokes on a cartoon background.
-			var patch := sin(p.x * 0.21 + sin(p.z * 0.17) * 2.0) * sin(p.z * 0.19 + sin(p.x * 0.13) * 2.0)
-			return Toon.color("grass_dark") if patch > 0.25 else Toon.color("grass")
-		return Toon.color("sand")
+			# A darker rim where the lawn meets the sand, like an inked edge.
+			if p.y < SAND_TOP + 0.3:
+				return GRASS_EDGE
+			# Patches in three greens, like brush strokes on a cartoon background.
+			var patch := noise.get_noise_2d(p.x, p.z)
+			if patch > 0.22:
+				return Toon.color("grass_dark")
+			if patch < -0.3:
+				return GRASS_LIGHT
+			return Toon.color("grass")
+		# Sand drier and paler away from the water, with a few darker drifts.
+		if p.y > SAND_TOP - 0.15:
+			return DRY_SAND
+		return Toon.color("sand").darkened(0.05) if noise.get_noise_2d(p.x * 2.0, p.z * 2.0) > 0.35 else Toon.color("sand")
 	var normal_at := func(p: Vector3) -> Vector3:
 		var e := 0.2
 		var dx := (ground(spec, p.x + e, p.z) - ground(spec, p.x - e, p.z)) / (2.0 * e)
@@ -242,6 +264,29 @@ static func _tufts(spec: Dictionary) -> void:
 			continue
 		var grow := rng.randf_range(0.7, 1.4)
 		_prop("tuft_%d" % (i % 2), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(grow, grow, grow)), Vector3(x, ground(spec, x, z) - 0.03, z)))
+
+
+## Shells, starfish, pebbles and the odd bit of driftwood on the dry sand (their own random
+## sequence too).
+static func _beach(spec: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(spec.seed) * 53 + 11
+	var radius: float = spec.radius
+	var placed := 0
+	for i in int(radius * 2.5):
+		var a := rng.randf() * TAU
+		var r := rng.randf_range(radius - 9.0, radius + 1.0)
+		var x := cos(a) * r
+		var z := sin(a) * r
+		var y := ground(spec, x, z)
+		if y < 0.35 or is_grass(spec, x, z):
+			continue
+		if spec.get("outpost", false) and absf(angle_difference(0.0, a)) < 0.25:
+			continue
+		var bit: String = BEACH_BITS[placed % BEACH_BITS.size()]
+		placed += 1
+		var grow := rng.randf_range(0.8, 1.3) if bit != "driftwood_0" else rng.randf_range(0.9, 1.6)
+		_prop(bit, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(grow, grow, grow)), Vector3(x, y - 0.02, z)))
 
 
 ## A Blender rock standing where _rock's lump would be (its centre `centre`), half buried.

@@ -1,7 +1,8 @@
 # Art pass 2: Blender models and animation
 
-Status: started 07-10-2026. Mark asked: "continually iterate to improve every single model that
-the game currently has. Don't settle for good enough." Every choice below is Claude's default.
+Status: first pass over every model done 07-10-2026 (see "Progress" at the end); iterating.
+Mark asked: "continually iterate to improve every single model that the game currently has.
+Don't settle for good enough." Every choice below is Claude's default.
 
 ## In one paragraph
 
@@ -28,11 +29,19 @@ walkable or shootable shape still comes from the same numbers in code.
   shape helpers, colour painting and the export.
 - Colours live on the vertices, as now, so one toon material still serves every model. Blender
   also bakes soft shadow into crevices (ambient occlusion) into those colours.
-- `Models` (`game/util/models.gd`) loads an export, adds the outline normals (stored in the
-  tangent channel, which Godot bends with the bones, so outlines follow animated limbs),
-  gives every mesh the toon material and caches it.
-- `tools/model_sheet.sh NAME [ANIM]` renders a contact sheet: the model turning, or an
-  animation's poses in a row. That is how each model is checked and improved.
+- `Models` (`game/util/models.gd`) loads an export, adds the outline normals, gives every mesh
+  the toon material and caches it. Static models carry smoothed outline normals in CUSTOM0 (as
+  MeshBuilder meshes do); animated ones push their outline along their real normals, which
+  bend with the bones (they are modelled smooth so that stays closed). Each part can ask for a
+  finer line or none (`kit.noink`: eyes, buttons, rigging), carried in the first UV channel.
+- Ship parts are painted in palette slots (`kit.slot`), which `Models.palette_recolor` swaps for
+  a crew's colours or the skeleton ship's; players' shirts and skin use marker colours the same
+  way. Darker planks and stains ride in the vertex alpha with the crease shadow, so slots stay
+  swappable.
+- `tools/model_sheet.sh OUT NAME [options]` renders a contact sheet: the model turning, an
+  animation's poses in a row, one pose from each of several animations, or a close-up from a
+  camera placed by hand, in a ship palette or a player's colours. That is how each model is
+  checked and improved. `tools/readme_shots.sh` retakes every README screenshot.
 
 ## Rules
 
@@ -41,9 +50,12 @@ walkable or shootable shape still comes from the same numbers in code.
 2. Every model is made by a script: rerunning it rebuilds the same model (byte-for-byte equality
    is not promised: Blender orders a few triangles differently run to run).
 3. No downloaded models or textures; everything is built here.
-4. Animation states come from what snapshots already say (speed, station, swimming,
-   carrying, weapon, attacks), plus anything small that needs adding to them.
-5. Keep the frame rate: low-poly counts, one material per model where possible.
+4. Big scenery is drawn in batches: island scenery is one MultiMesh per model per island.
+5. Animation states come from what snapshots already say (speed, station, swimming,
+   carrying, weapon, attacks), plus what a player is busy with (new "act": digging, patching,
+   bailing).
+6. Keep the frame rate: one material per model; the galleon is the heaviest model at about
+   120k triangles.
 
 ## Every model, in order of how much you see it
 
@@ -70,3 +82,18 @@ get their own look pass once the models are done.
 1. Every row above is a Blender model, checked on a contact sheet and in game screenshots.
 2. `tools/check.sh` and `tools/smoke_all.sh` pass; a unit test loads every export.
 3. README screenshots retaken.
+
+## Progress
+
+| # | Model | Done (first pass) |
+|---|---|---|
+| 1 | Pirate | One rig (18 bones), body plus four looks (tricorn and beard with waistcoat; bandana, eyepatch, earring and sash; captain's bicorne, curly moustache and coat; headscarf, sideburns, ponytail and braces), 17 animations in an AnimationTree, weapons and bucket in hand, head nods with the view. |
+| 2 | Your hands | A modelled arm and fist with a finer ink line; cutlass, flintlock; shovel, hammer and bucket shown while digging, patching or carrying water. |
+| 3 | Skeleton | Bone by bone on the pirates' rig, all their animations, glowing eyes, rusty cutlass, torn breeches and hat. |
+| 4-6 | Galleon | Planked hull with seams and wales, gunports, channels and deadeyes, shrouds with ratlines, tapered masts with tops and crow's nest, bowsprit, mermaid figurehead, anchors, stern gallery, quarter galleries, cabin windows, taffrail, rudder, quarterdeck front with doors and balustrade, stairs, carriages, shot racks, pin rails, binnacle, map table, deck clutter, hold with ribs, beams, knees, hammocks and stores; sails with panels, reef band and bolt ropes that roll up on their yards; wheel, capstan, cannon, flag, emblem, hole, patch. |
+| 7 | Skeleton ship | Its own wrecked hull (smashed bulwarks, stove-in holes, barnacles, weed, snapped foremast, bones) and torn sails. |
+| 8 | Loot | Three chest finishes, the supply barrel, the banana barrel. |
+| 9 | Islands | Palms (three heights), rocks (also building the arch and stacks), bushes, flowers, grass tufts, beach shells, starfish, pebbles and driftwood, the skeleton camp, the beached wreck. |
+| 10 | Port Merrow | Tavern (stones, timber frame, tiles, sign), lighthouse (glazed lamp room lit at night), the merchant's stall, the pier, the flag, a rigged merchant. |
+| 11 | Wildlife | Gulls, crabs, dolphins, the whale (now swims head first). |
+| 12 | Effects and sky | Cannonballs, splinters, wreckage, the camp-fire flame, cumulus clouds and the storm's cloud bank. |

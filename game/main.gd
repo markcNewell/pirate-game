@@ -222,8 +222,11 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			var enemy := game.nearest_enemy()
 			var me := game.ship_view.global_transform.origin + Vector3(0, 9, 0)
 			if enemy:
-				var at := Vector3(enemy.x, 4.0, enemy.z)
-				cam.look_at_from_position(me + (at - me).normalized() * 30.0 + Vector3(0, 3, 0), at)
+				# Close to the skeleton ship, on the side toward our own, looking at it.
+				var at := Vector3(enemy.x, 5.0, enemy.z)
+				var toward := (me - at).normalized()
+				var side := toward.cross(Vector3.UP)
+				cam.look_at_from_position(at + toward * 34.0 + side * 18.0 + Vector3(0, 6, 0), at)
 		get_tree().process_frame.connect(watch)
 	elif game and view != "deck":
 		var cam := Camera3D.new()

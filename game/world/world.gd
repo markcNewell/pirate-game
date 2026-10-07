@@ -315,7 +315,7 @@ static func _scenery(root: Node3D, props: Array) -> void:
 		var batch := MultiMeshInstance3D.new()
 		batch.multimesh = multi
 		batch.material_override = Models.material()
-		if name.begins_with("tuft") or name.begins_with("flowers"):
+		if name.get_slice("_", 0) in ["tuft", "flowers", "starfish", "shell", "pebbles"]:
 			batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(batch)
 

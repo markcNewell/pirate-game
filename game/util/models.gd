@@ -23,6 +23,11 @@ const SLOTS := ["hull", "hull_dark", "bottom", "stripe", "deck", "rail", "mast",
 
 static var _scenes := {}
 static var _parts := {}
+## Simplified index lists per source mesh surface, for distance (level of detail):
+## "id/surface" -> {screen size: PackedInt32Array}. Shared by every recolouring.
+static var _lods := {}
+## Static meshes with more triangles than this get levels of detail.
+const LOD_MIN_TRIANGLES := 4000
 static var _meshes := {}
 static var _materials := {}
 
@@ -130,8 +135,30 @@ static func prepare(source: Mesh, recolor := {}) -> ArrayMesh:
 		var weights = arrays[Mesh.ARRAY_WEIGHTS]
 		if bones != null and weights != null and weights.size() == verts.size() * 8:
 			flags |= Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+		var lods := {}
+		if bones == null:
+			lods = _lods_for(source, s, arrays, flags)
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], lods, flags)
 	return out
+
+
+## Simplified versions of a big static surface for drawing far off (made once per source
+## mesh, with Godot's own simplifier, and reused for every recolouring).
+static func _lods_for(source: Mesh, surface: int, arrays: Array, flags: int) -> Dictionary:
+	var key := "%d/%d" % [source.get_instance_id(), surface]
+	if _lods.has(key):
+		return _lods[key]
+	var lods := {}
+	var indices = arrays[Mesh.ARRAY_INDEX]
+	var triangles: int = (indices.size() if indices != null else arrays[Mesh.ARRAY_VERTEX].size()) / 3
+	if indices != null and triangles > LOD_MIN_TRIANGLES:
+		var im := ImporterMesh.new()
+		im.add_surface(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, null, "", flags)
+		im.generate_lods(25.0, 60.0, [])
+		for i in im.get_surface_lod_count(0):
+			lods[im.get_surface_lod_size(0, i)] = im.get_surface_lod_indices(0, i)
+	_lods[key] = lods
+	return lods
 
 
 ## A colour's 8-bit RGB as one number, for exact lookups (vertex colours arrive as bytes).

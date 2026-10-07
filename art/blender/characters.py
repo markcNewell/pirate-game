@@ -24,8 +24,9 @@ BOOT_DARK = "2a1e18"
 BELT = "4a2c1c"
 GOLD = "ffd23a"
 
-TROUSERS = ["5b4a3a", "34405a", "2c2c3a", "6a6458"]
-HAIR = ["5a3420", "1e1a1a", "a8a49c", "5e2e16"]
+TROUSERS = ["5b4a3a", "34405a", "2c2c3a", "6a6458", "7a6a50", "3a3a48", "4a2a2a", "50483e"]
+HAIR = ["5a3420", "1e1a1a", "a8a49c", "5e2e16", "c89a58", "3a2418", "2a1a12", "6a4a32"]
+LOOKS = 8
 
 
 def smooth_part(ob, levels=1, angle=60):
@@ -540,8 +541,109 @@ def braces(color="5a3a22"):
     return parts
 
 
+def straw_hat(color="d8b868", band="b8352c"):
+    """A wide straw hat with a frayed brim and a red band."""
+    rng = __import__("random").Random(3)
+    rows = []
+    for k in range(5):
+        r = 0.13 + 0.2 * k / 4
+        row = []
+        for i in range(32):
+            a = 2 * math.pi * i / 32
+            fray = 0.02 * math.sin(i * 2.7) if k == 4 else 0.0
+            droop = -0.04 * (k / 4) ** 2
+            row.append((math.cos(a) * (r + fray), 1.82 + droop, math.sin(a) * (r + fray)))
+        rows.append(row)
+    brim = kit.grid_surface("strawbrim", rows, color, close_u=True)
+    kit.orient(brim, lambda x, y, z: (0, 1, 0))
+    sol = brim.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.015
+    kit.apply_all(brim)
+    kit.smooth_by_angle(brim, 50)
+    crown = kit.lathe("strawcrown", [(0.135, 1.8), (0.14, 1.9), (0.125, 1.97), (0.0, 1.99)], 20, color)
+    hatband = kit.lathe("strawband", [(0.142, 1.83), (0.146, 1.87)], 20, band, caps=False)
+    weave = [kit.noink(kit.lathe("weave", [(0.141 - 0.003 * k, 1.88 + 0.03 * k), (0.141 - 0.003 * k, 1.885 + 0.03 * k)], 20, "b89a48", caps=False), 0.0) for k in range(3)]
+    return [brim, crown, hatband] + weave
+
+
+def beanie(color=SHIRT_DARK):
+    """A knitted watch cap with a turned-up cuff, in the shirt's darker colour."""
+    def keep(x, y, z):
+        return y > 1.69
+    cap = shell("beanie", color, 0.008, keep, thick=0.02)
+    for v in cap.data.vertices:
+        x, y, z = kit.G(v.co)
+        if y > 1.76:
+            v.co = kit.V(x, y + 0.03 * (y - 1.76) / 0.06, z)
+    cuff = kit.lathe("cuff", [(HEAD_R[0] + 0.03, 1.685), (HEAD_R[0] + 0.035, 1.73), (HEAD_R[0] + 0.02, 1.745)], 22, color, caps=False, centre=tuple(HEAD_C + Vector((0, -1.665, 0))))
+    for v in cuff.data.vertices:
+        x, y, z = kit.G(v.co)
+        v.co = kit.V(x, y, HEAD_C.z + (z - HEAD_C.z) * HEAD_R[2] / HEAD_R[0])
+    return [cap, cuff]
+
+
+def neck_scarf(color="e0c048"):
+    """A spotted neckerchief knotted at the front."""
+    ring = [(0.08 * math.cos(2 * math.pi * i / 16), 1.47 + 0.01 * math.sin(2 * math.pi * i / 16), 0.07 * math.sin(2 * math.pi * i / 16) - 0.005) for i in range(17)]
+    band = kit.tube("scarf", ring, 0.03, 8, color, caps=False)
+    knot = kit.ellipsoid("knot", (0.0, 1.45, -0.095), (0.035, 0.03, 0.025), color, rings=6, sectors=8)
+    tails = [kit.tube("tail", [(sx * 0.01, 1.44, -0.1), (sx * 0.04, 1.37, -0.13), (sx * 0.035, 1.3, -0.135)], [0.025, 0.02, 0.008], 6, color) for sx in (1, -1)]
+    return [band, knot] + tails
+
+
+def cavalier(color="3a2430", feather="e8e0d0"):
+    """A broad-brimmed hat pinned up on one side with a big curling feather."""
+    rows = []
+    for k in range(5):
+        r = 0.12 + 0.2 * k / 4
+        row = []
+        for i in range(32):
+            a = 2 * math.pi * i / 32
+            # Turned up on the left side (-X).
+            up = max(0.0, -math.cos(a)) ** 2 * 0.14 * (k / 4) ** 1.5
+            row.append((math.cos(a) * r, 1.83 + up - 0.02 * (k / 4), math.sin(a) * r))
+        rows.append(row)
+    brim = kit.grid_surface("cavbrim", rows, color, close_u=True)
+    kit.orient(brim, lambda x, y, z: (0, 1, 0))
+    sol = brim.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.015
+    kit.apply_all(brim)
+    kit.smooth_by_angle(brim, 50)
+    crown = kit.lathe("cavcrown", [(0.13, 1.8), (0.135, 1.9), (0.115, 1.98), (0.05, 2.0), (0.0, 2.0)], 20, color)
+    band = kit.lathe("cavband", [(0.137, 1.83), (0.14, 1.86)], 20, GOLD, caps=False)
+    pts = [(-0.12, 1.86, 0.02), (-0.2, 1.97, 0.06), (-0.22, 2.06, 0.16), (-0.18, 2.08, 0.26), (-0.1, 2.02, 0.32)]
+    plume = kit.tube("feather", pts, [0.02, 0.05, 0.055, 0.04, 0.012], 8, feather)
+    pin = kit.ellipsoid("brooch", (-0.13, 1.88, -0.02), (0.025, 0.025, 0.012), "c8302a", rings=4, sectors=8)
+    return [brim, crown, band, plume, kit.noink(pin, 0.3)]
+
+
+def mutton_chops(color):
+    parts = []
+    for sx in (1, -1):
+        chop = kit.ellipsoid("chop", (sx * 0.105, 1.6, -0.05), (0.04, 0.075, 0.06), color, rings=8, sectors=10)
+        kit.jitter(chop, 0.004, 7)
+        parts.append(chop)
+    parts += [kit.tube("tache", [(sx * 0.005, 1.607, surface_z(0, 1.6) - 0.03), (sx * 0.06, 1.6, surface_z(0.06, 1.6) - 0.02), (sx * 0.1, 1.6, -0.06)], [0.016, 0.018, 0.022], 8, color) for sx in (1, -1)]
+    return parts
+
+
+def bandolier(color="4a2c1c", buckle=GOLD):
+    """A strap across the chest from the right shoulder to the left hip, with powder flasks."""
+    pts = [(0.17, 1.42, -0.06), (0.1, 1.3, -0.165), (-0.02, 1.12, -0.17), (-0.15, 0.97, -0.13), (-0.19, 0.94, 0.0), (-0.12, 1.1, 0.14), (0.06, 1.3, 0.15), (0.17, 1.42, 0.06)]
+    parts = [kit.tube("bandolier", pts, 0.022, 6, color, caps=False)]
+    for k, t in enumerate((0.25, 0.4, 0.55)):
+        i = int(t * 7)
+        a, b = Vector(pts[i]), Vector(pts[i + 1])
+        p = a + (b - a) * (t * 7 - i) + Vector((0, 0, -0.03))
+        parts.append(kit.lathe("flask", [(0.0, -0.05), (0.025, -0.045), (0.028, 0.02), (0.012, 0.045), (0.0, 0.05)], 8, "8a6a3a", centre=tuple(p)))
+    parts.append(kit.box("buckle", (0.06, 1.24, -0.172), (0.05, 0.045, 0.012), buckle, bevel=0.004))
+    for p in parts:
+        rig.set_weights(p, rig.torso_weights)
+    return parts
+
+
 def look(index):
-    """Everything that differs between the four looks: [head extras], [body extras], options."""
+    """Everything that differs between the eight looks: [head extras], [body extras], options."""
     hair = HAIR[index]
     if index == 0:
         # Tricorn, bushy beard, brown waistcoat.
@@ -561,11 +663,37 @@ def look(index):
         head_bits = bicorne() + curly_moustache(hair) + hair_back(hair, -0.02) + queue + face(hair, gruff=0.6)
         body_bits = coat()
         return head_bits, body_bits, {"rolled": False, "cuff": None, "coat": True}
-    # Headscarf in the shirt's colour, sideburns, braces, a ponytail.
-    sideburns = [kit.box("sideburn", (sx * 0.124, 1.64, -0.04), (0.018, 0.06, 0.032), hair, bevel=0.008) for sx in (1, -1)]
-    pony = [kit.tube("pony", [(0, 1.64, 0.115), (0, 1.57, 0.15), (0, 1.47, 0.15)], [0.034, 0.03, 0.016], 8, hair)]
-    head_bits = headscarf() + sideburns + pony + earring(1) + face(hair)
-    body_bits = braces()
+    if index == 3:
+        # Headscarf in the shirt's colour, sideburns, braces, a ponytail.
+        sideburns = [kit.box("sideburn", (sx * 0.124, 1.64, -0.04), (0.018, 0.06, 0.032), hair, bevel=0.008) for sx in (1, -1)]
+        pony = [kit.tube("pony", [(0, 1.64, 0.115), (0, 1.57, 0.15), (0, 1.47, 0.15)], [0.034, 0.03, 0.016], 8, hair)]
+        head_bits = headscarf() + sideburns + pony + earring(1) + face(hair)
+        body_bits = braces()
+        return head_bits, body_bits, {"rolled": True, "cuff": None}
+    if index == 4:
+        # Straw hat, sandy stubble, a sash and rolled sleeves: the deckhand.
+        stubble = [kit.noink(kit.ellipsoid("stubble", (0, 1.57, surface_z(0, 1.58) + 0.012), (0.105, 0.06, 0.06), hair, rings=8, sectors=12), 0.2)]
+        head_bits = straw_hat() + hair_back(hair, 0.0) + stubble + face(hair, gruff=0.3)
+        body_bits = sash("2f6a4f")
+        return head_bits, body_bits, {"rolled": True, "cuff": None}
+    if index == 5:
+        # Knitted cap, a big chinstrap beard and a yellow neckerchief.
+        beard = [kit.ellipsoid("beard", (0, 1.55, surface_z(0, 1.56) + 0.0), (0.13, 0.08, 0.07), hair, rings=10, sectors=14)]
+        head_bits = beanie() + beard + face(hair, mouth=False)
+        body_bits = neck_scarf()
+        for p in body_bits:
+            rig.set_weights(p, lambda q: rig.blend("chest", "neck", (q.y - 1.47) * 1.0, 0.04))
+        return head_bits, body_bits, {"rolled": False, "cuff": None}
+    if index == 6:
+        # The cavalier: feathered hat, long hair, goatee, a burgundy coat.
+        goatee = [kit.ellipsoid("goatee", (0, 1.545, surface_z(0, 1.56) - 0.03), (0.03, 0.05, 0.028), hair, rings=6, sectors=8)]
+        locks = [kit.tube("lock", [(sx * 0.12, 1.7, 0.02), (sx * 0.14, 1.58, 0.04), (sx * 0.13, 1.46, 0.06)], [0.04, 0.035, 0.02], 8, hair) for sx in (1, -1)]
+        head_bits = cavalier() + hair_back(hair, 0.1) + locks + goatee + curly_moustache(hair) + face(hair, gruff=0.4)
+        body_bits = coat("5a1a24", trim="d8c070")
+        return head_bits, body_bits, {"rolled": False, "cuff": None, "coat": True}
+    # The bruiser: bald and shining, mutton chops, both ears ringed, a bandolier.
+    head_bits = mutton_chops(hair) + earring(1) + earring(-1) + face(hair, gruff=1.4)
+    body_bits = bandolier()
     return head_bits, body_bits, {"rolled": True, "cuff": None}
 
 
@@ -581,7 +709,7 @@ def pirate():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(4):
+    for i in range(LOOKS):
         head_bits, body_bits, opt = look(i)
         parts = head(head_bits)
         if not opt.get("coat"):
@@ -780,8 +908,21 @@ def skeleton():
         for p in foot:
             rig.set_weights(p, rig.rigid("foot_" + side))
         parts += femur + shin + foot
-    # Rags: torn breeches and a scrap of sash.
-    for p in trousers(RAGS):
+    body = kit.join("skeleton", parts)
+    rig.bind(body, arm)
+    meshes = [body]
+    for i in range(3):
+        ob = kit.join("look%d" % i, skeleton_look(i))
+        rig.bind(ob, arm)
+        meshes.append(ob)
+    rig.animate(arm)
+    rig.rest(arm)
+    return [arm] + meshes
+
+
+def torn_breeches(color, seed):
+    parts = []
+    for p in trousers(color):
         if p.name.startswith("leg"):
             # Cut the legs off above the knee and tear the hem.
             import bmesh
@@ -790,22 +931,91 @@ def skeleton():
             bmesh.ops.delete(bm, geom=[v for v in bm.verts if kit.G(v.co)[1] < 0.6], context="VERTS")
             bm.to_mesh(p.data)
             bm.free()
-            ragged(p, 0.06, seed=len(parts))
+            ragged(p, 0.06, seed=seed + len(parts))
             sol = p.modifiers.new("solid", "SOLIDIFY")
             sol.thickness = 0.008
             kit.apply_all(p)
         parts.append(p)
-    parts += sash(RAGS_DARK)
-    hat = tricorn("2b2622", trim="6a6040")
-    for p in hat:
+    return parts
+
+
+def rag_vest(color, seed):
+    """What is left of a shirt on a skeleton: narrowed to the ribcage, open at the front,
+    holed through and ragged at the hem."""
+    import bmesh
+    rng = __import__("random").Random(seed)
+    vest = torso(color, grow=-0.02, name="ragvest")
+    for v in vest.data.vertices:
+        x, y, z = kit.G(v.co)
+        v.co = kit.V(x * 0.74, y, z * 0.8 + 0.01)
+    bm = bmesh.new()
+    bm.from_mesh(vest.data)
+    holes = [(rng.uniform(-0.15, 0.15), rng.uniform(1.0, 1.35), rng.choice((-1, 1))) for _ in range(6)]
+    dead = []
+    for f in bm.faces:
+        x, y, z = kit.G(f.calc_center_median())
+        if z < -0.04 and abs(x) < 0.03 + (y - 0.95) * 0.12:
+            dead.append(f)
+        elif y > 1.45 or y < 0.98 + 0.05 * abs(math.sin(x * 40)):
+            dead.append(f)
+        elif any(abs(x - hx) < 0.05 and abs(y - hy) < 0.05 and z * hz > 0 for hx, hy, hz in holes):
+            dead.append(f)
+    bmesh.ops.delete(bm, geom=list(dict.fromkeys(dead)), context="FACES")
+    bm.to_mesh(vest.data)
+    bm.free()
+    sol = vest.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.008
+    kit.apply_all(vest)
+    rig.set_weights(vest, rig.torso_weights)
+    return [vest]
+
+
+def morion(color="6a6a72"):
+    """A rusty Spanish helmet: a domed skull cap, a brim curving up at front and back and a comb
+    along the top."""
+    dome = kit.lathe("dome", [(0.0, 1.97), (0.07, 1.96), (0.12, 1.9), (0.14, 1.8), (0.14, 1.74)], 18, color)
+    rows = []
+    for k in range(4):
+        r = 0.14 + 0.12 * k / 3
+        row = []
+        for i in range(28):
+            a = 2 * math.pi * i / 28
+            up = (abs(math.sin(a)) ** 2) * 0.1 * (k / 3) ** 1.3
+            row.append((math.cos(a) * r * 0.9, 1.75 + up, -0.01 + math.sin(a) * r))
+        rows.append(row)
+    brim = kit.grid_surface("brim", rows, color, close_u=True)
+    kit.orient(brim, lambda x, y, z: (0, 1, 0))
+    sol = brim.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.012
+    kit.apply_all(brim)
+    comb = kit.prism("comb", [(-0.13, 0.0), (0.13, 0.0), (0.08, 0.08), (0.0, 0.1), (-0.08, 0.08)], 0.015, color, centre=(0, 1.93, -0.01), plane="zy")
+    rust = [kit.noink(kit.ellipsoid("rust", (0.07 * math.cos(a), 1.86 + 0.05 * math.sin(a * 3), -0.01 + 0.13 * math.sin(a)), (0.03, 0.02, 0.03), "8a5a3a", rings=4, sectors=6), 0.0) for a in (0.6, 2.2, 4.0)]
+    return [dome, brim, comb] + rust
+
+
+def skeleton_look(i):
+    """The skeleton's outfits: 0 torn breeches, a sash and a battered tricorn; 1 a faded
+    bandana and the rags of a shirt; 2 a rusty morion helmet and a loincloth."""
+    parts = []
+    if i == 0:
+        parts += torn_breeches(RAGS, 1) + sash(RAGS_DARK)
+        hat = tricorn("2b2622", trim="6a6040")
+        for p in hat:
+            p.scale = (0.95, 1.0, 0.95)
+        head_bits = hat
+    elif i == 1:
+        parts += torn_breeches("4a4a5a", 2) + rag_vest("8a8470", 5)
+        head_bits = bandana("8a3a2e", dots="c8bca0")
+    else:
+        cloth = kit.loft("loincloth", [(0.82, 0.15, 0.1, 0, 0.0), (0.92, 0.165, 0.115, 0, 0.0), (0.98, 0.16, 0.11, 0, 0.0)], RAGS, sides=16, power=2.4)
+        rig.set_weights(cloth, rig.rigid("hips"))
+        flap = kit.prism("flap", [(-0.07, 0.0), (0.07, 0.0), (0.09, -0.22), (0.03, -0.27), (-0.02, -0.24), (-0.08, -0.26)], 0.012, RAGS, centre=(0, 0.88, -0.125), plane="xy")
+        rig.set_weights(flap, rig.rigid("hips"))
+        parts += [cloth, flap] + sash("5a2a24")
+        head_bits = morion()
+    for p in head_bits:
         rig.set_weights(p, rig.rigid("head"))
-        p.scale = (0.95, 1.0, 0.95)
-    parts += hat
-    ob = kit.join("skeleton", parts)
-    rig.bind(ob, arm)
-    rig.animate(arm)
-    rig.rest(arm)
-    return [arm, ob]
+    return parts + head_bits
 
 
 def merchant():

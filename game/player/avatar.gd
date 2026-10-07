@@ -1,7 +1,7 @@
 class_name Avatar
 extends Node3D
 ## Another player as you see them: a rigged toon pirate (made in Blender, art/blender/
-## characters.py) in one of four looks, wearing their shirt colour and skin tone, with a name
+## characters.py) in one of eight looks, wearing their shirt colour and skin tone, with a name
 ## tag. What the snapshots say picks the animation: standing, walking or running (played at the
 ## speed they really move), swimming, jumping, at the wheel, the ropes, the capstan or a gun,
 ## digging, hammering a patch or bailing; carrying a chest or a bucket on top of that; a cutlass
@@ -9,6 +9,8 @@ extends Node3D
 
 const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0")]
 const SKINS: Array[Color] = [Color("f2c49b"), Color("c98e62"), Color("8d5a3b"), Color("e8b48a")]
+## How many looks the pirate model has (look0, look1...: art/blender/characters.py).
+const LOOKS := 8
 ## The speeds the walk and run cycles are drawn for (PlayerMotor.WALK and RUN).
 const WALK_SPEED := 4.5
 const RUN_SPEED := 7.0
@@ -55,7 +57,7 @@ func _init(player_name: String, index: int) -> void:
 		Models.SKIN: skin, Models.SKIN_DARK: skin.darkened(0.12).lerp(Color("c0503a"), 0.12),
 	})
 	add_child(_model)
-	var look := "look%d" % (index % 4)
+	var look := "look%d" % (index % LOOKS)
 	for mi: MeshInstance3D in _model.find_children("look*", "MeshInstance3D", true, false):
 		if mi.name != look:
 			mi.free()

@@ -29,16 +29,16 @@ func test_pirate_has_what_avatars_use() -> void:
 	var skeleton: Skeleton3D = root.find_children("*", "Skeleton3D", true, false)[0]
 	for bone: String in Avatar.UPPER + ["root", "hips", "thigh_r", "shin_l", "foot_r"]:
 		check(skeleton.find_bone(bone) >= 0, "pirate has the %s bone" % bone)
-	for look in 4:
+	for look in Avatar.LOOKS:
 		check(root.find_child("look%d" % look, true, false) != null, "pirate has look %d" % look)
 	root.free()
 
 
 ## An avatar builds, keeps only its own look, and takes every state without errors.
 func test_avatar_builds_and_takes_states() -> void:
-	var avatar := Avatar.new("Test", 5)
+	var avatar := Avatar.new("Test", 13)
 	var looks := avatar.find_children("look*", "MeshInstance3D", true, false)
-	check(looks.size() == 1 and looks[0].name == "look1", "player 5 wears look 1 only")
+	check(looks.size() == 1 and looks[0].name == "look5", "player 13 wears look 5 only")
 	avatar.set_state(ShipShape.Kind.WHEEL, false, false, Avatar.Act.NONE)
 	avatar.set_state(-1, true, false, Avatar.Act.NONE)
 	avatar.set_state(-1, false, true, Avatar.Act.DIG)

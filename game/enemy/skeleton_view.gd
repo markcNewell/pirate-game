@@ -1,13 +1,15 @@
 class_name SkeletonView
 extends Node3D
-## A skeleton as players see it (art/blender/characters.py): yellowed bones in torn breeches
-## and a battered hat, green light in its eye sockets and a rusty cutlass. It shares the
+## A skeleton as players see it (art/blender/characters.py): yellowed bones in one of three
+## outfits of rags, green light in its eye sockets and a rusty cutlass. It shares the
 ## pirates' rig and animations: it walks, stands, cuts at you, flinches and flashes red when
 ## hit, and topples when it falls.
 
 ## Its rusty cutlass: the blade and brass of the pirates' one, gone brown and green.
 const RUST := {Color("d8dde2"): Color("9c8a74"), Color("9aa2ac"): Color("6e5e4c"), Color("e0b04a"): Color("7d8a5a")}
 
+## Which outfit (0-2: breeches and tricorn, bandana and shirt rags, helmet and loincloth).
+var look := 0
 var _model: Node3D
 var _player: AnimationPlayer
 var _material: ShaderMaterial
@@ -19,6 +21,9 @@ var _fall := 0.0
 func _ready() -> void:
 	_model = Models.instance("skeleton")
 	add_child(_model)
+	for mi: MeshInstance3D in _model.find_children("look*", "MeshInstance3D", true, false):
+		if mi.name != "look%d" % (look % 3):
+			mi.free()
 	# Its own copy of the toon material, so its red flash is its own.
 	_material = Models.material(true).duplicate()
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):

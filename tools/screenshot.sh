@@ -3,7 +3,8 @@
 # software OpenGL, hosts a local game and saves a screenshot.
 #
 #   tools/screenshot.sh OUT.png [VIEW] [EXTRA ARGS...]
-#   VIEW: deck (first person, default), wheel, outside, bow, high, island[N], lighthouse, tavern, stern, swim, flag, ghost, swing, patch, help, mouselook
+#   VIEW: deck (first person, default), wheel, outside, bow, high, island[N], lighthouse, tavern, stern, swim, flag, ghost, swing, patch, help, mouselook,
+#         title (the title screen: nothing is hosted)
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
 #   BOTS="sails wheel" adds headless bot players to the hosted game first.
 #
@@ -28,5 +29,5 @@ mkdir -p "$(dirname "$OUT")"
 			timeout 150 godot --headless --path /game -- --bot "$role" >/dev/null 2>&1 &
 		done ) &
 		DISPLAY=:5 timeout 150 godot --path /game --rendering-driver opengl3 --resolution '"$SIZE"' -- "$@"
-	' _ --host --name Mark --screenshot "/out/$(basename "$OUT")" --shot-view "$VIEW" --shot-delay "${DELAY:-6}" "$@" \
+	' _ $([ "$VIEW" = title ] || echo --host) --name Mark --screenshot "/out/$(basename "$OUT")" --shot-view "$VIEW" --shot-delay "${DELAY:-6}" "$@" \
 	2>&1 | grep -E "screenshot|SCRIPT ERROR|ERROR" | grep -vE "audio|ALSA|init_output_device" || true

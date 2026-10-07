@@ -293,8 +293,10 @@ def anim_idle(arm):
     return action(arm, "idle", cycle(2.4, at))
 
 
-def gait(stride, lift, lean, arm_swing, bounce, knee):
-    """A walking or running cycle: phase 0 = right foot planted forward."""
+def gait(stride, lift, lean, arm_swing, bounce, knee, elbow=20, sway=2.0):
+    """A walking or running cycle: phase 0 = right foot planted forward. The body rides lowest
+    as a foot comes down and highest as the legs pass, the hips roll over the planted leg and
+    the shoulders turn against the hips."""
     def at(p):
         r = c(p)          # +1: right leg forward
         lift_r = max(0.0, s(p, 0.5))   # right leg lifting while it swings forward (back half)
@@ -306,23 +308,23 @@ def gait(stride, lift, lean, arm_swing, bounce, knee):
             "shin_l": (-knee * lift_l - 6, 0, 0),
             "foot_r": (-8 * r + 10 * lift_r, 0, 0),
             "foot_l": (8 * r + 10 * lift_l, 0, 0),
-            "hips": (0, 6 * r * stride / 30, 2 * s(p, 0.25)),
+            "hips": (0, 6 * r * stride / 30, sway * s(p, 0.25)),
             "spine": (-lean, -4 * r * stride / 30, 0),
             "chest": (-lean * 0.5, -6 * r * stride / 30, 0),
             "head": (lean * 1.2, 8 * r * stride / 30, 0),
             "upper_arm_r": (-arm_swing * r, 0, 7), "upper_arm_l": (arm_swing * r, 0, -7),
-            "forearm_r": (20 + 25 * max(0.0, -r), 0, 0), "forearm_l": (20 + 25 * max(0.0, r), 0, 0),
-            "_root": (0, bounce * abs(s(p, 0.25)) - bounce * 0.5, 0),
+            "forearm_r": (elbow + 25 * max(0.0, -r), 0, 0), "forearm_l": (elbow + 25 * max(0.0, r), 0, 0),
+            "_root": (0, bounce * abs(s(p)) - bounce * 0.5, 0),
         })
     return at
 
 
 def anim_walk(arm):
-    return action(arm, "walk", cycle(0.62, gait(32, 22, 6, 34, 0.05, 55)))
+    return action(arm, "walk", cycle(0.62, gait(32, 22, 6, 34, 0.05, 55, elbow=18, sway=3.5)))
 
 
 def anim_run(arm):
-    return action(arm, "run", cycle(0.5, gait(46, 30, 14, 55, 0.09, 95)))
+    return action(arm, "run", cycle(0.5, gait(46, 30, 14, 55, 0.09, 95, elbow=70, sway=2.0)))
 
 
 def anim_jump(arm):

@@ -23,6 +23,8 @@ from kit import V  # noqa: E402
 
 slot = kit.slot
 ROPE_R = 0.028
+# Polished brass for small fittings: the palette's gold is a paint, too loud on a big dome.
+BRASS = "c9a040"
 
 
 def hull_point(z, y, side, out=0.0):
@@ -811,6 +813,54 @@ def sail_post_fitting(m):
     return parts
 
 
+def deck_life():
+    """The odds and ends of a working deck, against the bulwarks out of the way: buckets, a
+    mop leaning on the rail, a cargo net hung over the side, a spare spar lashed along the
+    waist and a small keg."""
+    import props
+    parts = []
+    t = S.RAIL_THICKNESS
+
+    def inner(z, side, off=0.25):
+        return side * (S.half_width(z, S.DECK_Y) - t - off)
+
+    for z, side in ((-9.6, -1), (5.0, 1)):
+        b = props.bucket("deckbucket", water=False)
+        kit.place(b, (inner(z, side), S.DECK_Y + 0.42 + 0.32, z))
+        parts.append(b)
+    # Mop leaning against the starboard bulwark.
+    mz = -5.6
+    mx = inner(mz, 1, 0.15)
+    parts.append(kit.tube("mopstick", [(mx - 0.35, S.DECK_Y + 0.05, mz), (mx + 0.05, S.DECK_Y + 1.3, mz)], 0.025, 6, "b07a42"))
+    for k in range(9):
+        a = 2 * math.pi * k / 9
+        parts.append(kit.tube("mophead", [(mx - 0.33, S.DECK_Y + 0.12, mz), (mx - 0.33 + 0.12 * math.cos(a), S.DECK_Y + 0.01, mz + 0.12 * math.sin(a))], [0.03, 0.02], 4, "d8ccb0"))
+    # A cargo net hung over the port bulwark, sagging, a grid of rope.
+    nz0, nz1 = 3.9, 5.4
+    rows = 6
+    for k in range(rows + 1):
+        y = S.DECK_Y + 0.95 - 0.8 * k / rows
+        pts = [(inner(nz0 + (nz1 - nz0) * j / 6, -1, 0.02) - 0.03 * math.sin(math.pi * j / 6) * (k / rows), y - 0.12 * math.sin(math.pi * j / 6) * (k / rows), nz0 + (nz1 - nz0) * j / 6) for j in range(7)]
+        parts.append(kit.noink(kit.tube("netrow", pts, 0.012, 4, slot("rope"), caps=False), 0.3))
+    for j in range(7):
+        z = nz0 + (nz1 - nz0) * j / 6
+        pts = [(inner(z, -1, 0.02) - 0.03 * math.sin(math.pi * j / 6) * (k / rows), S.DECK_Y + 0.95 - 0.8 * k / rows - 0.12 * math.sin(math.pi * j / 6) * (k / rows), z) for k in range(rows + 1)]
+        parts.append(kit.noink(kit.tube("netcol", pts, 0.012, 4, slot("rope"), caps=False), 0.3))
+    # A spare spar lashed along the starboard waist.
+    sz0, sz1 = -4.4, -0.8
+    sp0 = (inner(sz0, 1, 0.12), S.DECK_Y + 0.55, sz0)
+    sp1 = (inner(sz1, 1, 0.12), S.DECK_Y + 0.55, sz1)
+    parts.append(kit.tube("spar", [sp0, sp1], 0.11, 8, slot("mast")))
+    for z in (-3.8, -1.4):
+        ring = [(inner(z, 1, 0.12) + 0.13 * math.cos(2 * math.pi * j / 8), S.DECK_Y + 0.55 + 0.13 * math.sin(2 * math.pi * j / 8), z) for j in range(9)]
+        parts.append(kit.noink(kit.tube("lash", ring, 0.018, 4, slot("rope"), caps=False), 0.3))
+    # A small keg by the stairs.
+    keg = props.barrel("keg", height=0.55, r_end=0.2, r_mid=0.24, hoops=(0.06, 0.16, 0.39, 0.49), light=True, seed=40)
+    kit.place(keg, (-1.6, S.DECK_Y, 2.1))
+    parts.append(keg)
+    return parts
+
+
 def mast_lamp():
     """A lantern on an iron bracket on the main mast (ShipView lights a box inside it)."""
     at = Vector((0.45, S.DECK_Y + 2.4, S.MAST_Z[1] - 0.45))
@@ -830,7 +880,7 @@ def wheel_stand():
     # Binnacle beside it: a box with a brass compass dome.
     b = (w[0] + 1.1, w[1], w[2] - 0.3)
     parts.append(kit.box("binnacle", (b[0], b[1] + 0.5, b[2]), (0.45, 1.0, 0.45), slot("hull_dark"), bevel=0.03))
-    parts.append(kit.lathe("dome", [(0.18, 0.0), (0.17, 0.08), (0.1, 0.17), (0.0, 0.2)], 12, slot("gold"), centre=(b[0], b[1] + 1.0, b[2])))
+    parts.append(kit.lathe("dome", [(0.18, 0.0), (0.17, 0.08), (0.1, 0.17), (0.0, 0.2)], 12, BRASS, centre=(b[0], b[1] + 1.0, b[2])))
     return parts
 
 
@@ -845,8 +895,8 @@ def map_table():
     for a in (0.7, -0.7):
         parts.append(kit.noink(kit.box("x", (t[0] + 0.12, t[1] + 0.94, t[2] + 0.05), (0.18, 0.006, 0.036), "c8302a", rot=(0, a, 0))))
     parts.append(kit.lathe("candle", [(0.04, 0.0), (0.04, 0.16), (0.0, 0.17)], 8, "f4ecd8", centre=(t[0] - 0.42, t[1] + 0.92, t[2] - 0.25)))
-    parts.append(kit.lathe("dish", [(0.0, 0.0), (0.08, 0.0), (0.08, 0.02), (0.0, 0.02)], 10, slot("gold"), centre=(t[0] - 0.42, t[1] + 0.92, t[2] - 0.25)))
-    parts.append(kit.lathe("spyglass", [(0.03, -0.25), (0.035, 0.0), (0.04, 0.2)], 8, slot("gold"), centre=(t[0] + 0.3, t[1] + 0.96, t[2] - 0.2), axis="x"))
+    parts.append(kit.lathe("dish", [(0.0, 0.0), (0.08, 0.0), (0.08, 0.02), (0.0, 0.02)], 10, BRASS, centre=(t[0] - 0.42, t[1] + 0.92, t[2] - 0.25)))
+    parts.append(kit.lathe("spyglass", [(0.03, -0.25), (0.035, 0.0), (0.04, 0.2)], 8, BRASS, centre=(t[0] + 0.3, t[1] + 0.96, t[2] - 0.2), axis="x"))
     return parts
 
 
@@ -1105,6 +1155,7 @@ def hull(skeleton=False):
     for m in range(2):
         parts += sail_post_fitting(m)
     parts += mast_lamp()
+    parts += deck_life()
     parts += wheel_stand()
     parts += map_table()
     parts += clutter()
@@ -1347,7 +1398,7 @@ def wheel():
         radii = [max(0.012, rr) for rr, _h in prof]
         parts.append(kit.tube("handle", pts, radii, 8, slot("hull_dark")))
     parts.append(kit.lathe("hub", [(0.0, -0.12), (0.11, -0.12), (0.12, 0.0), (0.11, 0.12), (0.0, 0.12)], 12, slot("hull_dark"), axis="z"))
-    parts.append(kit.lathe("boss", [(0.0, 0.12), (0.07, 0.12), (0.06, 0.16), (0.0, 0.17)], 12, slot("gold"), axis="z"))
+    parts.append(kit.lathe("boss", [(0.0, 0.12), (0.07, 0.12), (0.06, 0.16), (0.0, 0.17)], 12, BRASS, axis="z"))
     return kit.join("wheel", parts)
 
 
@@ -1358,7 +1409,7 @@ def capstan():
         a = 2 * math.pi * k / 8
         parts.append(kit.box("whelp", (math.cos(a) * 0.43, 0.42, math.sin(a) * 0.43), (0.06, 0.62, 0.12), slot("mast"), rot=(0, -a, 0), bevel=0.01))
     parts.append(kit.lathe("head", [(0.0, 0.78), (0.64, 0.78), (0.66, 0.85), (0.64, 0.98), (0.0, 0.98)], 16, slot("mast")))
-    parts.append(kit.lathe("headtop", [(0.0, 0.98), (0.3, 0.98), (0.2, 1.05), (0.0, 1.07)], 12, slot("gold")))
+    parts.append(kit.lathe("headtop", [(0.0, 0.98), (0.3, 0.98), (0.2, 1.05), (0.0, 1.07)], 12, BRASS))
     for i in range(4):
         a = 2 * math.pi * i / 4
         d = Vector((math.cos(a), 0, math.sin(a)))
