@@ -18,6 +18,8 @@ const PATCH_EVERY := 25.0
 const AIM_HEIGHT := 0.8
 
 var rng := RandomNumberGenerator.new()
+## Scales the deliberate aiming error (0 = perfect aim, for tests).
+var error_scale := 1.0
 var _patch_timer := 0.0
 
 
@@ -122,7 +124,7 @@ func _guns(me: ShipState, target: ShipState, t: float) -> Array:
 			continue
 		shots.append({
 			"gun": gun,
-			"yaw": angles.yaw + rng.randf_range(-AIM_ERROR_YAW, AIM_ERROR_YAW),
-			"pitch": angles.pitch + rng.randf_range(-AIM_ERROR_PITCH, AIM_ERROR_PITCH),
+			"yaw": angles.yaw + rng.randf_range(-AIM_ERROR_YAW, AIM_ERROR_YAW) * error_scale,
+			"pitch": angles.pitch + rng.randf_range(-AIM_ERROR_PITCH, AIM_ERROR_PITCH) * error_scale,
 		})
 	return shots

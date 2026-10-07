@@ -157,6 +157,7 @@ func test_captain_guns_land_near_a_still_target() -> void:
 	me.yaw = 0.0  # facing -z, so the target at the origin is off the port side
 	var target := ShipState.new()
 	var cap := Captain.new(2)
+	cap.error_scale = 0.0
 	var shots := cap.think(me, target, Vector2(0, -1), 0.0, DT, [], ShipControls.new())
 	check(not shots.is_empty(), "port guns should have a shot")
 	for shot: Dictionary in shots:
