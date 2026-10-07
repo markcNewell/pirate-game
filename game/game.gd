@@ -396,6 +396,7 @@ func _update_items() -> void:
 			add_child(v)
 			_item_views[id] = v
 		var view: LootView = _item_views[id]
+		view.set_glint(item.state != Loot.State.CARRIED)
 		var at := Transform3D(Basis(Vector3.UP, item.yaw), item.pos)
 		match item.state:
 			Loot.State.ON_SHIP:
