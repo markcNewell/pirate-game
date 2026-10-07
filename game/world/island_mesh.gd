@@ -43,6 +43,8 @@ static func build(spec: Dictionary) -> Dictionary:
 	var fire: Variant = null
 	if not spec.get("outpost", false):
 		fire = _camp(decor, solid, spec, rng)
+		if spec.radius > 24.0:
+			_wreck(decor, solid, spec, rng)
 	var faces := ground_b.faces()
 	faces.append_array(solid.faces())
 	return {"ground": ground_b.build(), "decor": decor.build(), "faces": faces, "fire": fire}
@@ -163,6 +165,47 @@ static func _rocks(decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng
 		var spin := Basis(Vector3.UP, rng.randf() * TAU)
 		for target: MeshBuilder in [decor, solid]:
 			_rock(target, centre, size, spin)
+
+
+## An old wreck run aground on the beach: the bare ribs of a hull lying over on its side, a
+## few planks still on, half sunk in the sand, with its snapped mast lying beside it.
+static func _wreck(b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
+	var radius: float = spec.radius
+	var a := rng.randf() * TAU
+	var r := radius - 4.0
+	var at := Vector3(cos(a) * r, 0.0, sin(a) * r)
+	at.y = ground(spec, at.x, at.z) - 0.6
+	# Keel along the shore, heeled over toward the sea and bow-down into the sand.
+	var frame := Basis(Vector3.UP, -a) * Basis(Vector3.FORWARD, 0.55) * Basis(Vector3.RIGHT, 0.12)
+	var wood := Color("8a6a4a")
+	var dark := Color("5e4630")
+	var w := 3.3
+	var h := 3.6
+	b.box(at + frame * Vector3(0, 0.1, 0), Vector3(0.3, 0.26, 6.8), dark, frame)
+	for i in 9:
+		var z := -6.0 + i * 1.5
+		var narrow := 1.0 - absf(z) / 12.0
+		# Each rib is a U of short straight pieces; some are snapped short on one side.
+		var broken_at := rng.randi_range(4, 8) if rng.randf() < 0.5 else 8
+		var prev := Vector3(w * narrow, h, z)
+		for k in range(1, 9):
+			var t := PI * k / 8.0
+			var p := Vector3(w * narrow * cos(t), h * (1.0 - sin(t)), z)
+			if k <= broken_at:
+				b.cylinder(at + frame * prev, at + frame * p, 0.15, 0.15, 5, wood)
+			prev = p
+	# Planks still nailed to the low side.
+	for j in 3:
+		var t := PI * (0.62 + j * 0.1)
+		var p := Vector3(w * 0.85 * cos(t), h * (1.0 - sin(t)), 0.0)
+		var plank_basis := frame * Basis(Vector3.BACK, t - PI / 2.0)
+		b.box(at + frame * p, Vector3(0.08, 0.25, 4.5 - j * 0.8), wood.darkened(0.1 * j), plank_basis)
+	# The mast, snapped off and lying in the sand.
+	var foot := at + frame * Vector3(0, 0.5, 1.4)
+	var tip := foot + Basis(Vector3.UP, -a + 0.4) * Vector3(0, 0, 9.5)
+	tip.y = ground(spec, tip.x, tip.z) + 0.25
+	b.cylinder(foot, tip, 0.3, 0.24, 7, dark)
+	solid.box(at + frame * Vector3(0, h * 0.35, 0), Vector3(w * 0.8, h * 0.4, 6.2), Color.BLACK, frame)
 
 
 ## A faceted lump: a coarse ellipsoid with flat faces.
