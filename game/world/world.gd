@@ -7,6 +7,8 @@ const HORIZON := Color("c4e9ff")
 const SKY_TOP := Color("2f8ff0")
 
 var ocean: Ocean
+## The title screen turns the storm off so its sky stays clear.
+var storm_enabled := true
 var _clouds: Node3D
 var _env: Environment
 var _sky: ShaderMaterial
@@ -50,14 +52,15 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 	_camera = Vector2(camera_pos.x, camera_pos.z)
 	_dolphins.follow(camera_pos, sea_time, ships, get_process_delta_time())
 	_wind_lines.follow(camera_pos, Game.wind_dir(sea_time), _gloom, get_process_delta_time())
-	_inside = Storm.amount(_camera, sea_time)
+	_inside = Storm.amount(_camera, sea_time) if storm_enabled else 0.0
+	_storm.visible = storm_enabled
 	# The light changes slowly, so a few updates a second is plenty.
 	_daylight_wait -= get_process_delta_time()
 	if _daylight_wait <= 0.0:
 		_daylight_wait = 0.25
 		_apply_daylight(time_of_day if time_of_day >= 0.0 else Daylight.time_of_day(sea_time))
 	# Lightning lights up the whole scene for a moment, more the nearer it strikes.
-	var flash := _storm.follow(camera_pos, sea_time, _inside)
+	var flash := _storm.follow(camera_pos, sea_time, _inside) if storm_enabled else 0.0
 	_env.ambient_light_energy = _ambient + flash * 1.4
 	_light.light_energy = _light_energy * (1.0 + flash * 0.8)
 	# Clouds ride along with the camera so they always sit on the horizon, drifting slowly.

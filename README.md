@@ -12,6 +12,8 @@ crew vs crew: fight other crews, sink their ships and steal their chests. The se
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md).
 
+![The title screen](docs/screenshots/title.png)
+
 | | |
 |---|---|
 | ![Under sail](docs/screenshots/ship-under-sail.png) | ![At the wheel](docs/screenshots/at-the-wheel.png) |

@@ -16,6 +16,7 @@ var _time := 0.0
 
 func _ready() -> void:
 	_world = World.new()
+	_world.storm_enabled = false
 	add_child(_world)
 	_ship = ShipView.new()
 	_ship.kind = ShipState.Kind.CREW
@@ -48,7 +49,7 @@ func _process(delta: float) -> void:
 	var right := (at - eye).cross(Vector3.UP).normalized()
 	_camera.look_at_from_position(eye, at - right * 15.0 + Vector3(0, 3.0, 0))
 	# Late afternoon, the sun low and golden behind the ships.
-	_world.follow(_camera.global_position, _time, {1: ship, 10: skel}, 0.7)
+	_world.follow(_camera.global_position, _time, {1: ship, 10: skel}, 0.765)
 
 
 ## A ship under sail at angle `a` round the circle (counter-clockwise), heading along it.
