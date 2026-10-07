@@ -44,6 +44,7 @@ static func hull() -> ArrayMesh:
 	_hatch(b)
 	_lower_deck(b)
 	_cannon_carriages(b)
+	_shot_piles(b)
 	_clutter(b)
 	_bow_and_stern(b)
 	return b.build()
@@ -533,6 +534,20 @@ static func _hammock(b: MeshBuilder, side: int, z0: float, y: float) -> void:
 	for end: float in [z0, z0 + length]:
 		var tie := Vector3((x_out + x_in) * 0.5, y, end)
 		b.cylinder(tie, tie + Vector3(side * 0.3, 0.45, (end - z0 - length * 0.5) * 0.25), 0.02, 0.02, 4, _c("rope"))
+
+
+## A little pyramid of cannonballs against the rail beside each gun (scenery only).
+static func _shot_piles(b: MeshBuilder) -> void:
+	var iron := _c("iron")
+	var r := 0.11
+	for i in ShipShape.CANNON_Z.size():
+		for side: int in [-1, 1]:
+			var z: float = ShipShape.CANNON_Z[i] + 0.95
+			var x := side * (ShipShape.half_width(z, ShipShape.DECK_Y) - ShipShape.RAIL_THICKNESS - 0.32)
+			var base := Vector3(x, ShipShape.DECK_Y + r, z)
+			for p: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+				b.ellipsoid(base + Vector3(p.x * r, 0, p.y * r), r, Vector3.ONE, 4, 7, iron)
+			b.ellipsoid(base + Vector3(0, r * 1.4, 0), r, Vector3.ONE, 4, 7, iron)
 
 
 ## The fixed part of each deck cannon: a wooden carriage on four little wheels.
