@@ -25,7 +25,10 @@ var _cutlass: MeshInstance3D
 var _pistol: MeshInstance3D
 var _flash: MeshInstance3D
 var _hand: MeshInstance3D
+var _swoosh: MeshInstance3D
+var _swoosh_material: StandardMaterial3D
 var _shirt: Color = Avatar.SHIRTS[0]
+var _skin: Color = Avatar.SKINS[0]
 var _swing := 0.0
 var _kick := 0.0
 
@@ -46,25 +49,59 @@ func _ready() -> void:
 	_flash.visible = false
 	add_child(_flash)
 	# Your own hand round the grip, and a sleeve in your shirt's colour running off screen.
-	_hand = Toon.instance(hand_mesh(_shirt))
+	_hand = Toon.instance(hand_mesh(_shirt, _skin))
 	add_child(_hand)
-	for m: MeshInstance3D in [_cutlass, _pistol, _flash, _hand]:
+	# A white crescent swept across the view with each cutlass swing. It hangs off the camera,
+	# not the blade, so it stays put while the arm moves.
+	_swoosh_material = Toon.clear_material(Color(1, 1, 1, 0.0))
+	_swoosh = MeshInstance3D.new()
+	_swoosh.mesh = swoosh_mesh()
+	_swoosh.material_override = _swoosh_material
+	_swoosh.position = Vector3(-0.05, -0.05, -0.95)
+	_swoosh.visible = false
+	get_parent().add_child.call_deferred(_swoosh)
+	for m: MeshInstance3D in [_cutlass, _pistol, _flash, _hand, _swoosh]:
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
-func set_sleeve(shirt: Color) -> void:
-	if shirt == _shirt:
+## A crescent from upper right to lower left, thick in the middle and pointed at both ends.
+static func swoosh_mesh() -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var steps := 16
+	for i in steps:
+		var t0 := float(i) / steps
+		var t1 := float(i + 1) / steps
+		var a0 := lerpf(0.5, 2.9, t0)
+		var a1 := lerpf(0.5, 2.9, t1)
+		var w0 := 0.07 * sin(t0 * PI)
+		var w1 := 0.07 * sin(t1 * PI)
+		var r := 0.42
+		var p0 := Vector3(cos(a0), sin(a0), 0.0)
+		var p1 := Vector3(cos(a1), sin(a1), 0.0)
+		verts.append_array([p0 * (r - w0), p1 * (r - w1), p1 * (r + w1)])
+		verts.append_array([p0 * (r - w0), p1 * (r + w1), p0 * (r + w0)])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+func set_sleeve(shirt: Color, skin: Color) -> void:
+	if shirt == _shirt and skin == _skin:
 		return
 	_shirt = shirt
+	_skin = skin
 	if _hand:
-		_hand.mesh = hand_mesh(shirt)
+		_hand.mesh = hand_mesh(shirt, skin)
 
 
 ## A fist round the grip (thumb on top) and a sleeve running back off the bottom of the screen.
-static func hand_mesh(shirt: Color) -> ArrayMesh:
+static func hand_mesh(shirt: Color, skin: Color) -> ArrayMesh:
 	var b := MeshBuilder.new()
-	b.ellipsoid(Vector3(0.0, -0.005, 0.055), 0.055, Vector3(1.05, 1.0, 1.4), 6, 8, Color("f2c49b"))
-	b.ellipsoid(Vector3(-0.035, 0.01, 0.02), 0.025, Vector3(1.0, 0.8, 1.2), 4, 6, Color("f2c49b"))
+	b.ellipsoid(Vector3(0.0, -0.005, 0.055), 0.055, Vector3(1.05, 1.0, 1.4), 6, 8, skin)
+	b.ellipsoid(Vector3(-0.035, 0.01, 0.02), 0.025, Vector3(1.0, 0.8, 1.2), 4, 6, skin)
 	b.cylinder(Vector3(0.0, -0.02, 0.11), Vector3(0.1, -0.26, 0.62), 0.065, 0.085, 8, shirt)
 	return b.build()
 
@@ -89,3 +126,6 @@ func _process(delta: float) -> void:
 	var arc := sin(_swing * PI)
 	rotation = Vector3(-arc * 1.2 + _kick * 0.4, arc * 0.9, -arc * 0.6)
 	_flash.visible = _kick > 0.6
+	# The swoosh shows through the middle of the swing and fades as it ends.
+	_swoosh.visible = _swing > 0.05 and _swing < 0.85
+	_swoosh_material.albedo_color.a = 0.55 * sin(clampf((0.85 - _swing) / 0.8, 0.0, 1.0) * PI)

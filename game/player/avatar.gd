@@ -5,6 +5,7 @@ extends Node3D
 ## hand holds the cutlass or pistol and swings it when they attack.
 
 const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0")]
+const SKINS: Array[Color] = [Color("f2c49b"), Color("c98e62"), Color("8d5a3b"), Color("e8b48a")]
 const HIP := Vector3(0.14, 0.86, 0.0)
 const SHOULDER := Vector3(0.36, 1.42, 0.0)
 const NECK := Vector3(0.0, 1.55, 0.0)
@@ -27,19 +28,20 @@ var _swing := 0.0
 
 func _init(player_name: String, index: int) -> void:
 	var shirt := SHIRTS[index % SHIRTS.size()]
+	var skin := skin_for(index)
 	_model = Node3D.new()
 	add_child(_model)
 	_model.add_child(Toon.instance(body_mesh(shirt)))
 	# The head nods on a neck joint to show where the player is looking.
 	_head = Node3D.new()
 	_head.position = NECK
-	var face := Toon.instance(head_mesh(shirt, index))
+	var face := Toon.instance(head_mesh(shirt, index, skin))
 	face.position = -NECK
 	_head.add_child(face)
 	_model.add_child(_head)
 	for side: int in [-1, 1]:
 		_legs.append(_joint(Vector3(side * HIP.x, HIP.y, HIP.z), leg_mesh()))
-		_arms.append(_joint(Vector3(side * SHOULDER.x, SHOULDER.y, SHOULDER.z), arm_mesh(shirt, side)))
+		_arms.append(_joint(Vector3(side * SHOULDER.x, SHOULDER.y, SHOULDER.z), arm_mesh(shirt, side, skin)))
 	# The weapons sit in the right hand, pointing forward and a little down.
 	_cutlass = _in_hand(WeaponView.cutlass_mesh(), -0.35)
 	_pistol = _in_hand(WeaponView.pistol_mesh(), -0.2)
@@ -97,6 +99,12 @@ func set_weapon(kind: int) -> void:
 ## Swings the sword arm up and forward (or raises the pistol) for a moment.
 func attack() -> void:
 	_swing = 1.0
+
+
+## Skin tones cycle on a different beat from shirts and looks, so the four players of a crew
+## all differ and the next four mix them up again.
+static func skin_for(index: int) -> Color:
+	return SKINS[(index + index / 4) % SKINS.size()]
 
 
 ## Tilt the head up or down with the player's view, a little less than they really look.
@@ -159,9 +167,8 @@ static func body_mesh(shirt: Color) -> ArrayMesh:
 
 ## The head, in the same coordinates as the body, with one of four looks: tricorn and beard,
 ## bandana and eyepatch, captain's hat and moustache, or headscarf.
-static func head_mesh(shirt: Color, look := 0) -> ArrayMesh:
+static func head_mesh(shirt: Color, look := 0, skin := SKINS[0]) -> ArrayMesh:
 	var b := MeshBuilder.new()
-	var skin := Color("f2c49b")
 	var dark := Color("2a2430")
 	for side: int in [-1, 1]:
 		b.ellipsoid(Vector3(side * 0.08, 1.72, -0.19), 0.035, Vector3(1, 1.3, 0.6), 4, 6, dark)
@@ -201,8 +208,8 @@ static func leg_mesh() -> ArrayMesh:
 
 
 ## A sleeve and hand hanging from the shoulder joint at the origin.
-static func arm_mesh(shirt: Color, side: int) -> ArrayMesh:
+static func arm_mesh(shirt: Color, side: int, skin := SKINS[0]) -> ArrayMesh:
 	var b := MeshBuilder.new()
 	b.cylinder(Vector3.ZERO, Vector3(side * 0.08, -0.5, -0.05), 0.1, 0.08, 8, shirt)
-	b.ellipsoid(Vector3(side * 0.09, -0.56, -0.06), 0.09, Vector3.ONE, 5, 8, Color("f2c49b"))
+	b.ellipsoid(Vector3(side * 0.09, -0.56, -0.06), 0.09, Vector3.ONE, 5, 8, skin)
 	return b.build()

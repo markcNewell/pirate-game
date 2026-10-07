@@ -254,7 +254,7 @@ func client_on_roster(new_roster: Dictionary) -> void:
 	ids.sort()
 	for id in ids:
 		if id == local_id and local_player and local_player.weapon_view:
-			local_player.weapon_view.set_sleeve(Avatar.SHIRTS[index % Avatar.SHIRTS.size()])
+			local_player.weapon_view.set_sleeve(Avatar.SHIRTS[index % Avatar.SHIRTS.size()], Avatar.skin_for(index))
 		if id != local_id and not avatars.has(id):
 			var avatar := Avatar.new(roster[id], index)
 			avatar.visible = false

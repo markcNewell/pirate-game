@@ -3,7 +3,7 @@
 # software OpenGL, hosts a local game and saves a screenshot.
 #
 #   tools/screenshot.sh OUT.png [VIEW] [EXTRA ARGS...]
-#   VIEW: deck (first person, default), wheel, outside, bow, high, island[N], lighthouse, tavern, stern, swim, flag, ghost
+#   VIEW: deck (first person, default), wheel, outside, bow, high, island[N], lighthouse, tavern, stern, swim, flag, ghost, swing
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
 #   BOTS="sails wheel" adds headless bot players to the hosted game first.
 #
