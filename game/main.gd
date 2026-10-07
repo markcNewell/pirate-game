@@ -171,6 +171,22 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 	elif game and view == "swing":
 		# Start a cutlass swing just before the picture is taken.
 		get_tree().create_timer(maxf(0.0, delay * 0.5 - 0.12)).timeout.connect(game.local_player.weapon_view.attack)
+	elif game and view == "mouselook":
+		# Feed real mouse movement through the whole input pipeline (GUI first, as from a
+		# mouse) and report whether the view turned.
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		await get_tree().process_frame
+		var before := game.local_player.yaw
+		for i in 10:
+			var motion := InputEventMouseMotion.new()
+			motion.relative = Vector2(40, 0)
+			motion.position = get_viewport().get_visible_rect().size * 0.5
+			Input.parse_input_event(motion)
+			await get_tree().physics_frame
+		await get_tree().physics_frame
+		print("MOUSELOOK captured=%s yaw_before=%.3f yaw_after=%.3f turned=%s" % [
+			Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, before, game.local_player.yaw,
+			absf(game.local_player.yaw - before) > 0.1])
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":

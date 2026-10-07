@@ -93,6 +93,9 @@ func _ready() -> void:
 	dot.size = Vector2(6, 6)
 	dot.set_anchors_preset(Control.PRESET_CENTER)
 	dot.position -= Vector2(3, 3)
+	# A captured mouse sits at the centre of the screen, right on the dot: if the dot took
+	# mouse events, it would swallow every movement and the view would never turn.
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(dot)
 
 	_prompt = _label(26)
@@ -231,7 +234,18 @@ func _ready() -> void:
 	root.add_child(_crew)
 
 	_build_menu(root)
+	_let_mouse_through(root)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Everything on the HUD lets the mouse pass, except what you click in the pause menu.
+func _let_mouse_through(node: Node) -> void:
+	for child in node.get_children():
+		if child == _menu:
+			continue
+		if child is Control and not (child is BaseButton or child is Range or child is LineEdit):
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_let_mouse_through(child)
 
 
 func _build_menu(root: Control) -> void:

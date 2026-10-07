@@ -101,7 +101,9 @@ func _ready() -> void:
 	camera.add_child(weapon_view)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+## Mouse look is read here, before any on-screen element sees the event, so nothing drawn on
+## the HUD can ever swallow it.
+func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		input.add_mouse(event.relative, sensitivity)
 
