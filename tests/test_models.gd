@@ -2,7 +2,10 @@ extends "res://tests/support/case.gd"
 
 
 ## Every Blender export loads, and comes out toon-ready: coloured vertices and outline normals.
+## (Tests run headless, where models skip that preparation; turn it on to test it.)
 func test_every_model_loads() -> void:
+	var was := Models.headless
+	Models.headless = false
 	var names: Array[String] = []
 	for file in DirAccess.get_files_at("res://art/models"):
 		if file.ends_with(".glb"):
@@ -18,6 +21,7 @@ func test_every_model_loads() -> void:
 			check(arrays[Mesh.ARRAY_CUSTOM0] != null, "%s/%s has outline normals" % [name, mi.name])
 			check(mi.material_override is ShaderMaterial, "%s/%s has the toon material" % [name, mi.name])
 		root.free()
+	Models.headless = was
 
 
 ## The pirate has every animation and bone the avatar code asks for.

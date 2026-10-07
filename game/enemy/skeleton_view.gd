@@ -19,11 +19,8 @@ var _fall := 0.0
 
 
 func _ready() -> void:
-	_model = Models.instance("skeleton")
+	_model = Models.instance("skeleton", {}, ["skeleton", "look%d" % (look % 3)])
 	add_child(_model)
-	for mi: MeshInstance3D in _model.find_children("look*", "MeshInstance3D", true, false):
-		if mi.name != "look%d" % (look % 3):
-			mi.free()
 	# Its own copy of the toon material, so its red flash is its own.
 	_material = Models.material(true).duplicate()
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):

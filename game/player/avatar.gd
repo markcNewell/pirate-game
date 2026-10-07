@@ -49,18 +49,19 @@ var _carrying := false
 var _act := Act.NONE
 
 
-func _init(player_name: String, index: int) -> void:
-	var shirt := SHIRTS[index % SHIRTS.size()]
-	var skin := skin_for(index)
+## Which look, shirt and skin tone this player has (their place in the roster).
+var index := 0
+
+
+func _init(player_name: String, look_index: int) -> void:
+	index = look_index
+	var shirt := SHIRTS[look_index % SHIRTS.size()]
+	var skin := skin_for(look_index)
 	_model = Models.instance("pirate", {
 		Models.SHIRT: shirt, Models.SHIRT_DARK: shirt.darkened(0.28),
 		Models.SKIN: skin, Models.SKIN_DARK: skin.darkened(0.12).lerp(Color("c0503a"), 0.12),
-	})
+	}, ["body", "look%d" % (look_index % LOOKS)])
 	add_child(_model)
-	var look := "look%d" % (index % LOOKS)
-	for mi: MeshInstance3D in _model.find_children("look*", "MeshInstance3D", true, false):
-		if mi.name != look:
-			mi.free()
 	_skeleton = _model.find_children("*", "Skeleton3D", true, false)[0]
 	_build_tree()
 	_look = HeadLook.new()

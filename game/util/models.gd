@@ -23,13 +23,16 @@ const SLOTS := ["hull", "hull_dark", "bottom", "stripe", "deck", "rail", "mast",
 
 static var _scenes := {}
 static var _parts := {}
-## Simplified index lists per source mesh surface, for distance (level of detail):
-## "id/surface" -> {screen size: PackedInt32Array}. Shared by every recolouring.
-static var _lods := {}
 ## Static meshes with more triangles than this get levels of detail.
 const LOD_MIN_TRIANGLES := 4000
 static var _meshes := {}
 static var _materials := {}
+## Per source surface ("id/surface"): its arrays with outline normals in place, made once and
+## shared by every recolouring (only the colours differ).
+static var _base := {}
+## A headless process (the server, test bots) never draws: models load as they are, without
+## the outline normals, recolouring or levels of detail that only matter on screen.
+static var headless := DisplayServer.get_name() == "headless"
 
 
 ## The recolour map from slot markers to a palette's colours (missing slots: Toon.PALETTE).
@@ -42,10 +45,14 @@ static func palette_recolor(palette: Dictionary) -> Dictionary:
 	return out
 
 
-## A fresh copy of a model, toon-ready. `recolor` maps marker colours to real ones.
-static func instance(model: String, recolor := {}) -> Node3D:
+## A fresh copy of a model, toon-ready. `recolor` maps marker colours to real ones. With `keep`,
+## only the meshes of those names are kept (one look of several), and only they are prepared.
+static func instance(model: String, recolor := {}, keep: Array = []) -> Node3D:
 	var root: Node3D = _scene(model).instantiate()
 	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if not keep.is_empty() and not keep.has(String(mi.name)):
+			mi.free()
+			continue
 		mi.mesh = _prepared(mi.mesh, recolor)
 		mi.material_override = material(mi.skin != null)
 	return root
@@ -100,6 +107,8 @@ static func _scene(model: String) -> PackedScene:
 
 
 static func _prepared(source: Mesh, recolor: Dictionary) -> ArrayMesh:
+	if headless:
+		return source as ArrayMesh
 	var key := "%d/%s" % [source.get_instance_id(), str(recolor)]
 	if not _meshes.has(key):
 		_meshes[key] = prepare(source, recolor)
@@ -110,14 +119,10 @@ static func _prepared(source: Mesh, recolor: Dictionary) -> ArrayMesh:
 static func prepare(source: Mesh, recolor := {}) -> ArrayMesh:
 	var out := ArrayMesh.new()
 	for s in source.get_surface_count():
-		var arrays := source.surface_get_arrays(s)
-		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-		var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR] if arrays[Mesh.ARRAY_COLOR] != null else PackedColorArray()
-		if colors.is_empty():
-			colors.resize(verts.size())
-			colors.fill(Color.WHITE)
+		var base: Dictionary = _base_surface(source, s)
+		var arrays: Array = base.arrays.duplicate()
 		if not recolor.is_empty():
+			var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR].duplicate()
 			var lookup := {}
 			for marker: Color in recolor:
 				lookup[_key(marker)] = recolor[marker]
@@ -126,28 +131,42 @@ static func prepare(source: Mesh, recolor := {}) -> ArrayMesh:
 				var to: Variant = lookup.get(_key(c))
 				if to != null:
 					colors[i] = Color(to.r, to.g, to.b, c.a)
-		arrays[Mesh.ARRAY_COLOR] = colors
-		var ink: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV] if arrays[Mesh.ARRAY_TEX_UV] != null else PackedVector2Array()
-		arrays[Mesh.ARRAY_CUSTOM0] = _outline_normals(verts, normals, ink)
-		arrays[Mesh.ARRAY_TEX_UV] = null
-		var flags := Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
-		var bones = arrays[Mesh.ARRAY_BONES]
-		var weights = arrays[Mesh.ARRAY_WEIGHTS]
-		if bones != null and weights != null and weights.size() == verts.size() * 8:
-			flags |= Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
-		var lods := {}
-		if bones == null:
-			lods = _lods_for(source, s, arrays, flags)
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], lods, flags)
+			arrays[Mesh.ARRAY_COLOR] = colors
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], base.lods, base.flags)
 	return out
 
 
-## Simplified versions of a big static surface for drawing far off (made once per source
-## mesh, with Godot's own simplifier, and reused for every recolouring).
-static func _lods_for(source: Mesh, surface: int, arrays: Array, flags: int) -> Dictionary:
+## One source surface made toon-ready once: colours filled in, outline normals in CUSTOM0
+## (with each part's ink weight), the ink UVs dropped, levels of detail for big static ones.
+static func _base_surface(source: Mesh, surface: int) -> Dictionary:
 	var key := "%d/%d" % [source.get_instance_id(), surface]
-	if _lods.has(key):
-		return _lods[key]
+	if _base.has(key):
+		return _base[key]
+	var arrays := source.surface_get_arrays(surface)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR] if arrays[Mesh.ARRAY_COLOR] != null else PackedColorArray()
+	if colors.is_empty():
+		colors.resize(verts.size())
+		colors.fill(Color.WHITE)
+	arrays[Mesh.ARRAY_COLOR] = colors
+	var ink: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV] if arrays[Mesh.ARRAY_TEX_UV] != null else PackedVector2Array()
+	arrays[Mesh.ARRAY_CUSTOM0] = _outline_normals(verts, normals, ink)
+	arrays[Mesh.ARRAY_TEX_UV] = null
+	var flags := Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
+	var bones = arrays[Mesh.ARRAY_BONES]
+	var weights = arrays[Mesh.ARRAY_WEIGHTS]
+	if bones != null and weights != null and weights.size() == verts.size() * 8:
+		flags |= Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+	var lods := {}
+	if bones == null:
+		lods = _lods_for(arrays, flags)
+	_base[key] = {"arrays": arrays, "flags": flags, "lods": lods}
+	return _base[key]
+
+
+## Simplified versions of a big static surface for drawing far off (Godot's own simplifier).
+static func _lods_for(arrays: Array, flags: int) -> Dictionary:
 	var lods := {}
 	var indices = arrays[Mesh.ARRAY_INDEX]
 	var triangles: int = (indices.size() if indices != null else arrays[Mesh.ARRAY_VERTEX].size()) / 3
@@ -157,7 +176,6 @@ static func _lods_for(source: Mesh, surface: int, arrays: Array, flags: int) -> 
 		im.generate_lods(25.0, 60.0, [])
 		for i in im.get_surface_lod_count(0):
 			lods[im.get_surface_lod_size(0, i)] = im.get_surface_lod_indices(0, i)
-	_lods[key] = lods
 	return lods
 
 

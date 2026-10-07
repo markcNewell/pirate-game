@@ -261,6 +261,11 @@ func client_on_roster(new_roster: Dictionary) -> void:
 	for id in ids:
 		if id == local_id and local_player and local_player.weapon_view:
 			local_player.weapon_view.set_sleeve(Avatar.SHIRTS[index % Avatar.SHIRTS.size()], Avatar.skin_for(index))
+		# Players take looks in order of id, so everyone's differs; when someone joins in
+		# between, those after them change to keep it that way.
+		if id != local_id and avatars.has(id) and avatars[id].index != index:
+			avatars[id].queue_free()
+			avatars.erase(id)
 		if id != local_id and not avatars.has(id):
 			var avatar := Avatar.new(roster[id], index)
 			avatar.visible = false

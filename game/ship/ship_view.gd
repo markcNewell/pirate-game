@@ -45,6 +45,8 @@ var _paint := {}
 ## Prepare the hull and parts in every crew's colours and the skeleton ship's (Models caches
 ## them), so no ship's first appearance costs a frame.
 static func warm_up() -> void:
+	if Models.headless:
+		return
 	for crew_number in range(1, 5):
 		var paint := Models.palette_recolor(Toon.crew_palette(crew_number))
 		Models.mesh("ship_hull", paint)
