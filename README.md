@@ -11,7 +11,8 @@ crew vs crew: fight other crews, sink their ships and steal their chests. The se
 waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
-[5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md).
+[5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
+[Blender models](docs/specs/2026-10-07-art-pass-2-blender.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -96,6 +97,9 @@ machine, see [server/README.md](server/README.md).
 | Storm smoke test (lightning strikes a ship) | `tests/smoke/storm_test.sh` |
 | Every smoke test at once | `tools/smoke_all.sh` |
 | Rebuild the sounds | `python3 tools/make_sounds.py` |
+| Rebuild the models (needs Blender 5.2) | `tools/build_models.sh` (or `tools/build_models.sh ship` for one script) |
+| Look at one model in the game's light | `tools/model_sheet.sh /tmp/pirate.png pirate --sheet-recolor 1` |
+| Retake the README screenshots | `tools/readme_shots.sh` |
 | Import and unit tests in one go | `tools/check.sh` |
 | Screenshot without a monitor | `tools/screenshot.sh /tmp/shot.png outside --demo` |
 | Export Windows + server builds | `tools/export.sh` |
@@ -130,4 +134,7 @@ Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`
   `Audio` autoload) plays them: one-shots in the world, ambience loops that follow the scene,
   and music. Volume and music sliders are on the title screen.
 
-Everything you see is built from code for now; Blender models arrive in later milestones.
+- `art/blender/`: every model, as a Python script run by headless Blender 5.2
+  (`tools/build_models.sh`), exported to `art/models/*.glb`. The exports are committed, so you
+  only need Blender to change a model. `game/util/models.gd` loads them in the toon look.
+  The sea, the sky and the island ground stay formulas in code, since the game plays on them.

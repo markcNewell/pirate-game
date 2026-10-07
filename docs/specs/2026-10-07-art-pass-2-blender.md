@@ -87,13 +87,25 @@ get their own look pass once the models are done.
 
 | # | Model | Done (first pass) |
 |---|---|---|
-| 1 | Pirate | One rig (18 bones), body plus four looks (tricorn and beard with waistcoat; bandana, eyepatch, earring and sash; captain's bicorne, curly moustache and coat; headscarf, sideburns, ponytail and braces), 17 animations in an AnimationTree, weapons and bucket in hand, head nods with the view. |
-| 2 | Your hands | A modelled arm and fist with a finer ink line; cutlass, flintlock; shovel, hammer and bucket shown while digging, patching or carrying water. |
-| 3 | Skeleton | Bone by bone on the pirates' rig, all their animations, glowing eyes, rusty cutlass, torn breeches and hat. |
-| 4-6 | Galleon | Planked hull with seams and wales, gunports, channels and deadeyes, shrouds with ratlines, tapered masts with tops and crow's nest, bowsprit, mermaid figurehead, anchors, stern gallery, quarter galleries, cabin windows, taffrail, rudder, quarterdeck front with doors and balustrade, stairs, carriages, shot racks, pin rails, binnacle, map table, deck clutter, hold with ribs, beams, knees, hammocks and stores; sails with panels, reef band and bolt ropes that roll up on their yards; wheel, capstan, cannon, flag, emblem, hole, patch. |
+| 1 | Pirate | One rig (18 bones), body plus eight looks (tricorn and beard with waistcoat; bandana, eyepatch, earring and sash; captain's bicorne, curly moustache and coat; headscarf, sideburns, ponytail and braces; straw hat and stubble; knitted cap, chinstrap beard and neckerchief; cavalier's feathered hat, locks and coat; bald bruiser with mutton chops and a bandolier), 17 animations in an AnimationTree, weapons and bucket in hand, head nods with the view. |
+| 2 | Your hands | A rigged first-person arm (idle sway, walking bob, forehand and backhand cuts, pistol shot and kick, weapon raise) with a finer ink line; cutlass, flintlock; spade, hammer and bucket worked while digging, patching or carrying water. |
+| 3 | Skeleton | Bone by bone on the pirates' rig, all their animations, glowing eyes, rusty cutlass, three outfits (breeches and tricorn; bandana and shirt rags; morion helmet and loincloth). |
+| 4-6 | Galleon | Planked hull with seams and wales, gunports, channels and deadeyes, shrouds with ratlines, tapered masts with tops and crow's nest, bowsprit, mermaid figurehead, anchors, stern gallery, quarter galleries, cabin windows, taffrail, rudder, quarterdeck front with doors and balustrade, stairs, carriages, shot racks, pin rails, binnacle, map table, deck clutter, hold with ribs, beams, knees, hammocks and stores, barred lanterns; buckets, a mop, a cargo net, a lashed spare spar and a keg on deck; sails with panels, reef band and bolt ropes that roll up on their yards; wheel, capstan, cannon, flag, emblem, hole, patch. |
 | 7 | Skeleton ship | Its own wrecked hull (smashed bulwarks, stove-in holes, barnacles, weed, snapped foremast, bones) and torn sails. |
 | 8 | Loot | Three chest finishes, the supply barrel, the banana barrel. |
 | 9 | Islands | Palms (three heights), rocks (also building the arch and stacks), bushes, flowers, grass tufts, beach shells, starfish, pebbles and driftwood, the skeleton camp, the beached wreck. |
 | 10 | Port Merrow | Tavern (stones, timber frame, tiles, sign), lighthouse (glazed lamp room lit at night), the merchant's stall, the pier, the flag, a rigged merchant. |
 | 11 | Wildlife | Gulls, crabs, dolphins, the whale (now swims head first). |
 | 12 | Effects and sky | Cannonballs, splinters, wreckage, the camp-fire flame, cumulus clouds and the storm's cloud bank. |
+
+Also along the way: shared levels of detail for big static models, every ship colour scheme
+prepared on joining (no stall when a ship comes into view), island ground in softer patches
+of three greens with a darker rim and paler dry sand, a "crew" screenshot view and
+`tools/readme_shots.sh`.
+
+## Not done
+
+- Nobody has seen any of this with a keyboard and mouse yet: all checks are bots and
+  screenshots in a software renderer. Frame rate on a real Windows machine is untested; the
+  galleon is about 120k triangles near and far less at a distance.
+- Hammocks, the rainbow, lightning, rain, spray and the like are still code-built effects.
