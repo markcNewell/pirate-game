@@ -93,6 +93,15 @@ void fragment() {
 		} else if (shore < 16.0 + 3.0 * sin(a * 3.0 + 1.0)) {
 			col = shallow_color;
 		}
+		if (shore < 16.0) {
+			// Caustics: a net of bright wavy lines rippling over the sandy bottom.
+			vec2 q = world_pos.xz * 0.35;
+			float w1 = noise(q + vec2(sea_time * 0.25, sea_time * 0.1));
+			float w2 = noise(q * 1.7 - vec2(sea_time * 0.15, -sea_time * 0.2) + 5.0);
+			float net = abs(w1 - w2);
+			float seen = 1.0 - smoothstep(50.0, 110.0, length(world_pos - CAMERA_POSITION_WORLD));
+			col = mix(col, vec3(1.0), step(net, 0.035) * 0.55 * seen * (1.0 - smoothstep(10.0, 16.0, shore)));
+		}
 		float edge = islands[i].z * (1.0 + 0.04 * sin(a * 5.0)) + 0.8 * sin(sea_time * 0.9 + a * 3.0);
 		float ring1 = step(abs(r - edge - 0.6), 0.9);
 		float ring2 = step(abs(r - edge - 4.0 - 1.2 * sin(sea_time * 0.7 + a * 4.0)), 0.35);

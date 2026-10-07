@@ -40,6 +40,11 @@ func muzzle_smoke(pos: Vector3, dir: Vector3) -> void:
 		_puff(p, SMOKE, 0.35 + i * 0.05, 1.3 + i * 0.12, 1.6 + randf() * 0.5, dir * (2.5 - i * 0.3) + Vector3.UP * 0.6)
 
 
+## One puff of a cannonball's smoke trail.
+func trail(pos: Vector3) -> void:
+	_puff(pos, SMOKE, 0.18, 0.85, 0.9, Vector3.UP * 0.3)
+
+
 func impact(kind: int, pos: Vector3) -> void:
 	match kind:
 		Impact.WATER:

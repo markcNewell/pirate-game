@@ -434,6 +434,10 @@ func _update_balls() -> void:
 			_balls.erase(id)
 			continue
 		node.global_position = Ballistics.position(b.p0, b.v0, age)
+		# A thin trail of smoke puffs behind the ball, so you can follow its arc.
+		if age - float(b.get("trail", -1.0)) > 0.025:
+			b["trail"] = age
+			effects.trail(node.global_position)
 
 
 func _interpolate(t: float) -> void:
