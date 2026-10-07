@@ -13,8 +13,8 @@ PIN=()
 if command -v taskset >/dev/null && [ "$(nproc)" -ge 32 ]; then PIN=(taskset -c 0-7,10-31); fi
 scripts=("$@")
 if [ ${#scripts[@]} -eq 0 ]; then
-	# Every asset script; kit.py and rig.py are shared libraries, not assets.
-	mapfile -t scripts < <(cd "$ROOT/art/blender" && ls ./*.py | grep -vE "/(kit|rig)\.py$" | sed 's|^\./||; s|\.py$||')
+	# Every asset script; kit.py, rig.py and shipshape.py are shared libraries, not assets.
+	mapfile -t scripts < <(cd "$ROOT/art/blender" && ls ./*.py | grep -vE "/(kit|rig|shipshape)\.py$" | sed 's|^\./||; s|\.py$||')
 	names=()
 else
 	names=("${scripts[@]:1}")

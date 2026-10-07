@@ -602,8 +602,8 @@ def pirate():
 # ---------------------------------------------------------------------------------------------
 # The skeleton crew
 
-BONE = "efe8d2"
-BONE_DARK = "c9c0a4"
+BONE = "e8dcbe"
+BONE_DARK = "c4b48c"
 SOCKET = "1a1714"
 RAGS = "5e6a5a"
 RAGS_DARK = "454f44"

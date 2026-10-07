@@ -16,9 +16,25 @@ const SHIRT_DARK := Color("b000b0")
 const SKIN := Color("00ffff")
 const SKIN_DARK := Color("00b0b0")
 
+## Ship parts are painted in one marker colour per palette slot (kit.slot in Blender), swapped
+## here for the ship's palette: Toon.PALETTE with a crew's or the skeleton ship's overrides.
+const SLOTS := ["hull", "hull_dark", "bottom", "stripe", "deck", "rail", "mast", "rope", "trim",
+	"sail", "flag", "bone", "lantern", "gold", "iron"]
+
 static var _scenes := {}
+static var _parts := {}
 static var _meshes := {}
 static var _materials := {}
+
+
+## The recolour map from slot markers to a palette's colours (missing slots: Toon.PALETTE).
+static func palette_recolor(palette: Dictionary) -> Dictionary:
+	var out := {}
+	for i in SLOTS.size():
+		var marker := Color8(0xf0, 16 + 8 * i, 0xf1)
+		var name: String = SLOTS[i]
+		out[marker] = palette.get(name, Toon.PALETTE[name] if Toon.PALETTE.has(name) else Color.MAGENTA)
+	return out
 
 
 ## A fresh copy of a model, toon-ready. `recolor` maps marker colours to real ones.
@@ -37,6 +53,19 @@ static func mesh(model: String, recolor := {}) -> ArrayMesh:
 	var m := _prepared(mi.mesh, recolor)
 	root.free()
 	return m
+
+
+## One named mesh from a model holding several parts (a ship's sails, wheel...), toon-ready.
+static func part(model: String, name: String, recolor := {}) -> ArrayMesh:
+	var key := "%s/%s" % [model, name]
+	if not _parts.has(key):
+		var root: Node = _scene(model).instantiate()
+		var found: MeshInstance3D = root.find_child(name, true, false)
+		_parts[key] = found.mesh if found else null
+		root.free()
+	var source: Mesh = _parts[key]
+	assert(source != null, "%s has no part %s" % [model, name])
+	return _prepared(source, recolor)
 
 
 ## Toon lighting plus the ink outline (for a skinned mesh, or a static one).
@@ -84,13 +113,14 @@ static func prepare(source: Mesh, recolor := {}) -> ArrayMesh:
 			colors.resize(verts.size())
 			colors.fill(Color.WHITE)
 		if not recolor.is_empty():
+			var lookup := {}
+			for marker: Color in recolor:
+				lookup[_key(marker)] = recolor[marker]
 			for i in colors.size():
 				var c := colors[i]
-				for marker: Color in recolor:
-					if _same(c, marker):
-						var to: Color = recolor[marker]
-						colors[i] = Color(to.r, to.g, to.b, c.a)
-						break
+				var to: Variant = lookup.get(_key(c))
+				if to != null:
+					colors[i] = Color(to.r, to.g, to.b, c.a)
 		arrays[Mesh.ARRAY_COLOR] = colors
 		var ink: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV] if arrays[Mesh.ARRAY_TEX_UV] != null else PackedVector2Array()
 		arrays[Mesh.ARRAY_CUSTOM0] = _outline_normals(verts, normals, ink)
@@ -104,8 +134,9 @@ static func prepare(source: Mesh, recolor := {}) -> ArrayMesh:
 	return out
 
 
-static func _same(a: Color, b: Color) -> bool:
-	return absf(a.r - b.r) < 0.02 and absf(a.g - b.g) < 0.02 and absf(a.b - b.b) < 0.02
+## A colour's 8-bit RGB as one number, for exact lookups (vertex colours arrive as bytes).
+static func _key(c: Color) -> int:
+	return (roundi(c.r * 255.0) << 16) | (roundi(c.g * 255.0) << 8) | roundi(c.b * 255.0)
 
 
 ## One smoothed normal per position, so hard-edged corners get a closed outline, its length

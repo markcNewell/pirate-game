@@ -55,6 +55,17 @@ PALETTE = {
     "iron": "2e2e36",
 }
 
+# Ship parts are painted in slot colours the game swaps for the ship's palette (a crew's
+# colours or the skeleton ship's): Models.SLOTS in game/util/models.gd lists the same names.
+SLOTS = ["hull", "hull_dark", "bottom", "stripe", "deck", "rail", "mast", "rope", "trim", "sail",
+         "flag", "bone", "lantern", "gold", "iron"]
+
+
+def slot(name):
+    """The marker colour for a palette slot (see SLOTS)."""
+    return "f0%02xf1" % (16 + 8 * SLOTS.index(name))
+
+
 # Marker colours the game swaps for a player's own (Models.recolor in game/util/models.gd).
 SHIRT = "ff00ff"
 SHIRT_DARK = "b000b0"
@@ -133,23 +144,25 @@ def active(ob):
 # Colour
 
 
-def mat(color):
-    """The material for one colour (hex or palette name). Blender shows it in linear light;
-    the export writes the sRGB numbers."""
+def mat(color, shade=1.0):
+    """The material for one colour (hex, palette name or slot marker), darkened by `shade`
+    (written to the vertex alpha with the crease shadow, so slot colours stay swappable).
+    Blender shows it in linear light; the export writes the sRGB numbers."""
     h = PALETTE.get(color, color).lstrip("#").lower()
-    name = "c_" + h
+    name = "c_%s_%.3f" % (h, shade)
     m = bpy.data.materials.get(name)
     if m is None:
         m = bpy.data.materials.new(name)
         r, g, b = hexrgb(h)
         lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
-        m.diffuse_color = (*lin, 1.0)
+        m.diffuse_color = (*(c * shade for c in lin), 1.0)
         m["hex"] = h
+        m["shade"] = shade
     return m
 
 
-def _slot(ob, color):
-    m = mat(color)
+def _slot(ob, color, shade=1.0):
+    m = mat(color, shade)
     for i, s in enumerate(ob.data.materials):
         if s == m:
             return i
@@ -157,22 +170,34 @@ def _slot(ob, color):
     return len(ob.data.materials) - 1
 
 
-def paint(ob, color):
+def paint(ob, color, shade=1.0):
     """Every face of `ob` in one colour."""
     ob.data.materials.clear()
-    ob.data.materials.append(mat(color))
+    ob.data.materials.append(mat(color, shade))
     for p in ob.data.polygons:
         p.material_index = 0
     return ob
 
 
-def paint_where(ob, color, test):
+def paint_where(ob, color, test, shade=1.0):
     """Faces whose centre (Godot coordinates) passes test(x, y, z) get `color`."""
-    i = _slot(ob, color)
+    i = _slot(ob, color, shade)
     mw = ob.matrix_world
     for p in ob.data.polygons:
         if test(*G(mw @ p.center)):
             p.material_index = i
+    return ob
+
+
+def orient(ob, outward):
+    """Turn every face of `ob` to face outward(x, y, z) -> (dx, dy, dz) (Godot), for open
+    surfaces whose winding Blender cannot guess."""
+    for p in ob.data.polygons:
+        n = G(ob.matrix_world.to_3x3() @ p.normal)
+        d = outward(*G(ob.matrix_world @ p.center))
+        if n[0] * d[0] + n[1] * d[1] + n[2] * d[2] < 0:
+            p.flip()
+    ob.data.update()
     return ob
 
 
@@ -185,8 +210,8 @@ def noink(ob, weight=0.0):
     return ob
 
 
-def paint_faces(ob, color, faces):
-    i = _slot(ob, color)
+def paint_faces(ob, color, faces, shade=1.0):
+    i = _slot(ob, color, shade)
     for f in faces:
         ob.data.polygons[f].material_index = i
     return ob
@@ -551,7 +576,9 @@ def bake_ao(objs, distance=0.6, rays=48):
         mw = ob.matrix_world
         nm = mw.to_3x3().inverted().transposed()
         vals = []
-        for v in me.vertices:
+        # A part marked no_ao still shades its neighbours but takes no shade itself (cloth,
+        # which would only look dirty with it).
+        for v in (me.vertices if not ob.get("no_ao") else []):
             p = mw @ v.co
             n = (nm @ v.normal).normalized()
             t = n.orthogonal().normalized()
@@ -568,8 +595,12 @@ def bake_ao(objs, distance=0.6, rays=48):
             me.color_attributes.remove(me.color_attributes["AO"])
         attr = me.color_attributes.new("AO", "FLOAT_COLOR", "CORNER")
         for loop in me.loops:
-            a = vals[loop.vertex_index]
+            a = vals[loop.vertex_index] if vals else 1.0
             attr.data[loop.index].color = (a, a, a, 1.0)
+
+
+# How strongly the toon shader darkens by the vertex alpha (crease_shadow in toon.gdshader).
+CREASE = 0.55
 
 
 def write_colors(ob, ao_strength=1.0):
@@ -583,10 +614,15 @@ def write_colors(ob, ao_strength=1.0):
     for p in me.polygons:
         m = me.materials[p.material_index] if me.materials else None
         rgb = hexrgb(m["hex"]) if m is not None and "hex" in m else (1, 0, 1)
+        shade = m.get("shade", 1.0) if m is not None else 1.0
         for li in p.loop_indices:
             a = 1.0
             if ao_vals is not None:
                 a = 1.0 - (1.0 - ao_vals[li]) * ao_strength
+            if shade != 1.0:
+                # The shader darkens by mix(1, alpha, CREASE): fold the shade into that.
+                total = (1.0 - CREASE * (1.0 - a)) * shade
+                a = max(0.0, 1.0 - (1.0 - total) / CREASE)
             col.data[li].color = (*rgb, a)
     if ao is not None:
         me.color_attributes.remove(me.color_attributes["AO"])

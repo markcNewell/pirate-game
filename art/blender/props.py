@@ -19,7 +19,7 @@ def _radius(t, r_end, r_mid):
     return r_end + (r_mid - r_end) * math.sin(t * math.pi)
 
 
-def staves(name, height, r_end, r_mid, count, woods, rings=10, thick=0.035, gap=0.006, seed=1):
+def staves(name, height, r_end, r_mid, count, woods, rings=10, thick=0.035, gap=0.006, seed=1, across=3):
     """A barrel body of `count` separate staves, each a curved slab bulging like a real barrel."""
     import bmesh
     rng = random.Random(seed)
@@ -29,7 +29,6 @@ def staves(name, height, r_end, r_mid, count, woods, rings=10, thick=0.035, gap=
         bm = bmesh.new()
         a0 = s * span + gap / r_mid / 2
         a1 = (s + 1) * span - gap / r_mid / 2
-        across = 3
         outer, inner = [], []
         for k in range(rings + 1):
             t = k / rings
@@ -88,8 +87,12 @@ def disc_planks(name, y, r, thick, colors, planks=4, gap=0.006):
     return parts
 
 
-def barrel(name="barrel", height=0.95, r_end=0.33, r_mid=0.4, top=True, hoops=(0.09, 0.25, 0.70, 0.86), seed=1):
-    parts = staves(name + "_stave", height, r_end, r_mid, 14, WOODS, seed=seed)
+def barrel(name="barrel", height=0.95, r_end=0.33, r_mid=0.4, top=True, hoops=(0.09, 0.25, 0.70, 0.86), seed=1, light=False):
+    """A barrel of staves; `light` builds it with fewer faces (for barrels in bigger models)."""
+    if light:
+        parts = staves(name + "_stave", height, r_end, r_mid, 12, WOODS, rings=6, seed=seed, across=2)
+    else:
+        parts = staves(name + "_stave", height, r_end, r_mid, 14, WOODS, seed=seed)
     for k, h in enumerate(hoops):
         parts.append(hoop("%s_hoop%d" % (name, k), h, r_end, r_mid, height, 0.05, 0.012, "34303a"))
     sunk = 0.045

@@ -6,10 +6,13 @@ extends Node3D
 ##
 ##   --sheet-anim NAME     show this animation's poses (front row and side row) instead of turning
 ##   --sheet-frames N      how many poses (default 6)
+##   --sheet-anims A,B,..  one pose from each of these animations (at --sheet-at, default 0.3)
 ##   --sheet-views N       how many sides when turning (default 5: front, quarters, side, back)
 ##   --sheet-focus LO,HI   frame only heights LO..HI (metres), e.g. 1.4,2.1 for a head
 ##   --sheet-recolor 1     paint the shirt red and the skin a light tone (player models)
 ##   --sheet-only A,B      show only the meshes with these names (e.g. body,look0)
+##   --sheet-palette N     ship slot colours: 0 plain, 1-4 a crew's, 5 the skeleton ship's
+##   --sheet-cam X,Y,Z --sheet-look X,Y,Z [--sheet-fov DEG]   one close-up, camera placed by hand
 ##   --sheet-tilt DEG      how far the camera looks down (default 12)
 ##   --sheet-noink, --sheet-noshadow, --sheet-normals N   for checking the outline and light
 
@@ -49,9 +52,20 @@ func _ready() -> void:
 			Models.SHIRT: Color("d63c3c"), Models.SHIRT_DARK: Color("d63c3c").darkened(0.3),
 			Models.SKIN: Color("f2c49b"), Models.SKIN_DARK: Color("f2c49b").darkened(0.25),
 		}
+	if _args.has("sheet-palette"):
+		# Ship models: 0 the plain palette, 1-4 a crew's colours, 5 the skeleton ship's.
+		var n := int(_args["sheet-palette"])
+		var pal: Dictionary = Toon.SKELETON if n == 5 else (Toon.crew_palette(n) if n > 0 else {})
+		recolor.merge(Models.palette_recolor(pal), true)
 	var anim: String = _args.get("sheet-anim", "")
 	var poses: Array = []
-	if anim != "":
+	var anims: PackedStringArray = []
+	if _args.has("sheet-anims"):
+		# One pose from each of several animations, a third of the way in, from the front quarter.
+		anims = str(_args["sheet-anims"]).split(",")
+		for i in anims.size():
+			poses.append([0.6, float(_args.get("sheet-at", 0.3))])
+	elif anim != "":
 		var n := int(_args.get("sheet-frames", 6))
 		for row: float in [0.35, PI / 2.0]:
 			for i in n:
@@ -61,6 +75,9 @@ func _ready() -> void:
 		for i in n:
 			poses.append([PI * i / maxf(1.0, n - 1.0) * (1.0 if n > 1 else 0.0), 0.0])
 
+	if _args.has("sheet-cam"):
+		_studio(model, recolor)
+		return
 	var probe := _make(model, recolor)
 	var box := _bounds(probe)
 	probe.free()
@@ -72,8 +89,8 @@ func _ready() -> void:
 	if _args.has("sheet-focus"):
 		# A close-up: columns as wide as the focus band is tall (neighbours may overlap).
 		width = (focus.y - focus.x) * 1.1
-	var cols := int(_args.get("sheet-frames", 6)) if anim != "" else poses.size()
-	var rows := 2 if anim != "" else 1
+	var cols := int(_args.get("sheet-frames", 6)) if anim != "" and anims.is_empty() else poses.size()
+	var rows := 2 if anim != "" and anims.is_empty() else 1
 	for i in poses.size():
 		var col := i % cols
 		var row := i / cols
@@ -95,9 +112,9 @@ func _ready() -> void:
 		disc.material_override = m
 		disc.position.y = box.position.y - 0.02
 		holder.add_child(disc)
-		if anim != "":
+		if anim != "" or not anims.is_empty():
 			var player: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
-			player.play(anim)
+			player.play(anims[i] if not anims.is_empty() else anim)
 			player.seek(player.current_animation_length * poses[i][1], true)
 			player.pause()
 	var cam := Camera3D.new()
@@ -124,6 +141,31 @@ func _ready() -> void:
 	get_viewport().get_texture().get_image().save_png(path)
 	print("sheet saved to %s" % path)
 	get_tree().quit()
+
+
+## One copy of the model and a perspective camera placed by hand, for close-ups:
+## --sheet-cam X,Y,Z --sheet-look X,Y,Z [--sheet-fov DEG], in the model's own coordinates.
+func _studio(model: String, recolor: Dictionary) -> void:
+	var inst := _make(model, recolor)
+	add_child(inst)
+	var cam := Camera3D.new()
+	cam.fov = float(_args.get("sheet-fov", 50.0))
+	cam.near = 0.05
+	cam.far = 500.0
+	add_child(cam)
+	cam.look_at_from_position(_vec(_args["sheet-cam"]), _vec(_args.get("sheet-look", "0,0,0")))
+	cam.make_current()
+	await get_tree().create_timer(0.6).timeout
+	await RenderingServer.frame_post_draw
+	var path: String = _args.get("screenshot", "user://sheet.png")
+	get_viewport().get_texture().get_image().save_png(path)
+	print("sheet saved to %s" % path)
+	get_tree().quit()
+
+
+static func _vec(text: String) -> Vector3:
+	var p := text.split(",")
+	return Vector3(float(p[0]), float(p[1]), float(p[2]))
 
 
 func _make(model: String, recolor: Dictionary) -> Node3D:

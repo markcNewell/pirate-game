@@ -37,9 +37,19 @@ var _flap_wait := 0.0
 var _hammer_wait := 0.0
 
 
+## The ship's colours: Toon.PALETTE with the crew's (or the skeleton ship's) over it.
+var _paint := {}
+
+
+func _part(name: String) -> ArrayMesh:
+	return Models.part("ship_parts", name, _paint)
+
+
 func _ready() -> void:
-	ShipMesh.use_palette(Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew))
-	add_child(Toon.instance(ShipMesh.hull()))
+	var palette: Dictionary = Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew)
+	ShipMesh.use_palette(palette)
+	_paint = Models.palette_recolor(palette)
+	add_child(Toon.instance(Models.mesh("ship_hull", _paint)))
 	for m in ShipShape.MAST_Z.size():
 		_build_rig(m)
 
@@ -63,23 +73,23 @@ func _ready() -> void:
 	name_plate.position = ShipMesh.name_board() + Vector3(0, 0, 0.04)
 	add_child(name_plate)
 
-	_wheel = Toon.instance(ShipMesh.wheel())
+	_wheel = Toon.instance(_part("wheel"))
 	_wheel.position = ShipShape.WHEEL + Vector3(0, 1.05, 0.25)
 	add_child(_wheel)
 
-	_capstan = Toon.instance(ShipMesh.capstan())
+	_capstan = Toon.instance(_part("capstan"))
 	_winch = Audio.loop_at(_capstan, "winch", -80.0, 35.0)
 	_capstan.position = ShipShape.CAPSTAN
 	add_child(_capstan)
 
 	_flag = Node3D.new()
 	_flag.position = Vector3(0, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1] + 0.3, ShipShape.MAST_Z[1])
-	var cloth := Toon.instance(ShipMesh.flag(), Toon.cloth_material())
+	var cloth := Toon.instance(_part("flag"), Toon.cloth_material())
 	cloth.position = Vector3(0, -0.9, 0)
 	_flag.add_child(cloth)
 	add_child(_flag)
 
-	var barrel_mesh := ShipMesh.barrel()
+	var barrel_mesh := _part("cannon")
 	for gun in ShipShape.cannon_count():
 		var barrel := Toon.instance(barrel_mesh)
 		add_child(barrel)
@@ -136,13 +146,8 @@ func _ready() -> void:
 	_flood.visible = false
 	add_child(_flood)
 
-	var hb := MeshBuilder.new()
-	hb.cylinder(Vector3(-0.04, 0, 0), Vector3(0.04, 0, 0), 0.34, 0.3, 7, Color("161210"))
-	_hole_mesh = hb.build()
-	var pb := MeshBuilder.new()
-	pb.box(Vector3(0, 0.12, 0), Vector3(0.05, 0.1, 0.42), ShipMesh._c("deck"))
-	pb.box(Vector3(0, -0.12, 0), Vector3(0.05, 0.1, 0.42), ShipMesh._c("deck").darkened(0.1))
-	_patch_mesh = pb.build()
+	_hole_mesh = _part("hole")
+	_patch_mesh = _part("patch")
 	ShipMesh.use_palette({})
 
 	_add_hull_blocker()
@@ -168,10 +173,11 @@ func _build_rig(mast: int) -> void:
 	for k in specs.size():
 		var spec: Array = specs[k]
 		var top: float = spec[0]
-		var yard := Toon.instance(ShipMesh.yard(spec[2]))
+		var yard := Toon.instance(_part("yard_%d_%d" % [mast, k]))
 		yard.position = Vector3(0, top, -ShipShape.MAST_RADIUS - 0.2)
 		rig.add_child(yard)
-		var sail := Toon.instance(ShipMesh.sail(spec[2], spec[1]))
+		var torn := "torn_" if kind == ShipState.Kind.SKELETON else ""
+		var sail := Toon.instance(_part("sail_%s%d_%d" % [torn, mast, k]))
 		sail.position = Vector3(0, top - 0.1, -ShipShape.MAST_RADIUS - 0.3)
 		sail.layers = Lantern.UNLIT_LAYER
 		rig.add_child(sail)
