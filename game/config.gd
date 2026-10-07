@@ -4,7 +4,8 @@ extends RefCounted
 
 const VERSION := "0.1.0"
 const DEFAULT_PORT := 24565
-const MAX_PLAYERS := 4
+## Four crews of up to four.
+const MAX_PLAYERS := 16
 
 ## Snapshots per second from the server, and player updates per second from clients.
 const SNAPSHOT_RATE := 30.0

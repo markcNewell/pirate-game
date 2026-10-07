@@ -41,8 +41,8 @@ var station := -1
 var bucket := false
 ## The item in our arms (a chest), or -1.
 var carry := -1
-## Which ship's frame we stand in while ON_SHIP (our own is ServerSim.CREW).
-var ship_id := 0
+## Which ship's frame we stand in while ON_SHIP (our own is game.own_ship).
+var ship_id := 1
 var hp := 100
 var dead := false
 var weapon := Weapons.Kind.CUTLASS
@@ -233,7 +233,9 @@ func current_target() -> Dictionary:
 	if mode == Mode.WORLD:
 		var side := nearest_ladder()
 		if side != 0:
-			var whose := "climb the ladder" if _ladder_ship == ServerSim.CREW else "board the skeleton ship!"
+			var whose := "climb the ladder"
+			if _ladder_ship != game.own_ship and game.view_ships.has(_ladder_ship):
+				whose = "board %s!" % Game.ship_name(game.view_ships[_ladder_ship])
 			return {"kind": "ladder", "id": side, "label": "E  %s" % whose}
 		var barrel := nearest_outpost_barrel()
 		if barrel >= 0:
@@ -241,7 +243,7 @@ func current_target() -> Dictionary:
 		if not game.voyage.is_empty() and not swimming and Islands.island_at(body.global_position.x, body.global_position.z) >= 0:
 			return {"kind": "dig", "id": 0, "label": "Hold E  dig"}
 		return {}
-	if ship_id != ServerSim.CREW:
+	if ship_id != game.own_ship:
 		return {}  # aboard someone else's ship: nothing of theirs to use
 	# Of everything in reach, use the thing we are looking at most directly.
 	var local := frame_position()
@@ -341,7 +343,7 @@ func nearest_item() -> Loot:
 			Loot.State.GROUND, Loot.State.FLOATING:
 				reachable = mode == Mode.WORLD
 			Loot.State.ON_SHIP:
-				reachable = mode == Mode.ON_SHIP
+				reachable = mode == Mode.ON_SHIP and item.ship == ship_id
 		if not reachable:
 			continue
 		var centre := item.pos + Vector3.UP * 0.35
@@ -364,7 +366,7 @@ func nearest_outpost_barrel() -> int:
 	return -1
 
 
-var _ladder_ship := 0
+var _ladder_ship := 1
 
 
 ## The ladder (-1 port, 1 starboard) of any ship within reach of a swimmer, or 0.

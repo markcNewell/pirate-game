@@ -67,6 +67,20 @@ static func walkable(p: Vector2, lower: bool) -> bool:
 	return true
 
 
+## The rectangles that really are solid (they have collision), for checking where players say
+## they stand. A subset of the bots' obstacles, which also steer round loose barrels.
+static func solids(lower: bool) -> Array[Rect2]:
+	var all := _obstacles(lower)
+	if lower:
+		return all.slice(0, ShipShape.MAST_Z.size())
+	# Upper deck: everything except the ramp's open sides (the last two entries per side pair).
+	var out: Array[Rect2] = []
+	for rect in all:
+		if rect.size.x > 0.11 or rect.size.y < 2.9:
+			out.append(rect)
+	return out
+
+
 ## A list of ship-frame points from `from` to `to` (both on the same deck), or [] if no way.
 static func find_path(from: Vector3, to: Vector3) -> Array[Vector3]:
 	var lower := from.y < 1.5

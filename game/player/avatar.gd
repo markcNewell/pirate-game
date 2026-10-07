@@ -36,6 +36,11 @@ func set_bucket(full: bool) -> void:
 	_bucket.visible = full
 
 
+## Crewmates' names are white; other crews' are red.
+func set_hostile(hostile: bool) -> void:
+	_label.modulate = Color("ff8a7a") if hostile else Color.WHITE
+
+
 ## `pose` is where the feet are and which way the pirate faces, in world space.
 func place(pose: Transform3D, delta: float) -> void:
 	var moved := (pose.origin - _last).length() / maxf(delta, 1e-3)

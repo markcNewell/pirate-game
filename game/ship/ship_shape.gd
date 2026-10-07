@@ -124,6 +124,26 @@ static func is_below_deck(p: Vector3) -> bool:
 	return p.y < DECK_Y - 0.6 and p.z > LOWER_Z0 - 0.5 and p.z < LOWER_Z1 + 0.5
 
 
+## Could a player really be standing (or jumping) here, in the ship frame? Not inside a mast,
+## cannon or wall, not sunk through a floor, not floating high above one. The hatch opening
+## lets you drop to the lower deck.
+static func plausible_position(p: Vector3) -> bool:
+	if not is_on_board(p):
+		return false
+	var lower := p.y < DECK_Y - 1.0
+	var flat := Vector2(p.x, p.z)
+	if lower and absf(p.x) > lower_wall_x(p.z) + 0.1:
+		return false
+	for rect in BotNav.solids(lower):
+		if rect.grow(-0.15).has_point(flat):
+			return false
+	var in_hatch := absf(p.x) < HATCH_X and p.z > HATCH_Z0 and p.z < HATCH_Z1
+	var floor_here := LOWER_Y if lower else floor_y(p.z, p.x)
+	if not in_hatch and p.y < floor_here - 0.4:
+		return false
+	return p.y < floor_here + 3.0
+
+
 ## True if a ship-frame point is inside the solid hull (for cannonball hits).
 static func inside_hull(p: Vector3) -> bool:
 	if absf(p.z) > HALF_LENGTH or p.y < KEEL_Y or p.y > rail_top(p.z):

@@ -117,7 +117,7 @@ func test_falling_makes_a_ghost_then_back_aboard() -> void:
 	sim._hurt_player(1, 150, "a test")
 	check(r.dead_until >= 0.0, "fallen")
 	sim.request(1, "voyage", 0, [])
-	check(sim.voyage.is_empty(), "ghosts cannot act")
+	check(sim.crews[1].voyage.is_empty(), "ghosts cannot act")
 	for i in int((ServerSim.GHOST_TIME + 0.5) / DT):
 		sim.tick(DT)
 	check_eq(r.dead_until, -1.0, "back again")
@@ -160,3 +160,60 @@ func test_boarding_a_skeleton_ship_by_its_ladder() -> void:
 	check_eq(r.ship, skel_id, "standing on the skeleton ship")
 	sim.request(1, "station", 0, [])
 	check_eq(r.station, -1, "no taking the enemy's wheel")
+
+
+func test_pistol_fells_a_skeleton_in_two_shots() -> void:
+	var sim := _sim()
+	var r: Dictionary = sim.players[1]
+	r.mode = LocalPlayer.Mode.WORLD
+	r.ship = -1
+	r.pos = Vector3(500, 0, 500)
+	sim.request(1, "weapon", Weapons.Kind.PISTOL, [])
+	var sk := sim._new_skeleton(-1, Vector3(500, 0, 488), -1)
+	for n in 2:
+		sim.time += Weapons.PISTOL_RELOAD + 0.05
+		# Aim at its chest: 12 m ahead and 0.6 m below the eye.
+		sim.request(1, "attack", Weapons.Kind.PISTOL, [0.0, atan2(-0.6, 12.0)])
+	check(not sk.alive(), "two shots fell it (hp %d)" % sk.hp)
+
+
+func test_crews_hurt_each_other_but_not_themselves() -> void:
+	var sim := _sim()
+	sim.add_player(2, "Bonny", 1)
+	sim.add_player(3, "Read", 2)
+	check_eq(sim.players[2].crew, 1, "asked for crew 1")
+	check_eq(sim.players[3].crew, 2, "asked for crew 2")
+	for id in [1, 2, 3]:
+		var p: Dictionary = sim.players[id]
+		p.mode = LocalPlayer.Mode.WORLD
+		p.ship = -1
+	sim.players[1].pos = Vector3(500, 0, 500)
+	sim.players[2].pos = Vector3(500, 0, 498.6)
+	sim.players[3].pos = Vector3(500.3, 0, 498.4)
+	sim.time += 1.0
+	sim.request(1, "attack", Weapons.Kind.CUTLASS, [0.0, 0.0])
+	check_eq(sim.players[2].hp, ServerSim.HEALTH, "no friendly fire")
+	check_eq(sim.players[3].hp, ServerSim.HEALTH - Weapons.CUTLASS_DAMAGE, "the other crew is hurt")
+
+
+func test_impossible_positions_are_corrected() -> void:
+	var sim := _sim()
+	var r: Dictionary = sim.players[1]
+	var seq: int = r.seq
+	var at: Vector3 = r.pos
+	# Inside the main mast.
+	var mast := Vector3(0.0, ShipShape.DECK_Y, ShipShape.MAST_Z[1])
+	sim.time += 0.5
+	sim.player_state(1, [seq, LocalPlayer.Mode.ON_SHIP, mast.x, mast.y, mast.z, 0.0, 0.0])
+	check_eq(sim.stats.corrections, 1, "inside a mast")
+	check_eq(r.pos, at, "put back")
+	# Sunk through the main deck.
+	seq = r.seq
+	sim.time += 0.5
+	sim.player_state(1, [seq, LocalPlayer.Mode.ON_SHIP, at.x, ShipShape.DECK_Y - 1.0, at.z, 0.0, 0.0])
+	check_eq(sim.stats.corrections, 2, "through the deck")
+	# An honest step is fine.
+	seq = r.seq
+	sim.time += 0.5
+	sim.player_state(1, [seq, LocalPlayer.Mode.ON_SHIP, at.x + 0.5, at.y, at.z, 0.0, 0.0])
+	check_eq(sim.stats.corrections, 2, "a normal step")

@@ -35,7 +35,7 @@ done
 for pid in "${bots[@]}"; do wait "$pid" || true; done
 wait "$server" || true
 r="$(grep '^RESULT server' "$LOGS/fight.log" || true)"
-skel_holes="$(grep -o 'skeleton1=([^)]*holes [0-9]*' "$LOGS/fight.log" | sed 's/.*holes //' | sort -n | tail -1)"
+skel_holes="$( (grep -o 'skeleton[0-9]*=([^)]*holes [0-9]*' "$LOGS/fight.log" || true) | sed 's/.*holes //' | sort -n | tail -1)"
 check "a skeleton ship came ($(field ai_spawned "$r"))" '[ "$(field ai_spawned "$r")" -ge 1 ]'
 check "cannons fired ($(field shots "$r") shots)" '[ "$(field shots "$r")" -ge 10 ]'
 check "hulls were holed ($(field holes "$r"))" '[ "$(field holes "$r")" -ge 3 ]'

@@ -14,7 +14,6 @@ extends Node3D
 enum Role { SERVER, CLIENT, HOST }
 
 const WIND_TURN_SECONDS := 1200.0
-const CREW := ServerSim.CREW
 
 var role := Role.CLIENT
 var local_id := 0
@@ -27,7 +26,12 @@ var roster := {}  # peer id -> name
 # --- what is drawn this frame (clients) ---
 var render_time := 0.0
 var view_ships := {}  # ship id -> ShipState
-var view_ship := ShipState.new()  # the crew's ship
+var view_ship := ShipState.new()  # our crew's ship
+## Our crew's number and its ship's id (the same number), once the server has placed us.
+var own_crew := ServerSim.CREW
+var own_ship := ServerSim.CREW
+## Every crew's purse: crew -> gold.
+var purses := {}
 var view_wind := Vector2(0, -1)
 var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket, carry}
 var view_items := {}  # item id -> Loot
@@ -38,7 +42,7 @@ var voyage := {}
 
 var world: World
 var ship_views := {}  # ship id -> ShipView
-var ship_view: ShipView  # the crew's ship
+var ship_view: ShipView  # our crew's ship (null until the first snapshot)
 var proxy: DeckProxy
 var local_player: LocalPlayer
 var hud: Hud
@@ -89,7 +93,6 @@ func _build_view() -> void:
 	add_child(world)
 	effects = Effects.new()
 	add_child(effects)
-	ship_view = _ship_view_for(CREW, ShipState.Kind.CREW)
 	proxy = DeckProxy.new()
 	add_child(proxy)
 	local_player = LocalPlayer.new()
@@ -106,10 +109,11 @@ func _build_view() -> void:
 		add_child(hud)
 
 
-func _ship_view_for(id: int, kind: int) -> ShipView:
+func _ship_view_for(id: int, s: ShipState) -> ShipView:
 	if not ship_views.has(id):
 		var v := ShipView.new()
-		v.kind = kind
+		v.kind = s.kind
+		v.crew = s.crew
 		add_child(v)
 		ship_views[id] = v
 	return ship_views[id]
@@ -148,8 +152,8 @@ func server_can_join(version: String) -> String:
 	return sim.can_join(version)
 
 
-func server_add_player(id: int, player_name: String) -> void:
-	sim.add_player(id, player_name)
+func server_add_player(id: int, player_name: String, crew := 0) -> void:
+	sim.add_player(id, player_name, crew)
 	roster = sim.roster
 
 
@@ -205,17 +209,24 @@ func client_on_snapshot(data: Array) -> void:
 		snap_players[int(p[0])] = {
 			"mode": int(p[1]), "ship": int(p[2]), "pos": Vector3(p[3], p[4], p[5]), "yaw": float(p[6]),
 			"pitch": float(p[7]), "station": int(p[8]), "bucket": int(p[9]) == 1, "carry": int(p[10]),
-			"hp": int(p[11]), "dead": int(p[12]) == 1, "weapon": int(p[13]),
+			"hp": int(p[11]), "dead": int(p[12]) == 1, "weapon": int(p[13]), "crew": int(p[14]),
 		}
 	var snap_items := {}
 	for entry in data[3]:
 		var item := Loot.from_array(entry)
 		snap_items[item.id] = item
-	purse = int(data[4])
-	var hunt: Array = data[5]
-	voyage = {} if hunt.is_empty() else {"island": int(hunt[0]), "x": float(hunt[1]), "z": float(hunt[2])}
+	# Every crew's purse; our own crew's purse and treasure hunt.
+	var mine: Dictionary = snap_players.get(local_id, {})
+	if not mine.is_empty():
+		own_crew = mine.crew
+		own_ship = mine.crew
+	for entry in data[4]:
+		purses[int(entry[0])] = int(entry[1])
+		if int(entry[0]) == own_crew:
+			purse = int(entry[1])
+			voyage = {} if entry.size() < 5 else {"island": int(entry[2]), "x": float(entry[3]), "z": float(entry[4])}
 	var snap_bones := {}
-	for entry in data[6]:
+	for entry in data[5]:
 		var sk := Skeleton.from_array(entry)
 		snap_bones[sk.id] = sk
 	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players, "items": snap_items, "bones": snap_bones})
@@ -295,14 +306,16 @@ func _process(delta: float) -> void:
 
 	for id in ship_views.keys():
 		if not view_ships.has(id):
-			if id != CREW:
-				ship_views[id].queue_free()
-				ship_views.erase(id)
+			ship_views[id].queue_free()
+			ship_views.erase(id)
 	for id in view_ships:
 		var s: ShipState = view_ships[id]
-		var v := _ship_view_for(id, s.kind)
+		var v := _ship_view_for(id, s)
 		v.apply(s, ShipPhysics.pose_of(s, render_time), view_wind, delta)
-	view_ship = view_ships.get(CREW, view_ship)
+	view_ship = view_ships.get(own_ship, view_ship)
+	ship_view = ship_views.get(own_ship)
+	if ship_view == null:
+		return
 
 	var me: Dictionary = view_players.get(local_id, {})
 	if not me.is_empty():
@@ -329,6 +342,7 @@ func _process(delta: float) -> void:
 		var on_ship: bool = p.mode == LocalPlayer.Mode.ON_SHIP and ship_views.has(p.ship)
 		avatar.place(ship_views[p.ship].global_transform * feet if on_ship else feet, delta)
 		avatar.set_bucket(p.bucket)
+		avatar.set_hostile(p.crew != own_crew)
 		avatar.visible = not p.dead
 
 	_update_balls()
@@ -341,7 +355,7 @@ func _process(delta: float) -> void:
 ## The world transform of a ship's frame (our own ship's if that one is gone).
 func frame_transform(ship_id: int) -> Transform3D:
 	var v: ShipView = ship_views.get(ship_id, ship_view)
-	return v.global_transform
+	return v.global_transform if v else Transform3D.IDENTITY
 
 
 func _update_skeletons(delta: float) -> void:
@@ -379,7 +393,7 @@ func _update_items() -> void:
 		var at := Transform3D(Basis(Vector3.UP, item.yaw), item.pos)
 		match item.state:
 			Loot.State.ON_SHIP:
-				at = ship_view.global_transform * at
+				at = frame_transform(item.ship) * at
 			Loot.State.CARRIED:
 				if item.carrier == local_id:
 					# In our own arms: low in front of the camera.
@@ -473,7 +487,7 @@ func _interpolate(t: float) -> void:
 			"mode": pb.mode, "ship": pb.ship, "pos": pa.pos.lerp(pb.pos, w),
 			"yaw": lerp_angle(pa.yaw, pb.yaw, w), "pitch": lerpf(pa.pitch, pb.pitch, w),
 			"station": pb.station, "bucket": pb.bucket, "carry": pb.carry,
-			"hp": pb.hp, "dead": pb.dead, "weapon": pb.weapon,
+			"hp": pb.hp, "dead": pb.dead, "weapon": pb.weapon, "crew": pb.crew,
 		}
 
 
@@ -508,16 +522,22 @@ func distance_to_ship() -> float:
 	return Vector2(p.x - view_ship.x, p.z - view_ship.z).length()
 
 
-## The nearest skeleton ship being drawn, or null.
+## The nearest hostile ship being drawn (a skeleton ship or another crew's), or null.
 func nearest_enemy() -> ShipState:
 	var best: ShipState = null
 	var best_d := INF
 	for id in view_ships:
 		var s: ShipState = view_ships[id]
-		if s.kind != ShipState.Kind.SKELETON or s.is_sinking():
+		if id == own_ship or s.is_sinking():
 			continue
 		var d := Vector2(s.x - view_ship.x, s.z - view_ship.z).length()
 		if d < best_d:
 			best = s
 			best_d = d
 	return best
+
+
+
+## Display name of a ship: its crew's ship name, or "Skeleton ship".
+static func ship_name(s: ShipState) -> String:
+	return ServerSim.CREW_NAMES[s.crew - 1] if s.crew > 0 else "Skeleton ship"

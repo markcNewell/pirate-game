@@ -18,6 +18,8 @@ var pos := Vector3.ZERO
 var yaw := 0.0
 var carrier := -1
 var value := 0
+## The ship it is stowed on (ON_SHIP).
+var ship := -1
 ## Server only: when it started floating.
 var born := 0.0
 
@@ -35,7 +37,7 @@ func label() -> String:
 
 
 func to_array() -> Array:
-	return [id, kind, state, pos.x, pos.y, pos.z, yaw, carrier, value]
+	return [id, kind, state, pos.x, pos.y, pos.z, yaw, carrier, value, ship]
 
 
 static func from_array(a: Array) -> Loot:
@@ -47,4 +49,5 @@ static func from_array(a: Array) -> Loot:
 	l.yaw = a[6]
 	l.carrier = a[7]
 	l.value = a[8]
+	l.ship = a[9]
 	return l

@@ -6,6 +6,7 @@ extends CanvasLayer
 var _name: LineEdit
 var _address: LineEdit
 var _port: SpinBox
+var _crew: OptionButton
 var _status: Label
 
 
@@ -59,6 +60,17 @@ func _ready() -> void:
 	_port.value = Settings.port
 	box.add_child(_port)
 
+	var crew_label := Label.new()
+	crew_label.text = "Crew"
+	crew_label.add_theme_color_override("font_color", Hud.INK)
+	box.add_child(crew_label)
+	_crew = OptionButton.new()
+	_crew.add_item("Any crew (friends sail together)", 0)
+	for i in ServerSim.CREW_NAMES.size():
+		_crew.add_item("Crew %d: %s" % [i + 1, ServerSim.CREW_NAMES[i]], i + 1)
+	_crew.select(Settings.crew)
+	box.add_child(_crew)
+
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	box.add_child(buttons)
@@ -83,20 +95,21 @@ func _remember() -> void:
 	Settings.name = _name.text.strip_edges()
 	Settings.address = _address.text.strip_edges()
 	Settings.port = int(_port.value)
+	Settings.crew = _crew.get_selected_id()
 	Settings.save()
 
 
 func _on_join() -> void:
 	_remember()
 	_status.text = "Connecting to %s:%d..." % [Settings.address, Settings.port]
-	var err := Net.join(Settings.address, Settings.port, Settings.name)
+	var err := Net.join(Settings.address, Settings.port, Settings.name, "", Settings.crew)
 	if err != OK:
 		_status.text = "Could not start a connection (%s)." % error_string(err)
 
 
 func _on_host() -> void:
 	_remember()
-	var err := Net.host(Settings.port, Settings.name)
+	var err := Net.host(Settings.port, Settings.name, Settings.crew)
 	if err != OK:
 		_status.text = "Could not host on port %d (%s). Is another game already using it?" % [Settings.port, error_string(err)]
 

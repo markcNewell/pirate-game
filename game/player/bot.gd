@@ -12,6 +12,8 @@ extends Node
 ##   seller  - carry the chest on deck to the outpost merchant, sell it, then restock
 ##   fighter - swim ashore and fight the island's skeletons with cutlass and pistol
 ##   boarder - swim to the skeleton ship alongside, climb its ladder and fight its crew
+##   duelist - jump in and fight the nearest pirate of another crew
+##   thief   - steal the chest from another crew's deck and stow it on our own ship
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -62,6 +64,9 @@ func _physics_process(delta: float) -> void:
 	if _phase == "start":
 		_say("spawned, heading for %s" % role)
 		_phase = "act"
+	# Once in the water, forget that we were walking out, so next time aboard we plan again.
+	if _player.mode == LocalPlayer.Mode.WORLD and _phase.ends_with("_out"):
+		_phase = _phase.trim_suffix("_out")
 	match role:
 		"wheel", "sails", "anchor":
 			_crew_station(input, STATIONS[role])
@@ -79,6 +84,10 @@ func _physics_process(delta: float) -> void:
 			_fighter(input)
 		"boarder":
 			_boarder(input)
+		"duelist":
+			_duelist(input)
+		"thief":
+			_thief(input)
 
 
 func _process(_delta: float) -> void:
@@ -487,13 +496,13 @@ func _boarder(input: PlayerInput) -> void:
 	if _player.dead:
 		return
 	if _player.mode == LocalPlayer.Mode.ON_SHIP:
-		if _player.ship_id == ServerSim.CREW:
+		if _player.ship_id == game.own_ship:
 			# Over the side that faces the skeleton ship.
 			var side := 1
 			for id in game.view_ships:
-				if id != ServerSim.CREW:
+				if id != game.own_ship:
 					var s: ShipState = game.view_ships[id]
-					var local := game.frame_transform(ServerSim.CREW).affine_inverse() * Vector3(s.x, 0, s.z)
+					var local := game.frame_transform(game.own_ship).affine_inverse() * Vector3(s.x, 0, s.z)
 					side = 1 if local.x >= 0.0 else -1
 			_go_overboard(input, side)
 			return
@@ -511,7 +520,7 @@ func _boarder(input: PlayerInput) -> void:
 	# In the water: make for the skeleton ship's nearer ladder and climb.
 	var p := _player.body.global_position
 	for id in game.ship_views:
-		if id == ServerSim.CREW:
+		if id == game.own_ship:
 			continue
 		var best := Vector3.ZERO
 		var best_d := INF
@@ -524,6 +533,105 @@ func _boarder(input: PlayerInput) -> void:
 		if (_head_to(input, best, 1.5) or at_theirs) and _every(0.5):
 			input.interact = true
 		return
+
+
+## The side (+1 starboard, -1 port) of our current ship that faces a world point.
+func _side_facing(world: Vector3) -> int:
+	var local := game.frame_transform(_player.ship_id).affine_inverse() * world
+	return 1 if local.x >= 0.0 else -1
+
+
+## The nearest living pirate of another crew, in the world: {id, pos} or {}.
+func _nearest_rival() -> Dictionary:
+	var me := _player.world_position()
+	var best := {}
+	var best_d := INF
+	for id in game.view_players:
+		var p: Dictionary = game.view_players[id]
+		if id == game.local_id or p.crew == game.own_crew or p.dead:
+			continue
+		var w: Vector3 = p.pos
+		if p.mode == LocalPlayer.Mode.ON_SHIP:
+			w = game.frame_transform(p.ship) * p.pos
+		if w.distance_to(me) < best_d:
+			best = {"id": id, "pos": w}
+			best_d = w.distance_to(me)
+	return best
+
+
+func _duelist(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	var rival := _nearest_rival()
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input, _side_facing(rival.pos) if not rival.is_empty() else 1)
+		return
+	if rival.is_empty():
+		return
+	var foe := Skeleton.new()
+	foe.pos = rival.pos
+	_fight(input, foe, _player.body.global_position + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+
+
+func _thief(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	match _player.mode:
+		LocalPlayer.Mode.ON_SHIP:
+			if _player.ship_id == game.own_ship:
+				if _player.carry >= 0:
+					if _phase != "done" and _go(input, Vector3(-1.0, ShipShape.DECK_Y, 0.3)) and _every(0.5):
+						input.interact = true
+					return
+				if _phase == "stowing":
+					_say("stowed the stolen chest")
+					_phase = "done"
+				if _phase == "done":
+					return
+				# Over the side facing the other crew's ship.
+				for id in game.view_ships:
+					if id != game.own_ship and game.view_ships[id].crew > 0:
+						var s: ShipState = game.view_ships[id]
+						_go_overboard(input, _side_facing(Vector3(s.x, 0, s.z)))
+				return
+			# Aboard the other crew's ship.
+			if _player.carry >= 0:
+				_say("got the chest, back to our ship")
+				var o: ShipState = game.view_ship
+				_go_overboard(input, _side_facing(Vector3(o.x, 0, o.z)))
+				return
+			for id in game.view_items:
+				var item: Loot = game.view_items[id]
+				if item.state == Loot.State.ON_SHIP and item.ship == _player.ship_id:
+					if _go(input, item.pos + Vector3(0.9, 0, 0.6)):
+						_look_at(item.pos + Vector3.UP * 0.35)
+						if _every(0.5):
+							input.interact = true
+					return
+		LocalPlayer.Mode.WORLD:
+			# Swim to a ladder: theirs if empty-handed, ours if carrying.
+			var target_ship := -1
+			for id in game.view_ships:
+				var s: ShipState = game.view_ships[id]
+				if _player.carry >= 0 and id == game.own_ship:
+					target_ship = id
+				elif _player.carry < 0 and id != game.own_ship and s.crew > 0:
+					target_ship = id
+			if target_ship < 0 or not game.ship_views.has(target_ship):
+				return
+			if _player.carry >= 0:
+				_phase = "stowing"
+			var best := Vector3.ZERO
+			var best_d := INF
+			var p := _player.body.global_position
+			for side: int in [-1, 1]:
+				var b: Vector3 = game.ship_views[target_ship].global_transform * ShipShape.ladder_bottom(side)
+				if b.distance_to(p) < best_d:
+					best = b
+					best_d = b.distance_to(p)
+			var at_it: bool = _player.nearest_ladder() != 0 and _player._ladder_ship == target_ship
+			if (_head_to(input, best, 1.5) or at_it) and _every(0.5):
+				input.interact = true
 
 
 func _say(text: String) -> void:

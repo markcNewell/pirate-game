@@ -3,12 +3,13 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: milestone 4, "Fighting on foot".** One galleon, up to 4 players: sailing, swimming,
-cannons, skeleton ships, holes, patching, bailing and sinking, treasure maps, digging, selling at
-Port Merrow, and now health, a cutlass and a pistol, skeleton camps on the islands, boarding
-skeleton ships, falling and coming back, and bananas. Crew vs crew comes next. Specs:
+**Status: all five milestones built.** Up to four crews of four players, each with its own galleon:
+sailing, swimming, cannons, skeleton ships, holes, patching, bailing and sinking; treasure maps,
+digging and selling at Port Merrow; health, cutlass and pistol, skeleton camps and boarding; and
+crew vs crew: fight other crews, sink their ships and steal their chests. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
-[3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md).
+[3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
+[5](docs/specs/2026-10-07-m5-crew-vs-crew.md).
 
 | | |
 |---|---|
@@ -16,7 +17,7 @@ skeleton ships, falling and coming back, and bananas. Crew vs crew comes next. S
 | ![Crew on deck, island ahead](docs/screenshots/crew-and-island.png) | ![An island](docs/screenshots/island.png) |
 | ![A skeleton ship firing](docs/screenshots/skeleton-ship.png) | ![Holes on the lower deck](docs/screenshots/lower-deck.png) |
 | ![Port Merrow](docs/screenshots/outpost.png) | ![A treasure map](docs/screenshots/treasure-map.png) |
-| ![Skeletons on Parrot Rock](docs/screenshots/skeletons.png) | |
+| ![Skeletons on Parrot Rock](docs/screenshots/skeletons.png) | ![Two crews' ships](docs/screenshots/two-crews.png) |
 
 ## Play
 
@@ -31,6 +32,8 @@ On the title screen:
 - **Host & play** runs a server inside your game and puts you on deck. Good for trying it alone,
   or for friends on the same network to join you.
 - **Join** connects to a server address (default port 24565).
+- **Crew** picks which of the four crews to sail with. "Any crew" fills crew 1 first, so friends
+  who all pick it end up on the same ship.
 
 | Key | On foot | At the wheel | At the sail ropes | At the anchor |
 |---|---|---|---|---|
@@ -54,6 +57,7 @@ On the title screen:
 | Fight | 1 cutlass, 2 pistol, left click to attack; skeletons guard every treasure island |
 | Board | swim to a skeleton ship and E at its ladder |
 | Heal | E at the banana barrel on the lower deck |
+| Other crews | their names show red; you can fight them, board their ship and steal its chests |
 
 The ship starts at anchor with its sails furled. Winch the anchor up, let the sails out, and
 watch the wind arrow at the bottom left: sails pull hardest with the wind behind them, and you
@@ -80,6 +84,8 @@ machine, see [server/README.md](server/README.md).
 | Combat smoke test (fight + sinking) | `tests/smoke/combat_test.sh` |
 | Treasure smoke test (dig + sell) | `tests/smoke/treasure_test.sh` |
 | Fighting smoke test (island + boarding) | `tests/smoke/fighting_test.sh` |
+| Crew-vs-crew smoke test (duel, broadsides, theft) | `tests/smoke/crew_test.sh` |
+| Every smoke test at once | `tools/smoke_all.sh` |
 | Import and unit tests in one go | `tools/check.sh` |
 | Screenshot without a monitor | `tools/screenshot.sh /tmp/shot.png outside --demo` |
 | Export Windows + server builds | `tools/export.sh` |
@@ -90,8 +96,8 @@ Run `godot --headless --path . --import` once after cloning so Godot registers t
 Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`, `--name NAME`,
 `--demo` (host under full sail), `--bot wheel|sails|anchor|swimmer|gunner|repair`,
 `--quit-after SECONDS`, `--no-ai`, `--ai-delay SECONDS`, `--test-holes N`, `--start-near N|outpost`,
-`--voyage-island N`, `--test-chest`, `--test-boarding`. Bots also take `treasure`, `seller`,
-`fighter` and `boarder`.
+`--voyage-island N`, `--test-chest`, `--test-boarding`, `--crew N`, `--crews-close`, `--test-steal`.
+Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`.
 
 ### How it fits together
 

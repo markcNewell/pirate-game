@@ -12,6 +12,7 @@ var game: Game = null
 var options := {}
 var _player_name := ""
 var _bot_role := ""
+var _crew := 0
 var _signals_connected := false
 
 
@@ -24,15 +25,16 @@ func serve(port: int) -> Error:
 
 
 ## Development shortcut: run the server and play on it from this window.
-func host(port: int, player_name: String) -> Error:
+func host(port: int, player_name: String, crew := 0) -> Error:
 	var err := _create_server(port)
 	if err == OK:
 		_start_game(Game.Role.HOST, 1)
-		game.server_add_player(1, player_name)
+		game.server_add_player(1, player_name, crew)
 	return err
 
 
-func join(address: String, port: int, player_name: String, bot_role := "") -> Error:
+## `crew`: 1-4 to ask for that crew, 0 for any.
+func join(address: String, port: int, player_name: String, bot_role := "", crew := 0) -> Error:
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(address, port)
 	if err != OK:
@@ -40,6 +42,7 @@ func join(address: String, port: int, player_name: String, bot_role := "") -> Er
 	multiplayer.multiplayer_peer = peer
 	_player_name = player_name
 	_bot_role = bot_role
+	_crew = crew
 	_connect_signals()
 	return OK
 
@@ -86,7 +89,7 @@ func _start_game(role: Game.Role, my_id: int, bot := "") -> void:
 
 
 func _on_connected() -> void:
-	_hello.rpc_id(1, _player_name, GameConfig.VERSION)
+	_hello.rpc_id(1, _player_name, GameConfig.VERSION, _crew)
 
 
 func _on_connection_failed() -> void:
@@ -174,7 +177,7 @@ func send_request(action: String, arg: int, data: Array = []) -> void:
 # --- RPC endpoints ---
 
 @rpc("any_peer", "call_remote", "reliable")
-func _hello(player_name: String, version: String) -> void:
+func _hello(player_name: String, version: String, crew: int) -> void:
 	if game == null or not game.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
@@ -189,7 +192,7 @@ func _hello(player_name: String, version: String) -> void:
 		)
 		return
 	_welcome.rpc_id(id, id)
-	game.server_add_player(id, player_name)
+	game.server_add_player(id, player_name, crew)
 
 
 @rpc("authority", "call_remote", "reliable")

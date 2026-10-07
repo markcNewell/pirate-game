@@ -61,14 +61,14 @@ func test_voyage_dig_carry_and_sell() -> void:
 	var r: Dictionary = sim.players[1]
 	r.pos = ShipShape.MAP_TABLE + Vector3(0.9, 0, 0.6)
 	sim.request(1, "voyage", 0, [])
-	check(not sim.voyage.is_empty(), "the map table gives a voyage")
-	check_eq(sim.voyage.island, 1)
+	check(not sim.crews[1].voyage.is_empty(), "the map table gives a voyage")
+	check_eq(sim.crews[1].voyage.island, 1)
 
 	# Dig in the wrong place first: nothing.
 	var spec: Dictionary = Islands.LAYOUT[1]
 	r.mode = LocalPlayer.Mode.WORLD
-	var x: float = sim.voyage.x
-	var z: float = sim.voyage.z
+	var x: float = sim.crews[1].voyage.x
+	var z: float = sim.crews[1].voyage.z
 	var wrong := Vector2(x, z) + (Vector2(spec.x, spec.z) - Vector2(x, z)).normalized() * 8.0
 	r.pos = Vector3(wrong.x, Islands.ground_at(1, wrong.x, wrong.y) + 0.05, wrong.y)
 	_hold(sim, "dig", 2.6)
@@ -77,21 +77,22 @@ func test_voyage_dig_carry_and_sell() -> void:
 	r.pos = Vector3(x + 1.0, Islands.ground_at(1, x + 1.0, z) + 0.05, z)
 	_hold(sim, "dig", 2.6)
 	check_eq(sim.stats.dug, 1, "a chest at the X")
-	var chest: Loot = sim.items[sim.voyage.item]
+	var chest: Loot = sim.items[sim.crews[1].voyage.item]
 	check_eq(chest.state, Loot.State.GROUND)
 
 	sim.request(1, "pickup", chest.id, [])
 	check_eq(r.carry, chest.id, "picked up")
 	r.pos = Outpost.sell_spot()
 	sim.request(1, "sell", 0, [])
-	check_eq(sim.purse, chest.value, "sold for its value")
-	check(sim.voyage.is_empty(), "voyage over")
+	check_eq(sim.crews[1].purse, chest.value, "sold for its value")
+	check(sim.crews[1].voyage.is_empty(), "voyage over")
 	check_eq(r.carry, -1)
 
 
 func test_chest_put_down_aboard_rides_with_the_ship() -> void:
 	var sim := _sim()
 	var chest := sim._new_item(Loot.Kind.CHEST, Loot.State.ON_SHIP, Vector3(0, ShipShape.DECK_Y, -2.0), 100)
+	chest.ship = ServerSim.CREW
 	var r: Dictionary = sim.players[1]
 	r.pos = Vector3(0.5, ShipShape.DECK_Y, -1.0)
 	sim.request(1, "pickup", chest.id, [])
@@ -143,8 +144,8 @@ func test_a_sunk_skeleton_leaves_loot() -> void:
 	skel.kind = ShipState.Kind.SKELETON
 	skel.x = 200.0
 	skel.sink = 1.0
-	sim.ships[1] = skel
-	sim.captains[1] = Captain.new()
+	sim.ships[10] = skel
+	sim.captains[10] = Captain.new()
 	sim.tick(DT)
 	check_eq(sim.stats.loot_spawned, 3)
 	var chests := 0

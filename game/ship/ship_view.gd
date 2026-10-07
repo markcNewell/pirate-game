@@ -8,6 +8,8 @@ const FURLED := 0.06
 const RECOIL := 0.5
 
 var kind := ShipState.Kind.CREW
+## Crew number (1-4) for the sail colours; 0 for skeleton ships.
+var crew := 1
 
 var _rigs: Array[Node3D] = []
 var _sails: Array[Array] = []
@@ -25,7 +27,7 @@ var _last_anchor_progress := 0.0
 
 
 func _ready() -> void:
-	ShipMesh.use_palette(Toon.SKELETON if kind == ShipState.Kind.SKELETON else {})
+	ShipMesh.use_palette(Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew))
 	add_child(Toon.instance(ShipMesh.hull()))
 	for m in ShipShape.MAST_Z.size():
 		_build_rig(m)
@@ -57,7 +59,7 @@ func _ready() -> void:
 	for z: float in [-7.0, -1.0, 3.5]:
 		_lamp(Vector3(0, ShipShape.DECK_Y - 0.55, z), glow)
 	if kind == ShipState.Kind.CREW:
-		for z: float in [-6.5, 0.0]:
+		for z: float in [-6.5, -1.0]:
 			var light := OmniLight3D.new()
 			light.position = Vector3(0, ShipShape.DECK_Y - 0.8, z)
 			light.light_color = Color("ffe2b0")

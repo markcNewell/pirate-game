@@ -11,6 +11,7 @@ extends Node
 ##   --quit-after SECONDS     exit after this long, printing a summary
 ##   --screenshot PATH        save a screenshot and quit (with --shot-delay, --shot-view)
 ##   --demo                   host only: start under full sail with the anchor up
+##   --crew N                 ask for crew N (1-4); 0 or absent for any
 
 var _menu: Menu
 var _args := {}
@@ -44,7 +45,7 @@ func _start() -> void:
 		Net.session_failed.connect(func(reason: String) -> void:
 			printerr("[bot %s] %s" % [role, reason])
 			get_tree().quit(2))
-		Net.join(_args.get("join", "127.0.0.1"), port, "Bot %s" % role, role)
+		Net.join(_args.get("join", "127.0.0.1"), port, "Bot %s" % role, role, int(_args.get("crew", 0)))
 		_maybe_quit_later()
 		return
 
@@ -54,15 +55,16 @@ func _start() -> void:
 	Net.session_failed.connect(func(reason: String) -> void: _menu.show_status(reason))
 	Net.session_ended.connect(func(reason: String) -> void: _menu.show_status(reason))
 	var player_name: String = _args.get("name", Settings.name)
+	var crew := int(_args.get("crew", Settings.crew))
 	if _args.has("host"):
-		Net.host(port, player_name)
+		Net.host(port, player_name, crew)
 		if _args.has("demo"):
 			var ship := Net.game.sim.crew_ship()
 			ship.anchored = false
 			ship.sail_height = [1.0, 1.0]
 			ship.speed = 6.0
 	elif _args.has("join"):
-		Net.join(_args.join, port, player_name)
+		Net.join(_args.join, port, player_name, "", crew)
 	if _args.has("screenshot"):
 		_screenshot.call_deferred(_args.screenshot, float(_args.get("shot-delay", 6.0)), _args.get("shot-view", "deck"))
 	_maybe_quit_later()

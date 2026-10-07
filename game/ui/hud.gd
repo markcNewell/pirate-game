@@ -223,15 +223,23 @@ func _process(delta: float) -> void:
 	var far := game.distance_to_ship() > GameConfig.RESPAWN_DISTANCE
 	_respawn.text = "Respawn on the ship (you are far away)" if far else "Respawn on the ship"
 	if _crew.visible:
-		var lines := ["Crew"]
-		for id in game.roster:
+		var lines := ["Crews"]
+		var ids := game.roster.keys()
+		ids.sort_custom(func(a: int, b: int) -> bool:
+			return game.view_players.get(a, {}).get("crew", 9) < game.view_players.get(b, {}).get("crew", 9))
+		var last_crew := -1
+		for id in ids:
 			var p: Dictionary = game.view_players.get(id, {})
+			var c: int = p.get("crew", 0)
+			if c != last_crew and c > 0:
+				last_crew = c
+				lines.append("%s%s - %d gold" % [ServerSim.CREW_NAMES[c - 1], " (yours)" if c == game.own_crew else "", game.purses.get(c, 0)])
 			var job := ""
 			if p.get("station", -1) >= 0:
 				job = "  -  " + ShipShape.stations()[p.station].label.trim_prefix("take ").trim_prefix("work ")
 			elif p.get("mode", 0) == LocalPlayer.Mode.WORLD:
 				job = "  -  overboard"
-			lines.append("%s%s%s" % [game.roster[id], " (you)" if id == game.local_id else "", job])
+			lines.append("    %s%s%s" % [game.roster[id], " (you)" if id == game.local_id else "", job])
 		_crew_list.text = "\n".join(lines)
 	_compass.queue_redraw()
 	_gauges.queue_redraw()
@@ -252,7 +260,7 @@ func _process(delta: float) -> void:
 	_enemy.text = ""
 	if enemy:
 		var d := Vector2(enemy.x - game.view_ship.x, enemy.z - game.view_ship.z)
-		_enemy.text = "Skeleton ship: %d m %s" % [int(d.length()), ServerSim.compass_name(atan2(d.x, -d.y))]
+		_enemy.text = "%s: %d m %s" % [Game.ship_name(enemy), int(d.length()), ServerSim.compass_name(atan2(d.x, -d.y))]
 
 
 func flash_damage() -> void:

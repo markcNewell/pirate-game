@@ -11,6 +11,8 @@ const MAX_BANANAS := 20
 enum Kind { CREW, SKELETON }
 
 var kind := Kind.CREW
+## The crew sailing her (1-4), or 0 for a skeleton ship.
+var crew := 0
 var x := 0.0
 var z := 0.0
 ## Heading in radians around +Y. 0 faces -Z; positive turns the bow to port (left).
@@ -57,7 +59,7 @@ func leaks() -> int:
 
 func to_array() -> Array:
 	var a := [
-		kind, x, z, yaw, speed, rudder,
+		kind, crew, x, z, yaw, speed, rudder,
 		sail_height[0], sail_height[1], sail_angle[0], sail_angle[1],
 		1 if anchored else 0, anchor_progress, water, sink, cannonballs, planks, bananas,
 	]
@@ -72,21 +74,22 @@ func to_array() -> Array:
 static func from_array(a: Array) -> ShipState:
 	var s := ShipState.new()
 	s.kind = a[0]
-	s.x = a[1]
-	s.z = a[2]
-	s.yaw = a[3]
-	s.speed = a[4]
-	s.rudder = a[5]
-	s.sail_height = [a[6], a[7]]
-	s.sail_angle = [a[8], a[9]]
-	s.anchored = a[10] == 1
-	s.anchor_progress = a[11]
-	s.water = a[12]
-	s.sink = a[13]
-	s.cannonballs = a[14]
-	s.planks = a[15]
-	s.bananas = a[16]
-	var i := 17
+	s.crew = a[1]
+	s.x = a[2]
+	s.z = a[3]
+	s.yaw = a[4]
+	s.speed = a[5]
+	s.rudder = a[6]
+	s.sail_height = [a[7], a[8]]
+	s.sail_angle = [a[9], a[10]]
+	s.anchored = a[11] == 1
+	s.anchor_progress = a[12]
+	s.water = a[13]
+	s.sink = a[14]
+	s.cannonballs = a[15]
+	s.planks = a[16]
+	s.bananas = a[17]
+	var i := 18
 	for g in GUNS:
 		s.gun_yaw[g] = a[i]
 		s.gun_pitch[g] = a[i + 1]

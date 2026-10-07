@@ -45,7 +45,19 @@ const SKELETON := {
 	"gold": Color("78c36d"),
 }
 
+## Each crew's colours: sails and the stripe along the hull, so ships can be told apart.
+const CREWS := [
+	{},
+	{"sail": Color("e05a4a"), "stripe": Color("fff2d0"), "flag": Color("7a1414")},
+	{"sail": Color("5a8fe0"), "stripe": Color("ffd23a"), "flag": Color("17305a")},
+	{"sail": Color("6ac46a"), "stripe": Color("fff2d0"), "flag": Color("1d4a22")},
+]
+
 static var _object: ShaderMaterial
+
+
+static func crew_palette(crew: int) -> Dictionary:
+	return CREWS[clampi(crew - 1, 0, CREWS.size() - 1)]
 static var _sky_object: ShaderMaterial
 static var _glow: StandardMaterial3D
 
