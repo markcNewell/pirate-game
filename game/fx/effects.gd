@@ -13,6 +13,7 @@ var _items: Array[Dictionary] = []
 var _ball_mesh: ArrayMesh
 var _puff_mesh: SphereMesh
 var _splinter_mesh: ArrayMesh
+var _plank_mesh: ArrayMesh
 
 
 func _ready() -> void:
@@ -25,6 +26,9 @@ func _ready() -> void:
 	var s := MeshBuilder.new()
 	s.box(Vector3.ZERO, Vector3(0.05, 0.05, 0.22), Toon.color("trunk"))
 	_splinter_mesh = s.build()
+	var p := MeshBuilder.new()
+	p.box(Vector3.ZERO, Vector3(0.16, 0.06, 1.1), Toon.color("hull"))
+	_plank_mesh = p.build()
 
 
 func cannonball() -> Node3D:
@@ -51,6 +55,30 @@ func muzzle_smoke(pos: Vector3, dir: Vector3) -> void:
 ## One puff of a cannonball's smoke trail.
 func trail(pos: Vector3) -> void:
 	_puff(pos, SMOKE, 0.18, 0.85, 0.9, Vector3.UP * 0.3)
+
+
+## Bubbles breaking the surface over a sinking ship.
+func bubbles(at: Vector3) -> void:
+	for i in 3:
+		var p := Vector3(at.x, 0.15, at.z) + Vector3(randf_range(-4, 4), 0.0, randf_range(-9, 9))
+		_puff(p, SPLASH, 0.2, 0.9, 0.7, Vector3.UP * 0.6)
+
+
+## Planks and barrels left floating where a ship went down; they drift, bob on the waves and
+## sink away after a while.
+func wreckage(at: Vector3) -> void:
+	for i in 12:
+		var barrel := i % 4 == 0
+		var piece := Toon.instance(LootView.mesh_for(Loot.Kind.BARREL, 0) if barrel else _plank_mesh)
+		var spot := Vector2(at.x, at.z) + Vector2(randf_range(-6, 6), randf_range(-10, 10))
+		piece.position = Vector3(spot.x, 0.0, spot.y)
+		piece.rotation = Vector3(PI / 2.0 if barrel else 0.0, randf() * TAU, 0.0)
+		add_child(piece)
+		_items.append({
+			"node": piece, "age": 0.0, "life": randf_range(35.0, 50.0), "kind": "float", "at": spot,
+			"drift": Vector2(randf_range(-0.4, 0.4), randf_range(-0.4, 0.4)), "spin": randf_range(-0.3, 0.3),
+			"lift": 0.0 if barrel else 0.05,
+		})
 
 
 func impact(kind: int, pos: Vector3) -> void:
@@ -140,6 +168,13 @@ func _process(delta: float) -> void:
 				item.vel.y -= 9.81 * delta
 				node.position += item.vel * delta
 				_fade(node, 1.0 - k)
+			"float":
+				item.at += item.drift * delta
+				var sea := Waves.height(item.at.x, item.at.y, _sea_time())
+				# Ride the waves, then slip under in the last few seconds.
+				var under := maxf(0.0, item.age - (item.life - 4.0)) * 0.4
+				node.position = Vector3(item.at.x, sea + item.lift - under, item.at.y)
+				node.rotation.y += item.spin * delta
 			"flash":
 				(node as OmniLight3D).light_energy = 4.0 * (1.0 - k)
 			"splinter":
@@ -148,6 +183,11 @@ func _process(delta: float) -> void:
 				node.rotation += item.spin * delta
 		keep.append(item)
 	_items = keep
+
+
+func _sea_time() -> float:
+	var game := get_parent() as Game
+	return game.render_time if game else Time.get_ticks_msec() / 1000.0
 
 
 func _fade(node: Node3D, alpha: float) -> void:

@@ -47,6 +47,8 @@ var proxy: DeckProxy
 var local_player: LocalPlayer
 var hud: Hud
 var effects: Effects
+## Ships we have seen start to sink (id -> time since the last bubbles).
+var _wrecked := {}
 var avatars := {}  # peer id -> Avatar
 var _item_views := {}  # item id -> LootView
 var _skeleton_views := {}  # skeleton id -> SkeletonView
@@ -317,6 +319,7 @@ func _process(delta: float) -> void:
 		var s: ShipState = view_ships[id]
 		var v := _ship_view_for(id, s)
 		v.apply(s, ShipPhysics.pose_of(s, render_time), view_wind, delta)
+		_sinking_effects(id, s, delta)
 	view_ship = view_ships.get(own_ship, view_ship)
 	ship_view = ship_views.get(own_ship)
 	if ship_view == null:
@@ -410,6 +413,21 @@ func _update_items() -> void:
 				elif avatars.has(item.carrier):
 					at = avatars[item.carrier].global_transform * Transform3D(Basis.IDENTITY, Vector3(0, 0.75, -0.55))
 		view.global_transform = at
+
+
+## Bubbles while a ship goes down, and wreckage left floating where she went.
+func _sinking_effects(id: int, s: ShipState, delta: float) -> void:
+	if s.sink <= 0.0:
+		_wrecked.erase(id)
+		return
+	if not _wrecked.has(id):
+		_wrecked[id] = 0.0
+		effects.wreckage(Vector3(s.x, 0.0, s.z))
+	if s.sink < 1.0:
+		_wrecked[id] += delta
+		if _wrecked[id] > 0.15:
+			_wrecked[id] = 0.0
+			effects.bubbles(Vector3(s.x, 0.0, s.z))
 
 
 func _update_balls() -> void:
