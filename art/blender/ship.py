@@ -337,8 +337,9 @@ def channels_and_deadeyes(mast, side):
 def rigging(feet, top, ratlines=True):
     """Shrouds from the deadeyes up to the mast, with ratlines across them to climb."""
     parts = []
+    # Thin rope reads better with a fine line: full ink would make the rigging a window grid.
     for f in feet:
-        parts.append(kit.tube("shroud", [tuple(f), tuple(top)], ROPE_R, 5, slot("rope"), caps=False))
+        parts.append(kit.noink(kit.tube("shroud", [tuple(f), tuple(top)], ROPE_R, 5, slot("rope"), caps=False), 0.45))
     if ratlines and len(feet) > 1:
         h0, h1 = feet[0].y + 0.5, feet[0].y + (top.y - feet[0].y) * 0.9
         y = h0
@@ -347,7 +348,7 @@ def rigging(feet, top, ratlines=True):
             for f in feet:
                 t = (y - f.y) / (top.y - f.y)
                 row.append(tuple(f + (top - f) * t))
-            parts.append(kit.tube("ratline", row, ROPE_R * 0.6, 4, slot("rope"), caps=False))
+            parts.append(kit.noink(kit.tube("ratline", row, ROPE_R * 0.6, 4, slot("rope"), caps=False), 0.25))
             y += 0.42
     return parts
 

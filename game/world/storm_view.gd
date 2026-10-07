@@ -19,9 +19,10 @@ var daylight := 1.0
 
 
 func _ready() -> void:
-	var clouds := Toon.instance(_cloud_bank(), _cloud_material())
-	clouds.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(clouds)
+	for bank in _cloud_bank():
+		bank.material_override = _cloud_material()
+		bank.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(bank)
 
 	var tube := CylinderMesh.new()
 	tube.top_radius = Storm.RADIUS * 0.8
@@ -140,17 +141,30 @@ func strike(top: Vector3) -> void:
 	_strike_left = 0.35
 
 
-static func _cloud_bank() -> ArrayMesh:
-	var b := MeshBuilder.new()
+## The storm's heavy cloud: two shapes of grey cloud (art/blender/sky.py) heaped over its
+## middle, one batch each.
+static func _cloud_bank() -> Array[MultiMeshInstance3D]:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
+	var spots: Array[Array] = [[], []]
 	for i in 26:
 		var a := rng.randf() * TAU
 		var r := sqrt(rng.randf()) * Storm.RADIUS * 0.85
-		var at := Vector3(cos(a) * r, CLOUD_Y + rng.randf_range(0.0, 14.0), sin(a) * r)
-		var size := rng.randf_range(26.0, 40.0)
-		b.ellipsoid(at, size, Vector3(1.0, 0.55, 1.0), 6, 10, Color("8e96a3").darkened(rng.randf() * 0.25))
-	return b.build()
+		var at := Vector3(cos(a) * r, CLOUD_Y + rng.randf_range(-4.0, 10.0), sin(a) * r)
+		var size := rng.randf_range(26.0, 40.0) / 4.0
+		spots[i % 2].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(size, size * 1.1, size)), at))
+	var out: Array[MultiMeshInstance3D] = []
+	for k in 2:
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.mesh = Models.part("clouds", "storm_%d" % k)
+		multi.instance_count = spots[k].size()
+		for i in spots[k].size():
+			multi.set_instance_transform(i, spots[k][i])
+		var batch := MultiMeshInstance3D.new()
+		batch.multimesh = multi
+		out.append(batch)
+	return out
 
 
 static func _cloud_material() -> ShaderMaterial:

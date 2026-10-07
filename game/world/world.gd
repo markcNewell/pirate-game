@@ -353,18 +353,12 @@ func _make_clouds() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for i in 14:
-		var b := MeshBuilder.new()
-		var puffs := rng.randi_range(4, 7)
-		for p in puffs:
-			var offset := Vector3(rng.randf_range(-2.2, 2.2), rng.randf_range(-0.3, 0.7), rng.randf_range(-0.8, 0.8))
-			if p == 0:
-				offset = Vector3.ZERO
-			b.ellipsoid(offset, rng.randf_range(1.0, 1.7), Vector3(1.0, 0.75, 1.0), 8, 12, Toon.color("cloud"))
-		var cloud := Toon.instance(b.build(), _cloud_material)
+		# A cumulus from art/blender/sky.py (four shapes), scaled up to sky size.
+		var cloud := Toon.instance(Models.part("clouds", "cloud_%d" % (i % 4)), _cloud_material)
 		cloud.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var a := TAU * i / 14.0 + rng.randf_range(-0.2, 0.2)
 		var dist := rng.randf_range(650.0, 900.0)
 		cloud.position = Vector3(cos(a) * dist, rng.randf_range(110.0, 190.0), sin(a) * dist)
-		cloud.scale = Vector3.ONE * rng.randf_range(22.0, 34.0)
+		cloud.scale = Vector3.ONE * rng.randf_range(19.0, 29.0)
 		cloud.rotation.y = rng.randf() * TAU
 		_clouds.add_child(cloud)
