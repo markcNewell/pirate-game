@@ -22,6 +22,7 @@ var _aim_override := {}
 var _flood: MeshInstance3D
 var _spray: Array[CPUParticles3D] = []
 var _gust_clock := 0.0
+var _mist: Array[MeshInstance3D] = []
 var _holes := {}  # hole id -> Node3D
 var _hole_mesh: ArrayMesh
 var _patch_mesh: ArrayMesh
@@ -91,6 +92,9 @@ func _ready() -> void:
 			light.light_energy = 0.55
 			light.omni_range = 6.0
 			add_child(light)
+
+	if kind == ShipState.Kind.SKELETON:
+		_make_mist()
 
 	# Spray thrown off both sides of the bow when the ship is moving fast.
 	for side: float in [-1.0, 1.0]:
@@ -199,11 +203,36 @@ func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float)
 
 	_flood.visible = state.water > 0.02
 	_flood.position.y = ShipShape.LOWER_Y + state.water
+	for i in _mist.size():
+		# The ghostly mist swells and shrinks, each puff in its own time.
+		var swell := 1.0 + 0.18 * sin(_gust_clock * 0.9 + i * 1.3)
+		_mist[i].scale = Vector3(swell, 0.3 + 0.05 * sin(_gust_clock * 1.4 + i), swell)
 	for spray in _spray:
 		spray.emitting = state.speed > 3.0 and state.sink <= 0.0
 		spray.initial_velocity_min = 2.0 + state.speed * 0.35
 		spray.initial_velocity_max = 3.0 + state.speed * 0.6
 	_update_holes(state.holes)
+
+
+## Skeleton ships trail a pale green mist along their waterline.
+func _make_mist() -> void:
+	var puff := SphereMesh.new()
+	puff.radius = 2.1
+	puff.height = 4.2
+	puff.radial_segments = 12
+	puff.rings = 6
+	var haze := Toon.clear_material(Color(0.6, 1.0, 0.62, 0.26))
+	haze.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	haze.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	for z in range(-11, 13, 3):
+		for side: float in [-1.0, 1.0]:
+			var m := MeshInstance3D.new()
+			m.mesh = puff
+			m.material_override = haze
+			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			m.position = Vector3(side * (ShipShape.half_width(float(z), 0.0) + 0.6), 0.35, float(z))
+			add_child(m)
+			_mist.append(m)
 
 
 func _make_spray(side: float) -> CPUParticles3D:
