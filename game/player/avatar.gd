@@ -7,6 +7,7 @@ extends Node3D
 const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0")]
 const HIP := Vector3(0.14, 0.86, 0.0)
 const SHOULDER := Vector3(0.36, 1.42, 0.0)
+const NECK := Vector3(0.0, 1.55, 0.0)
 ## Walk-cycle radians per metre: about one step every 0.9 m.
 const STEP_RATE := 3.4
 
@@ -15,6 +16,7 @@ var _label: Label3D
 var _bucket: MeshInstance3D
 var _legs: Array[Node3D] = []
 var _arms: Array[Node3D] = []
+var _head: Node3D
 var _cutlass: MeshInstance3D
 var _pistol: MeshInstance3D
 var _last := Vector3.ZERO
@@ -27,7 +29,14 @@ func _init(player_name: String, index: int) -> void:
 	var shirt := SHIRTS[index % SHIRTS.size()]
 	_model = Node3D.new()
 	add_child(_model)
-	_model.add_child(Toon.instance(body_mesh(shirt, index)))
+	_model.add_child(Toon.instance(body_mesh(shirt)))
+	# The head nods on a neck joint to show where the player is looking.
+	_head = Node3D.new()
+	_head.position = NECK
+	var face := Toon.instance(head_mesh(shirt, index))
+	face.position = -NECK
+	_head.add_child(face)
+	_model.add_child(_head)
 	for side: int in [-1, 1]:
 		_legs.append(_joint(Vector3(side * HIP.x, HIP.y, HIP.z), leg_mesh()))
 		_arms.append(_joint(Vector3(side * SHOULDER.x, SHOULDER.y, SHOULDER.z), arm_mesh(shirt, side)))
@@ -39,7 +48,9 @@ func _init(player_name: String, index: int) -> void:
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.font_size = 40
 	_label.outline_size = 10
-	_label.pixel_size = 0.005
+	# The same size on screen near or far, so a crewmate beside you is not hidden behind it.
+	_label.fixed_size = true
+	_label.pixel_size = 0.001
 	_label.position.y = 2.3
 	_label.no_depth_test = false
 	add_child(_label)
@@ -88,6 +99,11 @@ func attack() -> void:
 	_swing = 1.0
 
 
+## Tilt the head up or down with the player's view, a little less than they really look.
+func set_pitch(pitch: float) -> void:
+	_head.rotation.x = clampf(pitch * 0.6, -0.5, 0.6)
+
+
 ## `pose` is where the feet are and which way the pirate faces, in world space.
 func place(pose: Transform3D, delta: float) -> void:
 	var moved := (pose.origin - _last).length() / maxf(delta, 1e-3)
@@ -127,14 +143,10 @@ static func merchant_mesh() -> ArrayMesh:
 	return b.build()
 
 
-## The torso, belt and head, plus one of four looks: tricorn and beard, bandana and eyepatch,
-## captain's hat and moustache, or headscarf. The legs and arms are separate (leg_mesh, arm_mesh).
-static func body_mesh(shirt: Color, look := 0) -> ArrayMesh:
+## The torso and belt. The head, legs and arms are separate (head_mesh, leg_mesh, arm_mesh).
+static func body_mesh(shirt: Color) -> ArrayMesh:
 	var b := MeshBuilder.new()
-	var skin := Color("f2c49b")
-	var dark := Color("2a2430")
 	for side: int in [-1, 1]:
-		b.ellipsoid(Vector3(side * 0.08, 1.72, -0.19), 0.035, Vector3(1, 1.3, 0.6), 4, 6, dark)
 		# Rounded shoulders hide the joint as the arm swings.
 		b.ellipsoid(Vector3(side * 0.33, 1.42, 0), 0.12, Vector3.ONE, 5, 8, shirt)
 	b.cylinder(Vector3(0, 0.82, 0), Vector3(0, 1.48, 0), 0.3, 0.35, 12, shirt)
@@ -142,6 +154,18 @@ static func body_mesh(shirt: Color, look := 0) -> ArrayMesh:
 	b.box(Vector3(0, 0.9, -0.31), Vector3(0.07, 0.06, 0.02), Toon.color("gold"))
 	# Hips, so the tops of the legs don't show a gap mid-stride.
 	b.ellipsoid(Vector3(0, 0.84, 0), 0.3, Vector3(1.0, 0.45, 0.85), 5, 10, Color("3b3550"))
+	return b.build()
+
+
+## The head, in the same coordinates as the body, with one of four looks: tricorn and beard,
+## bandana and eyepatch, captain's hat and moustache, or headscarf.
+static func head_mesh(shirt: Color, look := 0) -> ArrayMesh:
+	var b := MeshBuilder.new()
+	var skin := Color("f2c49b")
+	var dark := Color("2a2430")
+	for side: int in [-1, 1]:
+		b.ellipsoid(Vector3(side * 0.08, 1.72, -0.19), 0.035, Vector3(1, 1.3, 0.6), 4, 6, dark)
+	b.cylinder(Vector3(0, 1.45, 0), Vector3(0, 1.58, 0), 0.09, 0.09, 8, skin)
 	b.ellipsoid(Vector3(0, 1.68, 0), 0.22, Vector3(1.0, 1.1, 1.0), 8, 12, skin)
 	b.ellipsoid(Vector3(0, 1.65, -0.22), 0.05, Vector3(1, 1, 1.2), 4, 6, skin)
 	match look % 4:

@@ -16,6 +16,8 @@ var _daylight_wait := 0.0
 var _lamps := -1.0
 var _storm: StormView
 var _dolphins: Dolphins
+var _wind_lines: WindLines
+var _gloom := 0.0
 var _camera := Vector2.ZERO
 var _inside := 0.0
 var _ambient := 0.38
@@ -37,6 +39,8 @@ func _ready() -> void:
 	add_child(_storm)
 	_dolphins = Dolphins.new()
 	add_child(_dolphins)
+	_wind_lines = WindLines.new()
+	add_child(_wind_lines)
 
 
 ## `time_of_day` pins the light (0-1, see Daylight); below 0 it follows the server clock.
@@ -45,6 +49,7 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 	_sky.set_shader_parameter("time", sea_time)
 	_camera = Vector2(camera_pos.x, camera_pos.z)
 	_dolphins.follow(camera_pos, sea_time, ships, get_process_delta_time())
+	_wind_lines.follow(camera_pos, Game.wind_dir(sea_time), _gloom, get_process_delta_time())
 	_inside = Storm.amount(_camera, sea_time)
 	# The light changes slowly, so a few updates a second is plenty.
 	_daylight_wait -= get_process_delta_time()
@@ -71,6 +76,7 @@ func _apply_daylight(t: float) -> void:
 		look.energy *= 1.0 - 0.65 * s
 		look.glow *= 1.0 - s
 	_sky.set_shader_parameter("overcast", s)
+	_gloom = maxf(s, look.stars)
 	_env.fog_depth_begin = lerpf(160.0, 20.0, s)
 	_env.fog_depth_end = lerpf(950.0, 260.0, s)
 	_sky.set_shader_parameter("top_color", look.top)

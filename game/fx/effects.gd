@@ -35,6 +35,14 @@ func cannonball() -> Node3D:
 
 
 func muzzle_smoke(pos: Vector3, dir: Vector3) -> void:
+	# A short orange flash that lights up the deck and the water around the gun.
+	var flash := OmniLight3D.new()
+	flash.light_color = Color("ffb35a")
+	flash.light_energy = 4.0
+	flash.omni_range = 14.0
+	flash.position = pos + dir * 0.8
+	add_child(flash)
+	_items.append({"node": flash, "age": 0.0, "life": 0.2, "kind": "flash"})
 	for i in 6:
 		var p := pos + dir * (0.4 + i * 0.45) + _jitter(0.25)
 		_puff(p, SMOKE, 0.35 + i * 0.05, 1.3 + i * 0.12, 1.6 + randf() * 0.5, dir * (2.5 - i * 0.3) + Vector3.UP * 0.6)
@@ -132,6 +140,8 @@ func _process(delta: float) -> void:
 				item.vel.y -= 9.81 * delta
 				node.position += item.vel * delta
 				_fade(node, 1.0 - k)
+			"flash":
+				(node as OmniLight3D).light_energy = 4.0 * (1.0 - k)
 			"splinter":
 				item.vel.y -= 9.81 * delta
 				node.position += item.vel * delta

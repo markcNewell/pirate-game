@@ -349,6 +349,7 @@ func _process(delta: float) -> void:
 		avatar.set_bucket(p.bucket)
 		avatar.set_hostile(p.crew != own_crew)
 		avatar.set_weapon(p.weapon)
+		avatar.set_pitch(p.pitch)
 		avatar.visible = not p.dead
 
 	_update_balls()
