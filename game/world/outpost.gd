@@ -16,6 +16,9 @@ const REACH := 3.2
 const LIGHTHOUSE_ANGLE := -2.0
 const LIGHTHOUSE_IN := 8.0
 const LIGHTHOUSE_HEIGHT := 13.0
+## The tavern sits inland, round from the hut, its door facing the sea.
+const TAVERN_ANGLE := 1.45
+const TAVERN_IN := 13.0
 
 
 static func spec() -> Dictionary:
@@ -66,6 +69,25 @@ static func lighthouse_lamp() -> Vector3:
 	return _centre() + _lighthouse_foot() + Vector3(0, LIGHTHOUSE_HEIGHT + 1.1, 0)
 
 
+## The tavern's frame, island-local: +x out of its front door toward the sea.
+static func _tavern_frame() -> Transform3D:
+	var s := spec()
+	var r: float = s.radius - TAVERN_IN
+	var x := cos(TAVERN_ANGLE) * r
+	var z := sin(TAVERN_ANGLE) * r
+	return Transform3D(Basis(Vector3.UP, -TAVERN_ANGLE), Vector3(x, IslandMesh.ground(s, x, z) - 0.2, z))
+
+
+## A point in the tavern's own frame (+x out of the front door), in world space.
+static func tavern_point(local: Vector3) -> Vector3:
+	return _centre() + _tavern_frame() * local
+
+
+## Top of the tavern's chimney, in world space.
+static func tavern_chimney() -> Vector3:
+	return _centre() + _tavern_frame() * Vector3(-1.6, 9.1, 2.2)
+
+
 ## Where the pier lamps and the hut's lantern hang, in world space.
 static func lamps() -> Array[Vector3]:
 	var r1: float = spec().radius + PIER_END
@@ -73,6 +95,7 @@ static func lamps() -> Array[Vector3]:
 	for side: float in [-1.0, 1.0]:
 		out.append(_centre() + Vector3(r1 - 0.4, PIER_Y + 2.6, side * (PIER_HALF_WIDTH - 0.15)))
 	out.append(merchant_pos() + Vector3(0, 2.4, 0))
+	out.append(_centre() + _tavern_frame() * Vector3(3.3, 2.6, 1.6))
 	return out
 
 
@@ -121,6 +144,7 @@ static func build() -> Dictionary:
 
 	_hut(b, solid)
 	_lighthouse(b, solid)
+	_tavern(b, solid)
 	# Flag pole by the root of the pier.
 	var pole := Vector3(r0 - 1.0, IslandMesh.ground(s, r0 - 1.0, -3.0), -3.0)
 	b.cylinder(pole, pole + Vector3(0, 9, 0), 0.12, 0.08, 7, dark)
@@ -134,6 +158,45 @@ static func _barrel(b: MeshBuilder, foot: Vector3) -> void:
 	for h: float in [0.2, 0.65]:
 		b.cylinder(foot + Vector3(0, h, 0), foot + Vector3(0, h + 0.08, 0), 0.39, 0.39, 10, Toon.color("trim"))
 	b.cylinder(foot + Vector3(0, 0.9, 0), foot + Vector3(0, 0.95, 0), 0.3, 0.3, 10, Toon.color("deck"))
+
+
+## The Salty Dog tavern: a stone ground floor, a timber-framed upper floor, a pitched roof
+## with a chimney, lit windows, a door facing the sea and a sign with a tankard.
+static func _tavern(b: MeshBuilder, solid: MeshBuilder) -> void:
+	var f := _tavern_frame()
+	var at := func(v: Vector3) -> Vector3: return f * v
+	var stone := Color("a59c8e")
+	var plaster := Color("efe6d2")
+	var beam := Color("5a3a24")
+	var roof := Color("9c3a2a")
+	var glow := Color("ffd27a")
+	var half := Vector3(3.0, 0.0, 3.6)
+	b.box(at.call(Vector3(0, 1.4, 0)), Vector3(half.x, 1.4, half.z), stone, f.basis)
+	b.box(at.call(Vector3(0, 4.2, 0)), Vector3(half.x + 0.2, 1.4, half.z + 0.2), plaster, f.basis)
+	b.box(at.call(Vector3(0, 2.85, 0)), Vector3(half.x + 0.25, 0.12, half.z + 0.25), beam, f.basis)
+	# Dark timber framing on the upper floor.
+	for z: float in [-3.7, -1.2, 1.2, 3.7]:
+		b.box(at.call(Vector3(half.x + 0.22, 4.2, z)), Vector3(0.06, 1.4, 0.12), beam, f.basis)
+	b.box(at.call(Vector3(half.x + 0.22, 4.2, 0)), Vector3(0.05, 0.1, 3.7), beam, f.basis)
+	# Pitched roof running front to back, gable ends to the sides.
+	for side: float in [-1.0, 1.0]:
+		var tilt := f.basis * Basis(Vector3.BACK, -side * 0.62)
+		b.box(at.call(Vector3(side * 1.75, 6.75, 0)), Vector3(2.25, 0.14, half.z + 0.6), roof, tilt)
+	for side: float in [-1.0, 1.0]:
+		var gable_z := side * (half.z + 0.19)
+		b.tri(at.call(Vector3(-half.x - 0.2, 5.6, gable_z)), at.call(Vector3(half.x + 0.2, 5.6, gable_z)),
+			at.call(Vector3(0, 7.9, gable_z)), plaster, f.basis * Vector3(0, 0, side))
+	b.box(at.call(Vector3(-1.6, 7.7, 2.2)), Vector3(0.45, 1.4, 0.45), stone.darkened(0.1), f.basis)
+	# Door and lit windows on the front, windows upstairs too.
+	b.box(at.call(Vector3(half.x + 0.03, 1.1, 0)), Vector3(0.05, 1.1, 0.65), beam, f.basis)
+	for z: float in [-2.2, 2.2]:
+		b.box(at.call(Vector3(half.x + 0.03, 1.5, z)), Vector3(0.05, 0.5, 0.55), glow, f.basis)
+		b.box(at.call(Vector3(half.x + 0.25, 4.3, z * 0.85)), Vector3(0.04, 0.5, 0.45), glow, f.basis)
+	# Hanging sign: a board on a bracket with a tankard painted on it.
+	b.box(at.call(Vector3(half.x + 0.9, 3.3, 1.6)), Vector3(0.9, 0.05, 0.05), beam, f.basis)
+	b.box(at.call(Vector3(half.x + 1.3, 2.75, 1.6)), Vector3(0.04, 0.45, 0.55), Color("2f6a4f"), f.basis)
+	b.box(at.call(Vector3(half.x + 1.35, 2.72, 1.6)), Vector3(0.03, 0.22, 0.17), Toon.color("gold"), f.basis)
+	solid.box(at.call(Vector3(0, 2.8, 0)), Vector3(half.x, 2.8, half.z), Color.BLACK, f.basis)
 
 
 ## A striped lighthouse: a tapering tower, a railed gallery, the lamp room and a red cap.

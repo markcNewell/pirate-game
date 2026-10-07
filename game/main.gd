@@ -199,6 +199,8 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 				var xyz: PackedStringArray = str(_args["shot-from"]).split(",")
 				from = Vector3(float(xyz[0]), float(xyz[1]), float(xyz[2]))
 			cam.look_at_from_position(centre + from * maxf(away, 0.55), centre)
+		elif view == "tavern":
+			cam.look_at_from_position(Outpost.tavern_point(Vector3(17, 6, -10)), Outpost.tavern_point(Vector3(0, 3.8, 0)))
 		elif view == "lighthouse":
 			var lamp := Outpost.lighthouse_lamp()
 			var isl := Outpost.spec()

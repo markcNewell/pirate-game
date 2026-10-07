@@ -22,6 +22,7 @@ crew vs crew: fight other crews, sink their ships and steal their chests. The se
 | ![Sunset](docs/screenshots/sunset.png) | ![Night, lanterns lit](docs/screenshots/night.png) |
 | ![A storm on the horizon](docs/screenshots/storm.png) | ![Inside the storm](docs/screenshots/in-the-storm.png) |
 | ![Port Merrow's lighthouse at night](docs/screenshots/lighthouse-night.png) | ![The rock arch on Gull Isle](docs/screenshots/gull-isle-arch.png) |
+| ![The tavern at Port Merrow](docs/screenshots/tavern.png) | |
 
 ## Play
 

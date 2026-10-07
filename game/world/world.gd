@@ -166,6 +166,7 @@ func _island(spec: Dictionary) -> void:
 		merchant.rotation.y = -PI / 2.0 - Outpost.HUT_ANGLE
 		root.add_child(merchant)
 		faces.append_array(port.faces)
+		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
 		var lighthouse := Lighthouse.new()
 		lighthouse.position = Outpost.lighthouse_lamp() - root.position
 		root.add_child(lighthouse)
@@ -187,6 +188,33 @@ func _island(spec: Dictionary) -> void:
 	body.add_child(holder)
 	root.add_child(body)
 	add_child(root)
+
+
+## A lazy column of smoke from the tavern chimney.
+static func _chimney_smoke(at: Vector3) -> CPUParticles3D:
+	var puff := SphereMesh.new()
+	puff.radius = 0.5
+	puff.height = 1.0
+	puff.radial_segments = 8
+	puff.rings = 4
+	var p := CPUParticles3D.new()
+	p.mesh = puff
+	p.material_override = Toon.clear_material(Color(0.93, 0.92, 0.9, 0.7))
+	p.position = at
+	p.amount = 14
+	p.lifetime = 5.0
+	p.direction = Vector3(0.3, 1.0, 0.1)
+	p.spread = 12.0
+	p.gravity = Vector3(0.25, 0.15, 0.0)
+	p.initial_velocity_min = 0.6
+	p.initial_velocity_max = 0.9
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 0.8
+	var grow := Curve.new()
+	grow.add_point(Vector2(0.0, 0.4))
+	grow.add_point(Vector2(1.0, 2.2))
+	p.scale_amount_curve = grow
+	return p
 
 
 func _make_clouds() -> void:
