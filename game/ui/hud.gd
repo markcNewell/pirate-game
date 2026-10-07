@@ -307,6 +307,7 @@ func _process(delta: float) -> void:
 	var ship := game.view_ship
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
 	_map.visible = Input.is_action_pressed("map") and not game.voyage.is_empty() and not _menu.visible
+	_prompt.visible = not _map.visible
 	if _map.visible:
 		_map.queue_redraw()
 	var reload := game.local_player.cannon_reload()
@@ -500,12 +501,15 @@ class TreasureMap:
 			return
 		var spec: Dictionary = Islands.LAYOUT[v.island]
 		var font := get_theme_default_font()
-		draw_rect(Rect2(Vector2.ZERO, size), PARCHMENT)
-		draw_rect(Rect2(Vector2.ZERO, size), INKY, false, 4.0)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(spec.seed) * 31 + 7
+		_parchment(rng)
 		var centre := size * 0.5 + Vector2(0, 14)
-		var scale: float = (minf(size.x, size.y) * 0.36) / (spec.radius + 6.0)
+		var scale: float = (minf(size.x, size.y) * 0.34) / (spec.radius + 6.0)
+		_sea_marks(rng, centre, spec.radius * scale * 1.25)
 		var beach := PackedVector2Array()
 		var grass := PackedVector2Array()
+		var grass_r: Array[float] = []
 		for i in 64:
 			var a := TAU * i / 64.0
 			var wob := 1.0 + 0.04 * sin(5.0 * a)
@@ -516,20 +520,84 @@ class TreasureMap:
 			while r > 0.0 and not IslandMesh.is_grass(spec, cos(a) * r * wob, sin(a) * r * wob):
 				r -= 0.5
 			grass.append(centre + dir * r * wob * scale)
+			grass_r.append(r * wob * scale)
 		draw_colored_polygon(beach, Color("e8cf98"))
 		draw_colored_polygon(grass, Color("9cbf6e"))
 		beach.append(beach[0])
-		draw_polyline(beach, INKY, 3.0)
+		draw_polyline(beach, INKY, 3.0, true)
+		# A few palms drawn the way a map-maker would.
+		for i in 6:
+			var k := rng.randi_range(0, 63)
+			var p := centre + Vector2(cos(TAU * k / 64.0), sin(TAU * k / 64.0)) * grass_r[k] * rng.randf_range(0.25, 0.8)
+			_palm(p)
 		var x := centre + Vector2(v.x - spec.x, v.z - spec.z) * scale
+		_trail(beach, x, rng)
 		for d: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
-			draw_line(x - d * 12.0, x + d * 12.0, Color("c8302a"), 6.0)
-		draw_string(Hud.display_font(), Vector2(0, 46), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 40, INKY)
+			draw_line(x - d * 13.0, x + d * 13.0, Color("c8302a"), 7.0, true)
+		draw_string(Hud.display_font(), Vector2(0, 50), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 42, INKY)
+		_compass_rose(Vector2(size.x - 52, 62))
 		var ship := hud.game.view_ship
 		var to := Vector2(spec.x - ship.x, spec.z - ship.z)
 		var hint := "%d m to the %s" % [int(to.length()), ServerSim.compass_name(atan2(to.x, -to.y))]
-		draw_string(font, Vector2(0, size.y - 22), hint, HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, INKY)
-		draw_string(font, Vector2(size.x - 40, 40), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("c8302a"))
+		draw_string(font, Vector2(0, size.y - 24), hint, HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, INKY)
 
+	## The sheet: torn, scorched edges round a slightly yellowed middle.
+	func _parchment(rng: RandomNumberGenerator) -> void:
+		var edge := PackedVector2Array()
+		var pad := 6.0
+		var corners: Array[Vector2] = [Vector2(pad, pad), Vector2(size.x - pad, pad), Vector2(size.x - pad, size.y - pad), Vector2(pad, size.y - pad)]
+		for c in 4:
+			var a: Vector2 = corners[c]
+			var b: Vector2 = corners[(c + 1) % 4]
+			var steps := int(a.distance_to(b) / 18.0)
+			var inward := (b - a).normalized().orthogonal()
+			for i in steps:
+				var p := a.lerp(b, float(i) / steps)
+				edge.append(p - inward * rng.randf_range(-1.0, 5.0))
+		draw_colored_polygon(edge, PARCHMENT)
+		var ring := edge.duplicate()
+		ring.append(edge[0])
+		draw_polyline(ring, Color("9a6a3a", 0.55), 10.0, true)
+		draw_polyline(ring, Color("5a3e22", 0.9), 2.5, true)
+
+	## Little wavy strokes on the sea around the island.
+	func _sea_marks(rng: RandomNumberGenerator, centre: Vector2, keep_out: float) -> void:
+		for i in 22:
+			var p := Vector2(rng.randf_range(40, size.x - 40), rng.randf_range(80, size.y - 50))
+			if p.distance_to(centre) < keep_out:
+				continue
+			for k in 2:
+				draw_arc(p + Vector2(k * 12.0, 0), 6.0, PI * 1.1, PI * 1.9, 6, Color(INKY, 0.45), 2.0, true)
+
+	func _palm(p: Vector2) -> void:
+		var top := p + Vector2(3, -16)
+		draw_line(p, top, INKY, 2.5, true)
+		for a: float in [-2.6, -1.9, -1.2, -0.5]:
+			var leaf := Vector2(cos(a), sin(a) * 0.6 + 0.25) * 10.0
+			draw_line(top, top + leaf, Color("3f6e2e"), 3.0, true)
+
+	## A dotted path from the nearest stretch of beach to the X.
+	func _trail(beach: PackedVector2Array, x: Vector2, rng: RandomNumberGenerator) -> void:
+		var start := beach[0]
+		for p in beach:
+			if p.distance_to(x) < start.distance_to(x):
+				start = p
+		var bend := (x - start).orthogonal().normalized() * rng.randf_range(-20.0, 20.0)
+		var mid := (start + x) * 0.5 + bend
+		var dots := 14
+		for i in range(1, dots):
+			var t := float(i) / dots
+			var p := start.lerp(mid, t).lerp(mid.lerp(x, t), t)
+			draw_circle(p, 2.2, Color(INKY, 0.8))
+
+	func _compass_rose(at: Vector2) -> void:
+		for k in 4:
+			var a := k * PI / 2.0 - PI / 2.0
+			var tip := at + Vector2(cos(a), sin(a)) * 24.0
+			var side := Vector2(cos(a + PI / 2.0), sin(a + PI / 2.0)) * 6.0
+			draw_colored_polygon(PackedVector2Array([at + side, tip, at - side]), Color("c8302a") if k == 0 else INKY)
+		draw_circle(at, 4.0, PARCHMENT)
+		draw_string(Hud.display_font(), at + Vector2(-7, -28), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("c8302a"))
 
 
 ## Health bar and the weapon in hand (1 cutlass, 2 pistol).
