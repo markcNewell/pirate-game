@@ -69,6 +69,7 @@ var _health: Control
 var _hurt: ColorRect
 var _ghost: Label
 var _veil: ColorRect
+var _ring: HoldRing
 var _map: Control
 var _purse: Label
 var _gunner: Label
@@ -156,6 +157,12 @@ func _ready() -> void:
 	_health.offset_top = -64
 	_health.offset_bottom = -24
 	root.add_child(_health)
+
+	_ring = HoldRing.new()
+	_ring.hud = self
+	_ring.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_ring)
 
 	_hurt = ColorRect.new()
 	_hurt.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -311,6 +318,7 @@ func _process(delta: float) -> void:
 	_gauges.queue_redraw()
 	_damage.queue_redraw()
 	_health.queue_redraw()
+	_ring.queue_redraw()
 	_hurt.color.a = maxf(0.0, _hurt.color.a - delta * 1.2)
 	_ghost.visible = game.local_player.dead
 	_veil.visible = _ghost.visible
@@ -613,6 +621,20 @@ class TreasureMap:
 
 
 ## Health bar and the weapon in hand (1 cutlass, 2 pistol).
+## A gold ring round the crosshair that fills while E is held on a hole or a dig spot.
+class HoldRing:
+	extends Control
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var progress := hud.game.local_player.hold_progress()
+		if progress < 0.0:
+			return
+		draw_arc(Vector2.ZERO, 26.0, 0.0, TAU, 40, Color(INK, 0.45), 7.0, true)
+		draw_arc(Vector2.ZERO, 26.0, -PI / 2.0, -PI / 2.0 + TAU * progress, 40, GOLD, 5.0, true)
+
+
 class Health:
 	extends Control
 

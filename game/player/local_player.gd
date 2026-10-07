@@ -63,6 +63,8 @@ var _prev := Vector3.ZERO
 var _curr := Vector3.ZERO
 var _send_timer := 0.0
 var _patch_timer := 0.0
+## How long E has been held on a dig spot; the HUD's ring shows it (the server keeps the truth).
+var _dig_clock := 0.0
 var _stations := ShipShape.stations()
 
 
@@ -191,6 +193,8 @@ func _go_overboard(local: Vector3) -> void:
 
 func _interact(delta: float) -> void:
 	var target := current_target()
+	var digging: bool = not target.is_empty() and target.kind == "dig" and input.interact_held
+	_dig_clock = _dig_clock + delta if digging else 0.0
 	if target.is_empty():
 		return
 	if target.kind == "patch" or target.kind == "dig":
@@ -317,6 +321,21 @@ func nearest_station() -> int:
 			best = st.id
 			best_dist = dist
 	return best
+
+
+## How far along a held action is (0-1) while E is held on it, or -1 when nothing is held.
+func hold_progress() -> float:
+	if not input.interact_held:
+		return -1.0
+	var target := current_target()
+	if target.is_empty():
+		return -1.0
+	if target.kind == "dig":
+		return clampf(_dig_clock / ServerSim.DIG_TIME, 0.0, 1.0)
+	if target.kind == "patch":
+		var hole := nearest_hole()
+		return float(hole[4]) if not hole.is_empty() else -1.0
+	return -1.0
 
 
 ## The hole in reach that we are looking at ([id, x, y, z, progress]), or empty.

@@ -155,6 +155,15 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var st: Dictionary = ShipShape.stations()[5]
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, st.stand, -PI / 2.0)
 		game.send_request("station", 5)
+	elif game and view == "patch":
+		# Below deck at the first hole (start with --test-holes 1), holding E on it.
+		var h: Array = game.view_ship.holes[0]
+		var side := signf(float(h[1]))
+		var at := Vector3(float(h[1]) - side * 1.2, ShipShape.LOWER_Y, float(h[3]))
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, at, -side * PI / 2.0)
+		game.local_player.pitch = -0.35
+		# Start holding E a second before the picture, so it catches the patch half done.
+		get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void: Input.action_press("interact"))
 	elif game and view == "swing":
 		# Start a cutlass swing just before the picture is taken.
 		get_tree().create_timer(maxf(0.0, delay * 0.5 - 0.12)).timeout.connect(game.local_player.weapon_view.attack)
