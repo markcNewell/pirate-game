@@ -239,10 +239,13 @@ func apply(state: ShipState, pose: Transform3D, wind_dir: Vector2, delta: float)
 		# The ghostly mist swells and shrinks, each puff in its own time.
 		var swell := 1.0 + 0.18 * sin(_gust_clock * 0.9 + i * 1.3)
 		_mist[i].scale = Vector3(swell, 0.3 + 0.05 * sin(_gust_clock * 1.4 + i), swell)
+	# In the storm's big seas the bow throws spray even at a crawl.
+	var game := get_parent() as Game
+	var storm := Storm.amount(Vector2(state.x, state.z), game.render_time) if game else 0.0
 	for spray in _spray:
-		spray.emitting = state.speed > 3.0 and state.sink <= 0.0
-		spray.initial_velocity_min = 2.0 + state.speed * 0.35
-		spray.initial_velocity_max = 3.0 + state.speed * 0.6
+		spray.emitting = (state.speed > 3.0 or storm > 0.3) and state.sink <= 0.0
+		spray.initial_velocity_min = 2.0 + state.speed * 0.35 + storm * 4.0
+		spray.initial_velocity_max = 3.0 + state.speed * 0.6 + storm * 6.0
 	_update_holes(state.holes)
 
 
