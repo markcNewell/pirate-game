@@ -222,6 +222,9 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			"bounty":
 				var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
 				look_at = game.sim.skeletons[m.captain].pos
+				# Hold their swings, or the shot is of you falling over.
+				for s: Skeleton in game.sim.skeletons.values():
+					s.cooldown = 1e6
 				var away := (Vector3(spec.x, 0, spec.z) - look_at).normalized()
 				stand = look_at + Vector3(away.z, 0, -away.x) * 7.0
 			"cargo":

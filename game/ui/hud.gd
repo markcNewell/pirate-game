@@ -112,6 +112,11 @@ func _ready() -> void:
 	_toast.add_theme_font_override("font", display_font())
 	_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_toast.offset_top = 70
+	# Wrapped under the compass, clear of the mission card on the left.
+	_toast.offset_left = -300
+	_toast.offset_right = 300
+	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	root.add_child(_toast)
 
@@ -223,8 +228,8 @@ func _ready() -> void:
 	_card.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	_card.offset_left = 20
 	_card.offset_top = 16
-	_card.offset_right = 360
-	_card.offset_bottom = 200
+	_card.offset_right = 310
+	_card.offset_bottom = 260
 	root.add_child(_card)
 
 	_board = _parchment_card()
@@ -715,23 +720,36 @@ class MissionCard:
 			return
 		var lines := MissionCard.steps(m, hud.game.render_time)
 		var font := get_theme_default_font()
-		var height := 74 + lines.size() * 24
-		Hud.panel(self, Rect2(Vector2.ZERO, Vector2(size.x, height)))
+		var width := size.x - 32
+		# Long steps wrap onto further lines; the panel grows to fit.
+		var heights: Array[float] = []
+		var height := 70.0
+		for line: Array in lines:
+			var h := font.get_multiline_string_size(str(line[0]).trim_prefix("!"), HORIZONTAL_ALIGNMENT_LEFT, width, 18).y
+			heights.append(h)
+			height += h + 4.0
+		Hud.panel(self, Rect2(Vector2.ZERO, Vector2(size.x, height + 6.0)))
 		var colour: Color = Missions.COMPANY_COLOURS[m.company]
 		draw_string(font, Vector2(16, 26), Missions.COMPANY_NAMES[m.company].to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, colour)
-		draw_string(Hud.display_font(), Vector2(16, 56), m.title, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 28, PAPER)
+		# A long title is set smaller rather than cut off.
+		var title_size := 28
+		while title_size > 18 and Hud.display_font().get_string_size(m.title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > width:
+			title_size -= 1
+		draw_string(Hud.display_font(), Vector2(16, 56), m.title, HORIZONTAL_ALIGNMENT_LEFT, width, title_size, PAPER)
+		var top := 66.0
 		for i in lines.size():
-			var y := 84 + i * 24
 			var done: bool = lines[i][1]
 			var text: String = lines[i][0]
 			var col := Color(PAPER, 0.45) if done else PAPER
 			if text.begins_with("!"):
 				text = text.substr(1)
 				col = Color("ffb04a")
-			draw_string(font, Vector2(16, y), text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 18, col)
+			var y := top + font.get_ascent(18)
+			draw_multiline_string(font, Vector2(16, y), text, HORIZONTAL_ALIGNMENT_LEFT, width, 18, -1, col)
 			if done:
-				var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+				var w := minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, width)
 				draw_line(Vector2(14, y - 6), Vector2(18 + w, y - 6), Color(PAPER, 0.6), 2.0)
+			top += heights[i] + 4.0
 
 	## The steps as [text, done] (text starting "!" is a warning).
 	static func steps(m: Dictionary, now: float) -> Array:
