@@ -191,12 +191,16 @@ func _hello(player_name: String, version: String, crew: int) -> void:
 					multiplayer.multiplayer_peer.disconnect_peer(id)
 		)
 		return
-	_welcome.rpc_id(id, id)
+	# The storm shapes the waves everyone floats on, so clients must know if it is on or pinned.
+	var pinned := Storm.pin != Vector2.INF
+	_welcome.rpc_id(id, id, Storm.enabled, pinned, Storm.pin if pinned else Vector2.ZERO)
 	game.server_add_player(id, player_name, crew)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _welcome(my_id: int) -> void:
+func _welcome(my_id: int, storm_on: bool, storm_pinned: bool, storm_pin: Vector2) -> void:
+	Storm.enabled = storm_on
+	Storm.pin = storm_pin if storm_pinned else Vector2.INF
 	_start_game(Game.Role.CLIENT, my_id, _bot_role)
 
 

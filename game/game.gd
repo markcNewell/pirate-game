@@ -295,6 +295,9 @@ func client_on_event(kind: String, data: Array) -> void:
 		"attack":
 			if avatars.has(int(data[0])):
 				avatars[int(data[0])].attack()
+		"lightning":
+			if world:
+				world.strike(Vector3(data[1], data[2], data[3]))
 		"impact":
 			var id: int = data[0]
 			var end := {"kind": int(data[1]), "pos": Vector3(data[2], data[3], data[4]), "ship": int(data[5]), "t": float(data[6])}
@@ -318,10 +321,13 @@ func _process(delta: float) -> void:
 	for id in view_ships:
 		var s: ShipState = view_ships[id]
 		var v := _ship_view_for(id, s)
-		v.apply(s, ShipPhysics.pose_of(s, render_time), view_wind, delta)
+		var gale := Storm.wind(Vector2(s.x, s.z), render_time, view_wind).normalized()
+		v.apply(s, ShipPhysics.pose_of(s, render_time), gale, delta)
 		_sinking_effects(id, s, delta)
 	view_ship = view_ships.get(own_ship, view_ship)
 	ship_view = ship_views.get(own_ship)
+	# The HUD's wind arrow shows the wind where our ship is, swirling if she is in the storm.
+	view_wind = Storm.wind(Vector2(view_ship.x, view_ship.z), render_time, view_wind).normalized()
 	if ship_view == null:
 		return
 

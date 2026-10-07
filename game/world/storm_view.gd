@@ -10,6 +10,8 @@ var _curtain_material: ShaderMaterial
 var _rain: CPUParticles3D
 var _bolt: MeshInstance3D
 var _bolt_seed := -1
+var _strike: MeshInstance3D
+var _strike_left := 0.0
 var _rainbow: MeshInstance3D
 var _rainbow_material: StandardMaterial3D
 ## Set by World from the time of day: rainbows only show in good daylight.
@@ -55,6 +57,12 @@ func _ready() -> void:
 	_rainbow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_rainbow)
 
+	_strike = MeshInstance3D.new()
+	_strike.material_override = Toon.glow_material(Color("eef4ff"))
+	_strike.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_strike.visible = false
+	add_child(_strike)
+
 	_bolt = MeshInstance3D.new()
 	_bolt.material_override = Toon.glow_material(Color("eef4ff"))
 	_bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -79,6 +87,8 @@ func follow(camera_pos: Vector3, sea_time: float, inside: float) -> float:
 		_rainbow.global_transform = Transform3D(Basis.looking_at(-to_cam), Vector3(c.x, -6.0, c.y) + to_cam * Storm.RADIUS * 0.9)
 		_rainbow_material.albedo_color = Color(1, 1, 1, 0.45 * show)
 	_rain.emitting = inside > 0.25
+	_strike_left = maxf(0.0, _strike_left - get_process_delta_time())
+	_strike.visible = _strike_left > 0.0
 	var f := Storm.flash(sea_time)
 	_bolt.visible = f.on
 	if not f.on:
@@ -123,6 +133,13 @@ static func rainbow_mesh() -> ArrayMesh:
 	return mesh
 
 
+## A bolt from the clouds straight down onto `top` (a ship's masthead), shown for a moment.
+func strike(top: Vector3) -> void:
+	_strike.mesh = _bolt_mesh(randi(), CLOUD_Y + 6.0 - top.y)
+	_strike.global_position = top
+	_strike_left = 0.35
+
+
 static func _cloud_bank() -> ArrayMesh:
 	var b := MeshBuilder.new()
 	var rng := RandomNumberGenerator.new()
@@ -165,22 +182,25 @@ func _make_rain() -> CPUParticles3D:
 	return rain
 
 
-## A jagged bolt from the cloud base down to the sea, with one fork.
-static func _bolt_mesh(seed: int) -> ArrayMesh:
+## A jagged bolt `height` metres tall, from its top down to the origin, with one fork.
+static func _bolt_mesh(seed: int, height := CLOUD_Y) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var b := MeshBuilder.new()
 	var white := Color("eef4ff")
-	var p := Vector3(0, CLOUD_Y, 0)
+	var p := Vector3(0, height, 0)
 	var fork_at := rng.randi_range(3, 6)
 	var steps := 11
 	for i in steps:
-		var next := p + Vector3(rng.randf_range(-5, 5), -CLOUD_Y / steps, rng.randf_range(-5, 5))
+		# Wander on the way down but land exactly on the origin.
+		var t := float(i + 1) / steps
+		var wander := 5.0 * (1.0 - t)
+		var next := Vector3(rng.randf_range(-wander, wander), height * (1.0 - t), rng.randf_range(-wander, wander))
 		b.cylinder(p, next, 0.35, 0.35, 4, white)
 		if i == fork_at:
 			var q := p
 			for k in 4:
-				var qn := q + Vector3(rng.randf_range(2, 6), -CLOUD_Y / steps * 0.8, rng.randf_range(-4, 4))
+				var qn := q + Vector3(rng.randf_range(2, 6), -height / steps * 0.8, rng.randf_range(-4, 4))
 				b.cylinder(q, qn, 0.2, 0.2, 4, white)
 				q = qn
 		p = next

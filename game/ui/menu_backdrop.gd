@@ -15,6 +15,8 @@ var _time := 0.0
 
 
 func _ready() -> void:
+	# The title sea stays calm; a session sets the storm up again from its server.
+	Storm.enabled = false
 	_world = World.new()
 	_world.storm_enabled = false
 	add_child(_world)

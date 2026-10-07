@@ -12,6 +12,11 @@ const int MAX_SHIPS = 8;
 uniform vec4 wave_a[WAVES];  // direction x, direction z, wavenumber k, amplitude
 uniform vec4 wave_b[WAVES];  // angular speed, phase, unused, unused
 uniform float sea_time = 0.0;
+// The storm scales the waves up toward its heart, exactly as Storm.wave_factor does.
+uniform vec2 storm_centre = vec2(1e6, 1e6);
+uniform float storm_radius = 150.0;
+uniform float storm_gain = 1.6;
+uniform float storm_on = 0.0;
 
 uniform vec3 deep_color : source_color = vec3(0.078, 0.384, 0.769);
 uniform vec3 mid_color : source_color = vec3(0.137, 0.537, 0.890);
@@ -41,7 +46,8 @@ float sea_height(vec2 p, float t) {
 	for (int i = 0; i < WAVES; i++) {
 		h += wave_a[i].w * sin(wave_a[i].z * dot(wave_a[i].xy, p) - wave_b[i].x * t + wave_b[i].y);
 	}
-	return h;
+	float strength = storm_on * (1.0 - smoothstep(0.7, 1.5, length(p - storm_centre) / storm_radius));
+	return h * (1.0 + storm_gain * strength);
 }
 
 float hash(vec2 p) {

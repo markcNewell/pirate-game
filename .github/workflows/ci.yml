@@ -47,6 +47,9 @@ jobs:
       - name: Crew-vs-crew smoke test
         run: tests/smoke/crew_test.sh
 
+      - name: Storm smoke test
+        run: tests/smoke/storm_test.sh
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test

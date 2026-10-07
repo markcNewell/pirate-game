@@ -111,6 +111,8 @@ func test_running_aground_stops_the_ship() -> void:
 
 
 func test_pose_rides_the_sea() -> void:
+	# A calm sea: the storm starts out on this stretch and would make the waves taller.
+	Storm.enabled = false
 	for i in 30:
 		var t := i * 1.3
 		var x := i * 17.0
@@ -123,6 +125,7 @@ func test_pose_rides_the_sea() -> void:
 		var bow_up := (pose.basis * Vector3(0, 0, -1)).y
 		if absf(bow - stern) > 0.05:
 			check(signf(bow_up) == signf(bow - stern), "bow tips up when the sea is higher there")
+	Storm.enabled = true
 
 
 func test_state_survives_the_network_round_trip() -> void:

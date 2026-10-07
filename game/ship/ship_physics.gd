@@ -50,9 +50,12 @@ static func sail_efficiency(yaw: float, angle: float, wind_dir: Vector2) -> floa
 	return MIN_WIND_EFFICIENCY + (1.0 - MIN_WIND_EFFICIENCY) * maxf(0.0, facing.dot(wind_dir))
 
 
-## Advance one tick. `wind_dir` is the unit direction the wind blows toward.
-## `islands` holds dictionaries with x, z and radius (the waterline circle).
-static func step(s: ShipState, c: ShipControls, wind_dir: Vector2, dt: float, islands: Array) -> void:
+## Advance one tick. `wind_dir` is the unit direction the wind blows toward and
+## `wind_strength` scales its push (gusts in the storm). `islands` holds dictionaries with x, z
+## and radius (the waterline circle).
+static func step(
+	s: ShipState, c: ShipControls, wind_dir: Vector2, dt: float, islands: Array, wind_strength := 1.0
+) -> void:
 	for g in ShipState.GUNS:
 		s.gun_reload[g] = maxf(0.0, s.gun_reload[g] - dt)
 	if s.is_sinking():
@@ -84,7 +87,7 @@ static func step(s: ShipState, c: ShipControls, wind_dir: Vector2, dt: float, is
 	if not s.anchored:
 		for m in ShipState.MASTS:
 			push += 0.5 * SAIL_PUSH * s.sail_height[m] * sail_efficiency(s.yaw, s.sail_angle[m], wind_dir)
-	push *= 1.0 - WATER_DRAG * s.water / SINK_LEVEL
+	push *= wind_strength * (1.0 - WATER_DRAG * s.water / SINK_LEVEL)
 	s.speed += (push - DRAG * s.speed * absf(s.speed)) * dt
 	if s.anchored:
 		s.speed = move_toward(s.speed, 0.0, ANCHOR_DECEL * dt)

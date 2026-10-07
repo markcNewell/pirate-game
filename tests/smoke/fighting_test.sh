@@ -15,9 +15,9 @@ LOGS="$(mktemp -d)"
 trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 
-run --server --no-ai --start-near 1 --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/island.log" 2>&1 &
+run --server --calm --no-ai --start-near 1 --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/island.log" 2>&1 &
 s1=$!
-run --server --no-ai --test-boarding --port "$((PORT + 1))" --quit-after "$((RUN_FOR + 6))" >"$LOGS/board.log" 2>&1 &
+run --server --calm --no-ai --test-boarding --port "$((PORT + 1))" --quit-after "$((RUN_FOR + 6))" >"$LOGS/board.log" 2>&1 &
 s2=$!
 sleep 2
 run --bot fighter --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/island_bot.log" 2>&1 &

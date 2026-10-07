@@ -31,13 +31,14 @@ static func _build() -> void:
 		_b.append(Vector4(sqrt(GRAVITY * k), spec[3], 0.0, 0.0))
 
 
+## The storm (Storm.wave_factor) scales every wave up near its heart; the shader does the same.
 static func height(x: float, z: float, t: float) -> float:
 	_build()
 	var h := 0.0
 	for i in COUNT:
 		var a := _a[i]
 		h += a.w * sin(a.z * (a.x * x + a.y * z) - _b[i].x * t + _b[i].y)
-	return h
+	return h * Storm.wave_factor(x, z, t)
 
 
 static func normal(x: float, z: float, t: float) -> Vector3:
@@ -49,9 +50,11 @@ static func normal(x: float, z: float, t: float) -> Vector3:
 		var slope := a.w * a.z * cos(a.z * (a.x * x + a.y * z) - _b[i].x * t + _b[i].y)
 		dx += slope * a.x
 		dz += slope * a.y
-	return Vector3(-dx, 1.0, -dz).normalized()
+	var gain := Storm.wave_factor(x, z, t)
+	return Vector3(-dx * gain, 1.0, -dz * gain).normalized()
 
 
+## The highest a calm sea gets (the storm can raise it by 1 + Storm.WAVE_GAIN).
 static func max_height() -> float:
 	var total := 0.0
 	for spec in SPEC:

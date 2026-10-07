@@ -30,6 +30,14 @@ func _ready() -> void:
 
 
 ## The time of day's tint, how much the sun glints, and the colour far out to the horizon.
+## Where the storm is and whether it is on, so the drawn waves grow with it like Waves does.
+func set_storm(centre: Vector2, on: bool) -> void:
+	_material.set_shader_parameter("storm_centre", centre)
+	_material.set_shader_parameter("storm_radius", Storm.RADIUS)
+	_material.set_shader_parameter("storm_gain", Storm.WAVE_GAIN)
+	_material.set_shader_parameter("storm_on", 1.0 if on else 0.0)
+
+
 ## The glitter path toward a low light: its direction, colour and strength (0 for none).
 func set_light_path(dir: Vector3, color: Color, strength: float) -> void:
 	_material.set_shader_parameter("path_dir", dir)

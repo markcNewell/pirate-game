@@ -23,6 +23,7 @@ var _whale: Whale
 var _merchant: Node3D
 var _merchant_rest := 0.0
 var _gloom := 0.0
+var _strike_flash := 0.0
 var _camera := Vector2.ZERO
 var _inside := 0.0
 var _ambient := 0.38
@@ -54,6 +55,7 @@ func _ready() -> void:
 ## `time_of_day` pins the light (0-1, see Daylight); below 0 it follows the server clock.
 func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day := -1.0) -> void:
 	ocean.follow(camera_pos, sea_time, ships)
+	ocean.set_storm(Storm.centre(sea_time), Storm.enabled)
 	_sky.set_shader_parameter("time", sea_time)
 	_camera = Vector2(camera_pos.x, camera_pos.z)
 	_dolphins.follow(camera_pos, sea_time, ships, get_process_delta_time())
@@ -61,14 +63,16 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 	_whale.follow(camera_pos, sea_time, get_process_delta_time())
 	_animate_merchant(camera_pos, sea_time)
 	_inside = Storm.amount(_camera, sea_time) if storm_enabled else 0.0
-	_storm.visible = storm_enabled
+	_storm.visible = storm_enabled and Storm.enabled
 	# The light changes slowly, so a few updates a second is plenty.
 	_daylight_wait -= get_process_delta_time()
 	if _daylight_wait <= 0.0:
 		_daylight_wait = 0.25
 		_apply_daylight(time_of_day if time_of_day >= 0.0 else Daylight.time_of_day(sea_time))
 	# Lightning lights up the whole scene for a moment, more the nearer it strikes.
-	var flash := _storm.follow(camera_pos, sea_time, _inside) if storm_enabled else 0.0
+	var flash := _storm.follow(camera_pos, sea_time, _inside) if _storm.visible else 0.0
+	flash = maxf(flash, _strike_flash)
+	_strike_flash = maxf(0.0, _strike_flash - get_process_delta_time() * 4.0)
 	_env.ambient_light_energy = _ambient + flash * 1.4
 	_light.light_energy = _light_energy * (1.0 + flash * 0.8)
 	# Clouds ride along with the camera so they always sit on the horizon, drifting slowly.
@@ -123,6 +127,12 @@ func _apply_daylight(t: float) -> void:
 	if lamps != _lamps:
 		_lamps = lamps
 		get_tree().call_group(Lantern.GROUP, "set_level", lamps)
+
+
+## Lightning hits a ship's mast at `top`: a bolt down onto it and a bright flash.
+func strike(top: Vector3) -> void:
+	_storm.strike(top)
+	_strike_flash = clampf(1.0 - Vector2(top.x - _camera.x, top.z - _camera.y).length() / 300.0, 0.3, 1.0)
 
 
 ## The merchant breathes, and turns to watch you when you come close.

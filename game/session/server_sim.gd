@@ -63,6 +63,7 @@ var stats := {
 	"hits": 0, "holes": 0, "patched": 0, "bailed": 0, "ai_spawned": 0, "ai_sunk": 0, "crew_sunk": 0,
 	"voyages": 0, "dug": 0, "sold": 0, "restocked": 0, "loot_spawned": 0, "stowed": 0,
 	"kills": 0, "falls": 0, "eaten": 0, "boarded": 0, "skeleton_swings": 0, "pvp_falls": 0, "stolen": 0,
+	"lightning": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hook: the island the next voyage goes to (-1 for random).
@@ -82,11 +83,14 @@ var _evacuated := {}
 var _pending_bail := {}
 var _stations := ShipShape.stations()
 var _rng := RandomNumberGenerator.new()
+## The last lightning flash slot already judged for a strike.
+var _last_flash := -1
 
 
 func _init(options: Dictionary = {}) -> void:
 	_rng.seed = 12345
 	ai_enabled = not options.get("no-ai", false)
+	Storm.enabled = not options.has("calm")
 	next_ai_time = float(options.get("ai-delay", AI_FIRST_DELAY))
 	if options.has("crews-close"):
 		_spawns = CREW_SPAWNS_CLOSE
@@ -184,16 +188,65 @@ func tick(dt: float) -> void:
 				_fire(id, shot.gun, shot.yaw, shot.pitch, Captain.RELOAD + _rng.randf())
 		c.bail += _pending_bail.get(id, 0.0)
 		_pending_bail.erase(id)
-		ShipPhysics.step(s, c, wind, dt, Islands.ship_blockers())
+		# In the storm the wind swirls and gusts; its length is how hard it pushes.
+		var gale := Storm.wind(Vector2(s.x, s.z), time, wind)
+		ShipPhysics.step(s, c, gale.normalized(), dt, Islands.ship_blockers(), gale.length())
 	stats.max_speed = maxf(stats.max_speed, crew_ship().speed)
 
 	_separate_ships()
+	_lightning()
 	_step_projectiles()
 	_handle_sinking()
 	_step_items(dt)
 	_wake_camps()
 	_step_skeletons(dt)
 	_step_ghosts()
+
+
+## Each new flash may strike the ship nearest the bolt among those deep in the storm: a hole
+## below the mainmast and a hurt for anyone standing by it. Decided from the clock alone.
+func _lightning() -> void:
+	var f := Storm.flash(time)
+	if not f.on or f.seed == _last_flash:
+		return
+	_last_flash = f.seed
+	if not Storm.enabled or not Storm.strikes(f.seed):
+		return
+	var bolt: Vector2 = Storm.centre(time) + f.offset
+	var target := -1
+	var best := INF
+	for id in ships:
+		var s: ShipState = ships[id]
+		var at := Vector2(s.x, s.z)
+		if s.is_sinking() or Storm.amount(at, time) < Storm.STRIKE_DEPTH:
+			continue
+		if at.distance_to(bolt) < best:
+			best = at.distance_to(bolt)
+			target = id
+	if target >= 0:
+		_strike(target)
+
+
+func _strike(ship_id: int) -> void:
+	var s: ShipState = ships[ship_id]
+	var mast := Vector3(0.0, ShipShape.DECK_Y, ShipShape.MAST_Z[1])
+	var side := 1.0 if _rng.randf() < 0.5 else -1.0
+	if s.holes.size() < MAX_HOLES:
+		var h := ShipShape.hole_point(Vector3(side, 0.0, mast.z + _rng.randf_range(-1.5, 1.5)))
+		s.holes.append([s.next_hole_id, h.x, h.y, h.z, 0.0])
+		s.next_hole_id += 1
+	else:
+		s.water = minf(ShipPhysics.SINK_LEVEL, s.water + 0.15)
+	for id in players:
+		var r: Dictionary = players[id]
+		if r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == ship_id and r.pos.distance_to(mast) < 4.0:
+			_hurt_player(id, 25, "lightning")
+	stats.lightning += 1
+	var top := ShipPhysics.pose_of(s, time) * (mast + Vector3(0, ShipShape.MAST_HEIGHT[1], 0))
+	Net.send_event("lightning", [ship_id, top.x, top.y, top.z])
+	if crews.has(ship_id):
+		_tell_crew(ship_id, "Lightning strikes the mainmast! We're holed!")
+	print("[server] lightning struck ship %d" % ship_id)
 
 
 func _crew_controls(ship_id: int) -> ShipControls:
