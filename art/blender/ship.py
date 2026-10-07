@@ -1061,30 +1061,44 @@ def knee(side, bw, top, z):
 
 
 def hammock(side, z0, y):
+    """A canvas hammock slung along the hold wall: the cloth sagging in a deep U along its
+    length and curled up at both sides, gathered at each end into a spreader bar, with ropes
+    from the bars up to hooks in the beams overhead."""
     parts = []
     length = 1.9
-    x_out = side * (S.lower_wall_x(z0) - 0.25)
-    x_in = side * (S.lower_wall_x(z0) - 1.0)
+    wall = S.lower_wall_x(z0)
+    x_out = side * (wall - 0.3)
+    x_in = side * (wall - 1.05)
     rows = []
-    for i in range(9):
-        t = i / 8
-        z = z0 + t * length
-        sag = 0.35 * math.sin(t * math.pi)
+    for i in range(11):
+        t = i / 10
+        z = z0 + 0.25 + t * (length - 0.5)
+        sag = 0.42 * math.sin(t * math.pi) ** 0.8
+        # Narrow at the ends where the cloth is gathered, full width in the middle.
+        gather = 0.35 + 0.65 * math.sin(t * math.pi) ** 0.5
         row = []
-        for k in range(5):
-            u = k / 4
-            dip = 0.12 * math.sin(u * math.pi)
-            row.append((x_out + (x_in - x_out) * u, y - sag - dip, z))
+        for k in range(7):
+            u = k / 6
+            x = (x_out + x_in) / 2 + (u - 0.5) * (x_in - x_out) * gather
+            curl = 0.16 * (2 * u - 1) ** 2 * gather
+            row.append((x, y - sag + curl - 0.1 * gather, z))
         rows.append(row)
     cloth = kit.grid_surface("hammock", rows, "e9dcc0")
+    kit.orient(cloth, lambda x_, y_, z_: (0, -1, 0))
     sol = cloth.modifiers.new("solid", "SOLIDIFY")
-    sol.thickness = 0.03
+    sol.thickness = 0.025
     kit.apply_all(cloth)
     kit.smooth_by_angle(cloth, 60)
+    kit.paint_where(cloth, "d8c8a8", lambda x_, y_, z_: y_ < y - 0.38)
     parts.append(cloth)
-    for end in (z0, z0 + length):
-        tie = Vector(((x_out + x_in) / 2, y, end))
-        parts.append(kit.tube("hamrope", [tuple(tie), tuple(tie + Vector((side * 0.3, 0.45, (end - z0 - length / 2) * 0.25)))], 0.02, 4, slot("rope")))
+    mid_x = (x_out + x_in) / 2
+    for end, inward in ((z0, 1), (z0 + length, -1)):
+        bar_z = end + inward * 0.25
+        parts.append(kit.tube("spreader", [(x_out + side * 0.04, y - 0.06, bar_z), (x_in - side * 0.04, y - 0.06, bar_z)], 0.025, 6, "8a6038"))
+        hook = (mid_x, S.DECK_Y - 0.33, end)
+        for x in (x_out, x_in):
+            parts.append(kit.tube("hamrope", [(x, y - 0.06, bar_z), hook], 0.012, 4, slot("rope")))
+        parts.append(kit.tube("hook", [hook, (hook[0], hook[1] + 0.03, hook[2])], 0.02, 4, slot("iron")))
     return parts
 
 
