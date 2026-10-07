@@ -40,6 +40,7 @@ func _ready() -> void:
 	add_child(_clouds)
 	_make_clouds()
 	add_child(Gulls.new())
+	add_child(Crabs.new())
 	_storm = StormView.new()
 	add_child(_storm)
 	_dolphins = Dolphins.new()
