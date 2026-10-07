@@ -4,6 +4,9 @@ extends Node3D
 ## every lantern up or down together through the "lamps" group as the day goes by.
 
 const GROUP := "lamps"
+## Render layer for things lanterns should not light (sails: a lamp below one draws a bright
+## disc on the canvas). Cameras and the sun still see it.
+const UNLIT_LAYER := 1 << 1
 
 var _light: OmniLight3D
 var _energy: float
@@ -19,6 +22,7 @@ func _init(color: Color, energy: float, reach: float, fire := false) -> void:
 	_light.light_energy = 0.0
 	_light.omni_range = reach
 	_light.omni_attenuation = 1.2
+	_light.light_cull_mask = 0xFFFFF & ~UNLIT_LAYER
 	_light.visible = false
 	add_child(_light)
 	if fire:

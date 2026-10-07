@@ -12,6 +12,8 @@ uniform vec3 moon_dir = vec3(0.0, -1.0, 0.0);
 uniform float glow = 0.0;
 uniform float stars = 0.0;
 uniform float time = 0.0;
+// Storm cover: hides the sun, moon and stars.
+uniform float overcast = 0.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -29,7 +31,7 @@ void sky() {
 	float blush = glow * pow(toward, 3.0) * pow(1.0 - h, 6.0);
 	col = mix(col, glow_color, blush > 0.45 ? 0.75 : (blush > 0.15 ? 0.4 : blush * 1.5));
 
-	if (stars > 0.0 && dir.y > 0.0) {
+	if (stars * (1.0 - overcast) > 0.0 && dir.y > 0.0) {
 		vec2 uv = vec2(atan(dir.x, dir.z) * 40.0, asin(dir.y) * 40.0);
 		vec2 cell = floor(uv);
 		float pick = hash(cell);
@@ -37,11 +39,11 @@ void sky() {
 		float d = length(fract(uv) - spot);
 		float twinkle = 0.6 + 0.4 * sin(time * 2.0 + pick * 60.0);
 		if (pick > 0.93 && d < 0.09 + 0.06 * (pick - 0.93) / 0.07) {
-			col = mix(col, vec3(1.0, 0.97, 0.88), stars * twinkle * smoothstep(0.02, 0.25, dir.y));
+			col = mix(col, vec3(1.0, 0.97, 0.88), stars * (1.0 - overcast) * twinkle * smoothstep(0.02, 0.25, dir.y));
 		}
 	}
 
-	float ds = dot(dir, sun_dir);
+	float ds = overcast > 0.6 ? 0.0 : dot(dir, sun_dir);
 	if (ds > 0.9993) {
 		col = sun_color * 1.4;
 	} else if (ds > 0.9972 && ds < 0.9980) {
@@ -49,7 +51,7 @@ void sky() {
 	}
 
 	// A pale moon with two darker patches.
-	float dm = dot(dir, moon_dir);
+	float dm = overcast > 0.6 ? 0.0 : dot(dir, moon_dir);
 	if (moon_dir.y > -0.02 && dm > 0.9994) {
 		vec3 side = normalize(cross(moon_dir, vec3(0.0, 1.0, 0.0)));
 		vec3 up = cross(side, moon_dir);

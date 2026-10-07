@@ -60,9 +60,10 @@ func _ready() -> void:
 	# At night the stern lantern lights the quarterdeck and a lamp on the main mast the deck.
 	var mast_lamp := Vector3(0.45, ShipShape.DECK_Y + 2.4, ShipShape.MAST_Z[1] - 0.45)
 	_lamp(mast_lamp, glow)
-	for at: Vector3 in [stern_lamp, mast_lamp]:
-		var lantern := Lantern.new(ShipMesh._c("lantern").lerp(Color.WHITE, 0.2), 1.0, 9.0)
-		lantern.position = at
+	# Short reach for the mast lamp, so it lights the deck and not the sails above it.
+	for lamp: Array in [[stern_lamp, 9.0], [mast_lamp, 5.5]]:
+		var lantern := Lantern.new(ShipMesh._c("lantern").lerp(Color.WHITE, 0.2), 0.9, lamp[1])
+		lantern.position = lamp[0]
 		add_child(lantern)
 	for z: float in [-7.0, -1.0, 3.5]:
 		_lamp(Vector3(0, ShipShape.DECK_Y - 0.55, z), glow)
@@ -118,12 +119,14 @@ func _build_rig(mast: int) -> void:
 		rig.add_child(yard)
 		var sail := Toon.instance(ShipMesh.sail(spec[2], spec[1]))
 		sail.position = Vector3(0, top - 0.1, -ShipShape.MAST_RADIUS - 0.3)
+		sail.layers = Lantern.UNLIT_LAYER
 		rig.add_child(sail)
 		sails.append(sail)
 		if mast == 1 and k == 0:
 			# The crew's emblem on the main course, furling with the sail.
 			var badge := Toon.instance(ShipMesh.emblem())
 			badge.position = Vector3(0, -spec[1] * 0.5, 0)
+			badge.layers = Lantern.UNLIT_LAYER
 			sail.add_child(badge)
 	_sails.append(sails)
 

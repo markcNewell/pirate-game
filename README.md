@@ -6,7 +6,8 @@ one ship together on a shared sea hosted by a dedicated server. Built with Godot
 **Status: all five milestones built.** Up to four crews of four players, each with its own galleon:
 sailing, swimming, cannons, skeleton ships, holes, patching, bailing and sinking; treasure maps,
 digging and selling at Port Merrow; health, cutlass and pistol, skeleton camps and boarding; and
-crew vs crew: fight other crews, sink their ships and steal their chests. Specs:
+crew vs crew: fight other crews, sink their ships and steal their chests. The sea has a
+24-minute day with sunsets, starry nights and lanterns, and a storm that roams the map. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md).
@@ -18,6 +19,8 @@ crew vs crew: fight other crews, sink their ships and steal their chests. Specs:
 | ![A skeleton ship firing](docs/screenshots/skeleton-ship.png) | ![Holes on the lower deck](docs/screenshots/lower-deck.png) |
 | ![Port Merrow](docs/screenshots/outpost.png) | ![A treasure map](docs/screenshots/treasure-map.png) |
 | ![Skeletons on Parrot Rock](docs/screenshots/skeletons.png) | ![Two crews' ships](docs/screenshots/two-crews.png) |
+| ![Sunset](docs/screenshots/sunset.png) | ![Night, lanterns lit](docs/screenshots/night.png) |
+| ![A storm on the horizon](docs/screenshots/storm.png) | ![Inside the storm](docs/screenshots/in-the-storm.png) |
 
 ## Play
 
@@ -96,7 +99,8 @@ Run `godot --headless --path . --import` once after cloning so Godot registers t
 Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`, `--name NAME`,
 `--demo` (host under full sail), `--bot wheel|sails|anchor|swimmer|gunner|repair`,
 `--quit-after SECONDS`, `--no-ai`, `--ai-delay SECONDS`, `--test-holes N`, `--start-near N|outpost`,
-`--voyage-island N`, `--test-chest`, `--test-boarding`, `--crew N`, `--crews-close`, `--test-steal`.
+`--voyage-island N`, `--test-chest`, `--test-boarding`, `--crew N`, `--crews-close`, `--test-steal`,
+`--time T` (pin the time of day: 0 midnight, 0.5 noon, 0.79 sunset) and `--storm X,Z` (pin the storm).
 Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`.
 
 ### How it fits together
@@ -109,6 +113,9 @@ Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`
 - `game/ship/`: layout (`ship_shape.gd`), sailing maths (`ship_physics.gd`), the code-built model
   (`ship_mesh.gd`), and the still deck copy players walk on (`deck_proxy.gd`).
 - `game/player/`: movement rules, your player, other players, test bots.
-- `art/shaders/`: toon lighting, ink outlines, sky.
+- `game/world/`: islands, the outpost, the time of day (`daylight.gd`) and the storm
+  (`storm.gd` says where it is, `storm_view.gd` draws it). Both run off the shared server clock,
+  so every player sees the same sunset and the same storm.
+- `art/shaders/`: toon lighting, ink outlines, sky, rain.
 
 Everything you see is built from code for now; Blender models arrive in later milestones.

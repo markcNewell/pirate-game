@@ -100,6 +100,12 @@ func _process(_delta: float) -> void:
 
 ## Head for `target` in the ship frame, planning a route around obstacles. True on arrival.
 func _go(input: PlayerInput, target: Vector3) -> bool:
+	var off := target - _player.frame_position()
+	off.y = 0.0
+	if _route.is_empty() and off.length() < ARRIVE * 1.5:
+		# Already there: stay put. Planning afresh from a spot beside an obstacle can start by
+		# walking away, so the bot would pace back and forth instead of using the station.
+		return true
 	if _route.is_empty() or _route.back().distance_to(target) > 0.05:
 		_route = BotNav.find_path(_player.frame_position(), target)
 		if _route.is_empty():

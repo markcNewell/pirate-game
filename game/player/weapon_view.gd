@@ -24,6 +24,8 @@ var weapon := Weapons.Kind.CUTLASS
 var _cutlass: MeshInstance3D
 var _pistol: MeshInstance3D
 var _flash: MeshInstance3D
+var _hand: MeshInstance3D
+var _shirt: Color = Avatar.SHIRTS[0]
 var _swing := 0.0
 var _kick := 0.0
 
@@ -43,8 +45,28 @@ func _ready() -> void:
 	_flash.position = Vector3(0, 0, -0.38)
 	_flash.visible = false
 	add_child(_flash)
-	for m: MeshInstance3D in [_cutlass, _pistol, _flash]:
+	# Your own hand round the grip, and a sleeve in your shirt's colour running off screen.
+	_hand = Toon.instance(hand_mesh(_shirt))
+	add_child(_hand)
+	for m: MeshInstance3D in [_cutlass, _pistol, _flash, _hand]:
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+func set_sleeve(shirt: Color) -> void:
+	if shirt == _shirt:
+		return
+	_shirt = shirt
+	if _hand:
+		_hand.mesh = hand_mesh(shirt)
+
+
+## A fist round the grip (thumb on top) and a sleeve running back off the bottom of the screen.
+static func hand_mesh(shirt: Color) -> ArrayMesh:
+	var b := MeshBuilder.new()
+	b.ellipsoid(Vector3(0.0, -0.005, 0.055), 0.055, Vector3(1.05, 1.0, 1.4), 6, 8, Color("f2c49b"))
+	b.ellipsoid(Vector3(-0.035, 0.01, 0.02), 0.025, Vector3(1.0, 0.8, 1.2), 4, 6, Color("f2c49b"))
+	b.cylinder(Vector3(0.0, -0.02, 0.11), Vector3(0.1, -0.26, 0.62), 0.065, 0.085, 8, shirt)
+	return b.build()
 
 
 func show_weapon(kind: int, visible_now: bool) -> void:

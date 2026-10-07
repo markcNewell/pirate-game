@@ -14,6 +14,11 @@ var _light: DirectionalLight3D
 var _cloud_material: ShaderMaterial
 var _daylight_wait := 0.0
 var _lamps := -1.0
+var _storm: StormView
+var _camera := Vector2.ZERO
+var _inside := 0.0
+var _ambient := 0.38
+var _light_energy := 0.9
 
 
 func _ready() -> void:
@@ -27,17 +32,25 @@ func _ready() -> void:
 	add_child(_clouds)
 	_make_clouds()
 	add_child(Gulls.new())
+	_storm = StormView.new()
+	add_child(_storm)
 
 
 ## `time_of_day` pins the light (0-1, see Daylight); below 0 it follows the server clock.
 func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day := -1.0) -> void:
 	ocean.follow(camera_pos, sea_time, ships)
 	_sky.set_shader_parameter("time", sea_time)
+	_camera = Vector2(camera_pos.x, camera_pos.z)
+	_inside = Storm.amount(_camera, sea_time)
 	# The light changes slowly, so a few updates a second is plenty.
 	_daylight_wait -= get_process_delta_time()
 	if _daylight_wait <= 0.0:
 		_daylight_wait = 0.25
 		_apply_daylight(time_of_day if time_of_day >= 0.0 else Daylight.time_of_day(sea_time))
+	# Lightning lights up the whole scene for a moment, more the nearer it strikes.
+	var flash := _storm.follow(camera_pos, sea_time, _inside)
+	_env.ambient_light_energy = _ambient + flash * 1.4
+	_light.light_energy = _light_energy * (1.0 + flash * 0.8)
 	# Clouds ride along with the camera so they always sit on the horizon, drifting slowly.
 	_clouds.global_position = Vector3(camera_pos.x, 0.0, camera_pos.z)
 	_clouds.rotation.y = sea_time * 0.002
@@ -45,6 +58,17 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 
 func _apply_daylight(t: float) -> void:
 	var look := Daylight.look(t)
+	var s := _inside
+	if s > 0.0:
+		# Inside the storm everything goes grey and dim, and the fog closes in.
+		for key: String in ["top", "horizon", "ambient", "fog", "light", "cloud"]:
+			look[key] = _stormy(look[key], s)
+		look.sea = (look.sea as Color).lerp(Color(0.36, 0.46, 0.46) * (look.sea as Color).v, s)
+		look.energy *= 1.0 - 0.65 * s
+		look.glow *= 1.0 - s
+	_sky.set_shader_parameter("overcast", s)
+	_env.fog_depth_begin = lerpf(160.0, 20.0, s)
+	_env.fog_depth_end = lerpf(950.0, 260.0, s)
 	_sky.set_shader_parameter("top_color", look.top)
 	_sky.set_shader_parameter("horizon_color", look.horizon)
 	_sky.set_shader_parameter("glow_color", look.light.lerp(Color("ff5e3a"), 0.35))
@@ -53,12 +77,12 @@ func _apply_daylight(t: float) -> void:
 	_sky.set_shader_parameter("glow", look.glow)
 	_sky.set_shader_parameter("stars", look.stars)
 	_env.ambient_light_color = look.ambient
-	_env.ambient_light_energy = look.ambient_energy
+	_ambient = look.ambient_energy
 	_env.fog_light_color = look.fog
 	var dir: Vector3 = look.light_dir
 	_light.look_at_from_position(Vector3.ZERO, -dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.FORWARD)
 	_light.light_color = look.light
-	_light.light_energy = look.energy
+	_light_energy = look.energy
 	var sea: Color = look.sea
 	# Far out, the sea takes on some of the horizon's colour: orange at sunset, blue at night.
 	var far := Ocean.MID_COLOR * sea
@@ -68,6 +92,11 @@ func _apply_daylight(t: float) -> void:
 	if lamps != _lamps:
 		_lamps = lamps
 		get_tree().call_group(Lantern.GROUP, "set_level", lamps)
+
+
+static func _stormy(c: Color, s: float) -> Color:
+	var grey := c.get_luminance() * 0.62
+	return c.lerp(Color(grey * 0.95, grey, grey * 1.08), s)
 
 
 func _environment() -> void:

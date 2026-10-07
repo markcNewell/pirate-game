@@ -13,6 +13,7 @@ extends Node
 ##   --demo                   host only: start under full sail with the anchor up
 ##   --crew N                 ask for crew N (1-4); 0 or absent for any
 ##   --time T                 pin the time of day for this client (0 midnight, 0.5 noon, 0.75 sunset)
+##   --storm X,Z              pin the storm's centre there, for screenshots
 
 var _menu: Menu
 var _backdrop: MenuBackdrop
@@ -26,6 +27,9 @@ func _ready() -> void:
 	Net.options = _args
 	if _args.has("time"):
 		Daylight.override = float(_args.time)
+	if _args.has("storm"):
+		var xz: PackedStringArray = str(_args.storm).split(",")
+		Storm.pin = Vector2(float(xz[0]), float(xz[1]))
 	# Start next frame: the scene root refuses new children while it is still being built.
 	_start.call_deferred()
 
