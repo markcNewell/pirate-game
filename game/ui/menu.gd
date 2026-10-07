@@ -1,6 +1,7 @@
 class_name Menu
-extends Control
+extends CanvasLayer
 ## The title screen: your name, the server to join, and Join / Host & play / Quit.
+## A CanvasLayer so its controls can fill the window (a Control under a plain Node cannot).
 
 var _name: LineEdit
 var _address: LineEdit
@@ -9,19 +10,27 @@ var _status: Label
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var sky := ColorRect.new()
-	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	sky.material = _sky_gradient()
 	add_child(sky)
 
 	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(centre)
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Hud.PAPER
+	style.border_color = Hud.INK
+	style.set_border_width_all(4)
+	style.set_corner_radius_all(14)
+	style.set_content_margin_all(28)
+	card.add_theme_stylebox_override("panel", style)
+	centre.add_child(card)
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(420, 0)
-	box.add_theme_constant_override("separation", 10)
-	centre.add_child(box)
+	box.add_theme_constant_override("separation", 8)
+	card.add_child(box)
 
 	var title := Label.new()
 	title.text = "PIRATE GAME"

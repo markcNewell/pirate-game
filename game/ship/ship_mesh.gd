@@ -137,21 +137,26 @@ static func _ends_and_bottom(b: MeshBuilder, zs: Array[float]) -> void:
 
 static func _decks(b: MeshBuilder, zs: Array[float]) -> void:
 	var t := ShipShape.RAIL_THICKNESS
-	var planks := 12
+	# Straight planks of equal width running bow to stern, trimmed where the hull narrows.
+	var plank := 0.55
+	var count := int(ceil(ShipShape.BEAM / plank))
 	for i in zs.size() - 1:
 		var z0 := zs[i]
 		var z1 := zs[i + 1]
 		var y := ShipShape.QUARTER_Y if z0 >= ShipShape.QUARTER_Z else ShipShape.DECK_Y
 		var w0 := ShipShape.half_width(z0, ShipShape.DECK_Y) - t
 		var w1 := ShipShape.half_width(z1, ShipShape.DECK_Y) - t
-		for p in planks:
-			var u0 := -1.0 + 2.0 * p / planks
-			var u1 := -1.0 + 2.0 * (p + 1) / planks
-			var c := Toon.color("deck") if p % 2 == 0 else Toon.color("deck").darkened(0.06)
-			b.quad(
-				Vector3(u0 * w0, y, z0), Vector3(u1 * w0, y, z0), Vector3(u1 * w1, y, z1),
-				Vector3(u0 * w1, y, z1), c, Vector3.UP,
-			)
+		for p in count:
+			var x0 := -count * plank * 0.5 + p * plank
+			var x1 := x0 + plank
+			var a0 := clampf(x0, -w0, w0)
+			var b0 := clampf(x1, -w0, w0)
+			var a1 := clampf(x0, -w1, w1)
+			var b1 := clampf(x1, -w1, w1)
+			if b0 - a0 < 1e-3 and b1 - a1 < 1e-3:
+				continue
+			var c := Toon.color("deck") if p % 2 == 0 else Toon.color("deck").darkened(0.07)
+			b.quad(Vector3(a0, y, z0), Vector3(b0, y, z0), Vector3(b1, y, z1), Vector3(a1, y, z1), c, Vector3.UP)
 	# Front face of the quarterdeck, with a gold trim along its edge.
 	var qz := ShipShape.QUARTER_Z
 	var wq := ShipShape.half_width(qz, ShipShape.DECK_Y) - t
@@ -198,7 +203,7 @@ static func _masts_and_rigging(b: MeshBuilder) -> void:
 		for side: int in [-1, 1]:
 			for dz: float in [-0.9, 0.0, 0.9]:
 				var foot := Vector3(side * (ShipShape.half_width(z + dz, deck) - 0.05), ShipShape.rail_top(z + dz), z + dz)
-				b.cylinder(foot, Vector3(0, deck + 0.62 * h, z), 0.04, 0.04, 4, rope, false)
+				b.cylinder(foot, Vector3(0, deck + 0.62 * h, z), 0.03, 0.03, 4, rope, false)
 	# Crow's nest on the main mast.
 	var nest := Vector3(0, deck + 0.72 * ShipShape.MAST_HEIGHT[1], ShipShape.MAST_Z[1])
 	b.cylinder(nest, nest + Vector3(0, 0.9, 0), 1.1, 1.2, 14, Toon.color("hull_dark"))
@@ -207,9 +212,9 @@ static func _masts_and_rigging(b: MeshBuilder) -> void:
 	var sprit_root := Vector3(0, deck + 0.6, -12.2)
 	var sprit_tip := Vector3(0, deck + 3.8, -19.5)
 	b.cylinder(sprit_root, sprit_tip, 0.26, 0.12, 8, Toon.color("mast"))
-	b.cylinder(tops[0], sprit_tip, 0.04, 0.04, 4, rope, false)
-	b.cylinder(tops[1], tops[0], 0.04, 0.04, 4, rope, false)
-	b.cylinder(tops[1], Vector3(0, ShipShape.QUARTER_Y + 1.0, ShipShape.STERN_Z), 0.04, 0.04, 4, rope, false)
+	b.cylinder(tops[0], sprit_tip, 0.03, 0.03, 4, rope, false)
+	b.cylinder(tops[1], tops[0], 0.03, 0.03, 4, rope, false)
+	b.cylinder(tops[1], Vector3(0, ShipShape.QUARTER_Y + 1.0, ShipShape.STERN_Z), 0.03, 0.03, 4, rope, false)
 
 
 static func _fittings(b: MeshBuilder) -> void:
@@ -303,17 +308,18 @@ static func wheel() -> ArrayMesh:
 	var b := MeshBuilder.new()
 	var wood := Toon.color("mast")
 	var segments := 16
-	var r := 0.75
+	var r := 0.5
 	for i in segments:
 		var a0 := TAU * i / segments
 		var a1 := TAU * (i + 1) / segments
-		b.cylinder(Vector3(cos(a0) * r, sin(a0) * r, 0), Vector3(cos(a1) * r, sin(a1) * r, 0), 0.06, 0.06, 6, wood, false)
+		b.cylinder(Vector3(cos(a0) * r, sin(a0) * r, 0), Vector3(cos(a1) * r, sin(a1) * r, 0), 0.045, 0.045, 6, wood, false)
 	for i in 8:
 		var a := TAU * i / 8
 		var dir := Vector3(cos(a), sin(a), 0)
-		b.cylinder(Vector3.ZERO, dir * (r + 0.22), 0.045, 0.045, 5, wood, false)
-		b.cylinder(dir * (r + 0.08), dir * (r + 0.3), 0.06, 0.05, 6, Toon.color("hull_dark"))
-	b.cylinder(Vector3(0, 0, -0.12), Vector3(0, 0, 0.12), 0.16, 0.16, 10, Toon.color("stripe"))
+		b.cylinder(Vector3.ZERO, dir * (r + 0.12), 0.035, 0.035, 5, wood, false)
+		b.cylinder(dir * (r + 0.05), dir * (r + 0.2), 0.045, 0.04, 6, Toon.color("hull_dark"))
+	b.cylinder(Vector3(0, 0, -0.1), Vector3(0, 0, 0.1), 0.09, 0.09, 10, Toon.color("hull_dark"))
+	b.cylinder(Vector3(0, 0, 0.1), Vector3(0, 0, 0.13), 0.06, 0.06, 10, Toon.color("stripe"))
 	return b.build()
 
 

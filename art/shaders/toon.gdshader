@@ -1,6 +1,6 @@
 // Toon lighting: three flat steps of light instead of a smooth gradient, hard sun shadows,
 // and a faint rim so silhouettes read against the sea. Colour comes from the mesh's vertex
-// colours (stored linear by MeshBuilder), so one material serves a whole model.
+// colours, so one material serves a whole model.
 shader_type spatial;
 render_mode cull_back;
 
@@ -21,7 +21,10 @@ void fragment() {
 
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
-	float band = ndl > 0.45 ? 1.0 : (ndl > 0.0 ? 0.55 : 0.0);
-	float shadow = ATTENUATION > 0.5 ? 1.0 : 0.0;
-	DIFFUSE_LIGHT += band * shadow * LIGHT_COLOR / PI;
+	// Lit, half-lit and shade. Shade keeps some sun so dark sides stay readable colours.
+	float band = ndl > 0.45 ? 1.0 : (ndl > 0.0 ? 0.72 : 0.45);
+	if (ATTENUATION < 0.5) {
+		band = min(band, 0.45);
+	}
+	DIFFUSE_LIGHT += band * LIGHT_COLOR / PI;
 }

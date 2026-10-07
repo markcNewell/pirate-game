@@ -17,10 +17,10 @@ const PALETTE := {
 	"flag": Color("1d1d26"),
 	"bone": Color("f4efe2"),
 	"lantern": Color("ffe08a"),
-	"sand": Color("ffe0a0"),
+	"sand": Color("f4d595"),
 	"wet_sand": Color("e9c486"),
-	"grass": Color("5ad14a"),
-	"grass_dark": Color("45bb3a"),
+	"grass": Color("4fbf41"),
+	"grass_dark": Color("3fa535"),
 	"rock": Color("9aa4b5"),
 	"trunk": Color("b07a42"),
 	"leaf": Color("3cc24e"),
@@ -50,10 +50,8 @@ static func object_material() -> ShaderMaterial:
 static func sky_object_material() -> ShaderMaterial:
 	if _sky_object == null:
 		_sky_object = ShaderMaterial.new()
+		# No outline: at cloud distance it would be fogged into a pale halo.
 		_sky_object.shader = load("res://art/shaders/toon_sky_object.gdshader")
-		var outline := _outline()
-		outline.set_shader_parameter("width", 0.0012)
-		_sky_object.next_pass = outline
 	return _sky_object
 
 

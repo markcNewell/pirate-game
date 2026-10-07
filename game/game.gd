@@ -133,7 +133,7 @@ func _server_tick(dt: float) -> void:
 			client_on_snapshot(snap)
 
 	_log_timer += dt
-	if _log_timer >= 2.0 and role == Role.SERVER:
+	if _log_timer >= 2.0 and (role == Role.SERVER or DisplayServer.get_name() == "headless"):
 		_log_timer = 0.0
 		print("[server] t=%.0f players=%d ship=(%.1f, %.1f) speed=%.2f anchored=%s sails=%.2f/%.2f stations=%s" % [
 			server_time, players.size(), ship.x, ship.z, ship.speed, ship.anchored,

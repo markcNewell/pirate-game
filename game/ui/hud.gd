@@ -223,7 +223,8 @@ class Compass:
 			if names.has(deg):
 				var text: String = names[deg]
 				var col := Toon.color("stripe") if deg == 0 else PAPER
-				draw_string(font, Vector2(x - 12, 30), text, HORIZONTAL_ALIGNMENT_CENTER, 24, 20, col)
+				var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+				draw_string(font, Vector2(x - width * 0.5, 30), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, col)
 			else:
 				draw_line(Vector2(x, 30), Vector2(x, 40), Color(PAPER, 0.7), 2.0)
 		draw_line(Vector2(mid, 36), Vector2(mid, 46), Toon.color("stripe"), 3.0)

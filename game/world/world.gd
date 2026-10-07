@@ -42,7 +42,7 @@ func _environment() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("9cc8f0")
-	env.ambient_light_energy = 0.55
+	env.ambient_light_energy = 0.38
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.fog_enabled = true
@@ -63,10 +63,13 @@ func _sun() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48.0, -35.0, 0.0)
 	sun.light_color = Color("fff6e5")
-	sun.light_energy = 1.25
+	sun.light_energy = 0.9
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 140.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	# Generous bias: toon shading turns any shadow acne into hard blotches.
+	sun.shadow_bias = 0.12
+	sun.shadow_normal_bias = 2.5
 	add_child(sun)
 
 

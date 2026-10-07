@@ -19,7 +19,7 @@ func _ready() -> void:
 		_build_rig(m)
 
 	_wheel = Toon.instance(ShipMesh.wheel())
-	_wheel.position = ShipShape.WHEEL + Vector3(0, 1.3, 0.3)
+	_wheel.position = ShipShape.WHEEL + Vector3(0, 1.05, 0.25)
 	add_child(_wheel)
 
 	_capstan = Toon.instance(ShipMesh.capstan())

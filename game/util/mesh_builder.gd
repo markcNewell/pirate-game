@@ -1,6 +1,7 @@
 class_name MeshBuilder
 extends RefCounted
 ## Collects coloured triangles and turns them into one ArrayMesh for the toon shader.
+## Colours stay sRGB: Godot converts vertex colours to linear itself.
 ##
 ## Every triangle is given an outward direction and its winding is fixed to match, so callers
 ## never think about Godot's clockwise front faces. build() also stores a smoothed copy of the
@@ -33,11 +34,10 @@ func tri(
 			normals = PackedVector3Array([normals[0], normals[2], normals[1]])
 		face = -face
 	var flat := face.normalized()
-	var linear := color.srgb_to_linear()
 	for i in 3:
 		_verts.append([a, b, c][i])
 		_normals.append(normals[i] if normals.size() == 3 else flat)
-		_colors.append(linear)
+		_colors.append(color)
 
 
 func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color, outward: Vector3) -> void:

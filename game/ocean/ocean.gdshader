@@ -58,8 +58,8 @@ void fragment() {
 
 	float foam = 0.0;
 	// White caps: only the highest crests, broken up by noise.
-	float caps = noise(world_pos.xz * 0.6 - sea_time * 0.3);
-	if (wave_height > 0.55 && caps > 0.55) {
+	float caps = noise(world_pos.xz * 0.9 - sea_time * 0.3);
+	if (wave_height > 0.7 && caps > 0.62) {
 		foam = 1.0;
 	}
 

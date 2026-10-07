@@ -27,7 +27,8 @@ func _ready() -> void:
 func _start() -> void:
 	var port := int(_args.get("port", GameConfig.DEFAULT_PORT))
 
-	if _args.has("server") or (DisplayServer.get_name() == "headless" and not _args.has("bot")):
+	var headless := DisplayServer.get_name() == "headless"
+	if _args.has("server") or (headless and not _args.has("bot") and not _args.has("host")):
 		var err := Net.serve(port)
 		if err != OK:
 			printerr("Could not serve on port %d: %s" % [port, error_string(err)])
@@ -94,8 +95,8 @@ func _print_summary() -> void:
 		return
 	if game.is_server():
 		var moved := Vector2(game.ship.x, game.ship.z).length()
-		print("RESULT server moved=%.1f max_speed=%.2f anchored=%s stations_taken=%d climbs=%d corrections=%d players=%d" % [
-			moved, game.stats.max_speed, game.ship.anchored, game.stats.stations_taken,
+		print("RESULT server moved=%.1f max_speed=%.2f anchored=%s sails=%.2f/%.2f stations_taken=%d climbs=%d corrections=%d players=%d" % [
+			moved, game.stats.max_speed, game.ship.anchored, game.ship.sail_height[0], game.ship.sail_height[1], game.stats.stations_taken,
 			game.stats.climbs, game.stats.corrections, game.players.size(),
 		])
 	if game.local_player:
@@ -111,6 +112,8 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 	await get_tree().create_timer(delay * 0.5).timeout
 	var game := Net.game
 	if game and view == "wheel":
+		# Walk there instantly: the wheel is out of reach from the spawn point.
+		game._server_teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.stations()[0].stand, 0.0)
 		game.send_request("station", 0)
 	elif game and view != "deck":
 		var cam := Camera3D.new()
@@ -123,11 +126,16 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			"bow": [Vector3(-8, 8, -40), Vector3(0, 5, 0)],
 			"high": [Vector3(30, 45, 50), Vector3(0, 0, -20)],
 		}
-		var spec: Array = offsets.get(view, offsets.outside)
-		var follow := func() -> void:
-			var ship := game.ship_view.global_transform
-			cam.look_at_from_position(ship * spec[0], ship * spec[1])
-		get_tree().process_frame.connect(follow)
+		if view == "island":
+			var isl: Dictionary = Islands.LAYOUT[0]
+			var centre := Vector3(isl.x, 4.0, isl.z)
+			cam.look_at_from_position(centre + Vector3(60, 22, 75), centre)
+		else:
+			var spec: Array = offsets.get(view, offsets.outside)
+			var follow := func() -> void:
+				var ship := game.ship_view.global_transform
+				cam.look_at_from_position(ship * spec[0], ship * spec[1])
+			get_tree().process_frame.connect(follow)
 	await get_tree().create_timer(delay * 0.5).timeout
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()

@@ -60,7 +60,7 @@ static func rail_top(z: float) -> float:
 	if z > QUARTER_Z:
 		return QUARTER_Y + RAIL_HEIGHT
 	var t := z / HALF_LENGTH
-	return DECK_Y + RAIL_HEIGHT + 0.9 * t * t
+	return DECK_Y + RAIL_HEIGHT + 0.45 * t * t
 
 
 ## Floor height under a point on board (main deck or quarterdeck; stairs are a ramp).
@@ -85,7 +85,7 @@ static func stations() -> Array[Dictionary]:
 	var list: Array[Dictionary] = [
 		{
 			"id": 0, "kind": Kind.WHEEL, "mast": -1, "label": "take the wheel",
-			"at": WHEEL + Vector3(0, 1.1, 0), "stand": WHEEL + Vector3(0, 0, 1.0),
+			"at": WHEEL + Vector3(0, 1.05, 0.25), "stand": WHEEL + Vector3(0, 0, 1.3),
 		},
 		{
 			"id": 3, "kind": Kind.ANCHOR, "mast": -1, "label": "work the anchor",
