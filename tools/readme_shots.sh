@@ -16,7 +16,7 @@ WANT=("$@")
 DELAY=8 shot title title --time 0.765
 DELAY=10 shot ship-under-sail outside --demo --time 0.42 --calm
 DELAY=10 shot at-the-wheel wheel --demo --time 0.42 --calm
-BOTS="sails wheel anchor" DELAY=16 shot crew-and-island deck --time 0.42 --calm --shot-yaw 0.35
+BOTS="sails wheel anchor" DELAY=16 shot crew-and-island crew --time 0.42 --calm
 DELAY=10 shot island island --time 0.42 --calm
 DELAY=26 shot skeleton-ship enemy --demo --ai-delay 1 --time 0.42 --calm
 DELAY=10 shot lower-deck patch --test-holes 2 --time 0.42 --calm

@@ -521,9 +521,9 @@ def coat(color="23284a", trim=GOLD):
             parts.append(b)
     for side in ("r", "l"):
         inner, sh, el, wr = arm_points(side)
-        sl = kit.tube("coatsleeve", [tuple(sh + (inner - sh) * 0.5), tuple(sh), tuple(el), tuple(wr - (wr - el).normalized() * 0.04)], [0.084, 0.085, 0.073, 0.074], 12, color)
+        sl = kit.tube("coatsleeve", [tuple(sh + (inner - sh) * 0.5), tuple(sh), tuple(el), tuple(wr - (wr - el).normalized() * 0.04)], [0.09, 0.092, 0.082, 0.082], 12, color)
         smooth_part(sl)
-        cuff = kit.tube("coatcuff", [tuple(wr - (wr - el).normalized() * 0.09), tuple(wr - (wr - el).normalized() * 0.035)], [0.082, 0.085], 12, trim)
+        cuff = kit.tube("coatcuff", [tuple(wr - (wr - el).normalized() * 0.09), tuple(wr - (wr - el).normalized() * 0.035)], [0.09, 0.094], 12, trim)
         for p in (sl, cuff):
             rig.set_weights(p, rig.limb_weights(side, "upper_arm", "forearm", "hand", start_parent="chest"))
             parts.append(p)
@@ -712,12 +712,10 @@ def pirate():
     for i in range(LOOKS):
         head_bits, body_bits, opt = look(i)
         parts = head(head_bits)
+        # Under a coat the coat's own sleeves cover the arms.
         if not opt.get("coat"):
             for side in ("r", "l"):
                 parts += sleeve(side, rolled=opt["rolled"], cuff=opt["cuff"])
-        else:
-            for side in ("r", "l"):
-                parts += sleeve(side)
         parts += trousers(TROUSERS[i]) + boots() + belt() + body_bits
         ob = kit.join("look%d" % i, parts)
         rig.bind(ob, arm)

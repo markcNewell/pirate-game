@@ -252,6 +252,8 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			"flag": [Vector3(7, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1] - 3.0, ShipShape.MAST_Z[1] + 5.0),
 				Vector3(1.2, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1], ShipShape.MAST_Z[1])],
 			"high": [Vector3(30, 45, 50), Vector3(0, 0, -20)],
+			# From the front of the quarterdeck, looking forward over the waist where the crew work.
+			"crew": [Vector3(-2.3, ShipShape.QUARTER_Y + 1.6, 4.8), Vector3(0.6, ShipShape.DECK_Y + 0.9, -3.0)],
 		}
 		if view.begins_with("island"):
 			# "island" frames the first island; "island2" the third, and so on.
@@ -276,6 +278,9 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			var out := (Outpost.sell_spot() - Outpost.merchant_pos()).normalized()
 			cam.look_at_from_position(at + out * 16.0 + Vector3(-8, 5, 6), at - out * 2.0)
 		else:
+			if view == "crew":
+				# Out of the picture: our own first-person arm would float in mid air.
+				game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, ShipShape.WHEEL + Vector3(2.0, 0, 2.5), 0.0)
 			var spec: Array = offsets.get(view, offsets.outside)
 			var follow := func() -> void:
 				var ship := game.ship_view.global_transform

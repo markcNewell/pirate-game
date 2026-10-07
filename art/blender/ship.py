@@ -1305,10 +1305,8 @@ def sail(name, width, height, torn=False, seed=0):
         p = int(u * 7)
         shade = 1.0 if p % 2 == 0 else 0.94
         if torn:
-            # Old stains: broad and soft, not a patchwork.
-            stain = math.sin(x * 0.7 + seed) * math.sin(y * 0.9 - seed * 0.5)
-            k = min(1.0, max(0.0, (stain - 0.3) / 0.5))
-            shade *= 1.0 - 0.1 * k * k * (3 - 2 * k)
+            # Weathered: the panels a touch darker, one stripe in three darker still.
+            shade *= 0.94 if p % 3 else 0.86
         poly.material_index = kit._slot(ob, slot("sail"), round(shade, 2))
     kit.smooth_by_angle(ob, 70)
     parts = [ob]
