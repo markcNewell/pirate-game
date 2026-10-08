@@ -12,7 +12,9 @@ extends RefCounted
 ## San Telmo, BELL a drowned bell (1 hanging, 0 shot down), SEARCH a crate to search, GATE the
 ## fort's gate (1 shut, 0 blown), GUN a fort tower gun (hits left before it is silenced), CELL and
 ## VAULT the fort's doors (1 shut, 0 open), BOMB El Polvorín's bomb (fizzing).
-enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE, ISABEL, WRECK, BELL, SEARCH, GATE, GUN, CELL, VAULT, BOMB }
+## Act III: LAMP the green fire in Moll's lamp, BATTERY a gun of Merrow's battery, OCASO the
+## Doctor himself.
+enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE, ISABEL, WRECK, BELL, SEARCH, GATE, GUN, CELL, VAULT, BOMB, LAMP, BATTERY, OCASO }
 
 var id := 0
 var kind := Kind.FIRE

@@ -80,7 +80,7 @@ var stats := {
 	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0, "xp": 0, "levels": 0,
 	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
 	"galleons": 0, "blocked": 0, "given": 0, "broken": 0, "bells": 0, "gates": 0, "guns_silenced": 0,
-	"dives": 0, "fort_shots": 0, "bought": 0,
+	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -635,6 +635,16 @@ func _projectile_hits(p: Dictionary, pos: Vector3, age: float, poses: Dictionary
 func _hull_hit(p: Dictionary, ship_id: int, local: Vector3, world: Vector3) -> void:
 	var s: ShipState = ships[ship_id]
 	var kind := 2
+	# The Admiral's flagship cannot be holed in this act (story: the siege).
+	if s.flag == 2:
+		Net.send_event("impact", [p.id, kind, world.x, world.y, world.z, ship_id, time])
+		return
+	# Saltshot: a crew that brewed it holes the dead's ships twice.
+	if s.kind == ShipState.Kind.SKELETON and ShipShape.makes_hole(local) and _has_saltshot(_crew_of_ship(p.ship)) and s.holes.size() < MAX_HOLES:
+		var extra := ShipShape.hole_point(local + Vector3(0, 0, 0.9))
+		s.holes.append([s.next_hole_id, extra.x, extra.y, extra.z, 0.0])
+		s.next_hole_id += 1
+		stats.holes += 1
 	if ShipShape.makes_hole(local):
 		kind = 1
 		stats.hits += 1
@@ -840,6 +850,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 					_open_shop(id, r)
 				else:
 					story.talk(id, r, Story.PEOPLE_IDS[arg])
+		"climb_light":
+			_climb_lighthouse(id, r, arg)
 		"buy":
 			_buy(id, r, arg)
 		"wear":
@@ -1661,6 +1673,28 @@ func spawn_galleon(crew: int, distance: float, flag := 1, at := Vector3.INF) -> 
 	return id
 
 
+## Does any pirate of this crew online have saltshot (story chapter c3)?
+func _has_saltshot(crew: int) -> bool:
+	for id in _crew_members(crew):
+		if players[id].profile.chapters.has("c3"):
+			return true
+	return false
+
+
+## E at Moll's lighthouse door goes up to the gallery round the lamp (arg 0); E at the top
+## comes back down (arg 1). A bucket of water comes with you.
+func _climb_lighthouse(id: int, r: Dictionary, down: int) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD:
+		return
+	var door := Outpost.lighthouse_door()
+	var top := Outpost.gallery_spot()
+	if down == 0 and r.pos.distance_to(door) < 3.0:
+		stats.climbed += 1
+		_teleport(id, LocalPlayer.Mode.WORLD, top, r.yaw)
+	elif down == 1 and r.pos.distance_to(top) < 3.5:
+		_teleport(id, LocalPlayer.Mode.WORLD, door, r.yaw)
+
+
 ## A cannonball from a fort gun at `from` (world), aimed at `aim` with a little scatter.
 func fire_from(from: Vector3, aim: Vector3, error: float) -> void:
 	var flat := Vector2(aim.x - from.x, aim.z - from.z)
@@ -1925,7 +1959,7 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 		xp = 0
 	if sk.gideon:
 		xp = Progress.XP_CAPTAIN
-	if sk.bomber:
+	if sk.bomber or sk.sniper:
 		xp = Progress.XP_BOSS
 	_award(attacker, xp, "felling a skeleton")
 	story.on_skeleton_fell(sk)

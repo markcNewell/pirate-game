@@ -350,7 +350,8 @@ func client_on_event(kind: String, data: Array) -> void:
 			if local_player and local_player.weapon_view:
 				local_player.weapon_view.set_sleeve(Shop.shirt_of(my_dye, my_index), Avatar.skin_for(my_index))
 		if world:
-			world.set_isabel(chapters.has("b1"))
+			# Ashore after A Deserter at Dawn; taken in the siege until Act IV frees her.
+			world.set_isabel(chapters.has("b1") and (not chapters.has("c6") or chapters.has("d1")))
 		if bot_role != "":
 			print("[bot %s] profile xp=%d gold=%d chapters=%s" % [bot_role, xp, purse, chapters])
 		return
@@ -851,4 +852,4 @@ func nearest_enemy() -> ShipState:
 static func ship_name(s: ShipState) -> String:
 	if s.crew > 0:
 		return ServerSim.CREW_NAMES[s.crew - 1]
-	return "Spanish galleon" if s.flag == 1 else "Skeleton ship"
+	return ["Skeleton ship", "Spanish galleon", "The Cuervo Negro"][clampi(s.flag, 0, 2)]

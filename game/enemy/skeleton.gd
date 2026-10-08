@@ -56,6 +56,8 @@ var gideon := false
 ## El Polvorín, the fort's gunner: throws bombs.
 var bomber := false
 var next_bomb := 0.0
+## La Viuda: a sharpshooter on the flagship's quarterdeck.
+var sniper := false
 var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
@@ -99,6 +101,8 @@ func to_array() -> Array:
 
 ## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
 func look_code() -> int:
+	if sniper:
+		return 7
 	if bomber:
 		return 6
 	if gideon:
@@ -142,6 +146,7 @@ static func from_array(a: Array) -> Skeleton:
 	s.crab = look == 4
 	s.gideon = look == 5
 	s.bomber = look == 6
+	s.sniper = look == 7
 	s.holding = int(a[10]) if a.size() > 10 else -1
 	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s

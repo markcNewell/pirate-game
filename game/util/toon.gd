@@ -66,6 +66,24 @@ const SPANISH := {
 	"bone": Color("1a1418"),
 }
 
+## The Cuervo Negro, the Admiral's flagship: black and gold, gold sails' raven.
+const FLAGSHIP := {
+	"hull": Color("1a1614"),
+	"hull_dark": Color("0e0c0a"),
+	"bottom": Color("0e0c0a"),
+	"stripe": Color("e0b04a"),
+	"deck": Color("4a4438"),
+	"rail": Color("c8a040"),
+	"mast": Color("3a3028"),
+	"rope": Color("8a8470"),
+	"trim": Color("e0b04a"),
+	"sail": Color("1a1418"),
+	"lantern": Color("9cff8a"),
+	"gold": Color("ffd23a"),
+	"flag": Color("e0b04a"),
+	"bone": Color("1a1418"),
+}
+
 const CREWS := [
 	{},
 	{"sail": Color("e05a4a"), "stripe": Color("fff2d0"), "flag": Color("7a1414")},

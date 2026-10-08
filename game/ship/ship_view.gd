@@ -63,7 +63,7 @@ static func warm_up() -> void:
 
 ## A Spanish galleon: sound hull and sails (not a wreck), but crewed by the dead.
 func _spanish() -> bool:
-	return kind == ShipState.Kind.SKELETON and flag == 1
+	return kind == ShipState.Kind.SKELETON and flag >= 1
 
 
 func _part(name: String) -> ArrayMesh:
@@ -73,7 +73,7 @@ func _part(name: String) -> ArrayMesh:
 func _ready() -> void:
 	var palette: Dictionary = Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew)
 	if _spanish():
-		palette = Toon.SPANISH
+		palette = Toon.FLAGSHIP if flag == 2 else Toon.SPANISH
 	ShipMesh.use_palette(palette)
 	_paint = Models.palette_recolor(palette)
 	var hull := "ship_wreck" if kind == ShipState.Kind.SKELETON and not _spanish() else "ship_hull"

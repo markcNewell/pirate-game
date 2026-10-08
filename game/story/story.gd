@@ -7,6 +7,7 @@ extends RefCounted
 enum Step {
 	TALK, READ, DOUSE, BOUNTY, DIG_RACE, SALT, KEGS, SINK, VIGIL, BONFIRE, BOSS, CHASE, GATHER,
 	RESCUE, FERRY, DIVE, CONVOY, BELLS, ASK, SEARCH, BREACH, USE,
+	SIEGE_SEA, SIEGE_BEACH, SNIPER, DOCTOR,
 }
 
 ## Who you can talk to. `where` names the Outpost function giving where they stand.
@@ -273,6 +274,100 @@ const CHAPTERS: Array[Dictionary] = [
 			]},
 		],
 	},
+	# --- Act III: The Siege of Merrow (pirate level 10) ---
+	{
+		"id": "c1", "act": 3, "title": "Ashes on the Wind", "giver": "moll", "xp": 600, "gold": 200,
+		"intro": [
+			"Moll Tinder", "Ash on the wind, and my light burning green. Someone's been up my tower and poisoned the lamp.",
+			"Moll Tinder", "Green light tells their ships the way in. Climb up, put it out, and bring oil from the tavern to light it true.",
+			"Moll Tinder", "And take water up with you. You won't find the sea at the top.",
+		],
+		"steps": [
+			{"kind": Step.DOUSE, "where": "lamp", "fires": 1, "rise": 0},
+			{"kind": Step.GATHER, "item": "oil", "where": "tavern", "count": 1, "to": "lamp", "lines": [
+				"Moll Tinder", "There she burns, gold and true. Let them try to find the harbour now.",
+				"Moll Tinder", "Quill was asking for strong arms. He's bought some guns, God help us.",
+			]},
+		],
+	},
+	{
+		"id": "c2", "act": 3, "title": "Powder and Shot", "giver": "quill", "xp": 700, "gold": 250,
+		"intro": [
+			"Abel Quill", "Merrow needs guns of its own. I have bought four, at a very good price, from the old dig camp on Cutlass Cay.",
+			"Abel Quill", "The previous owner, a sergeant, raised no objection. Please carry them to the headland. Skeleton ships have been sighted; do hurry.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "cannon", "where": "camp", "island": 0, "count": 4, "to": "battery", "raids": 120.0, "lines": [
+				"Abel Quill", "Four guns on the headland. Merrow has teeth. I have entered them in the ledger as 'deterrence'.",
+			]},
+		],
+	},
+	{
+		"id": "c3", "act": 3, "title": "Saltshot", "giver": "wren", "xp": 600, "gold": 150,
+		"intro": [
+			"Mother Wren", "Isabel and I have been talking. Shot packed with sea salt would burst a dead ship's planks like dry bread.",
+			"Mother Wren", "Bring me a crate of Quill's salt, a piece of a drowned bell from Gull Isle, and a barrel of brine from the edge of the Black Reef, far to the south-east, where the sea is saltiest.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "saltshot", "where": "saltshot", "count": 3, "to": "wren", "lines": [
+				"Mother Wren", "Salt, bronze and brine. Your cannonballs will hurt the dead now. Not the living: they are only cannonballs to them.",
+				"Mother Wren", "I feel another great captain stirring. Hollowbell. Come back when you are ready.",
+			]},
+		],
+	},
+	{
+		"id": "c4", "act": 3, "title": "The Pressed Dead", "giver": "wren", "xp": 700, "gold": 0,
+		"intro": [
+			"Mother Wren", "They've dug up Hollowbell. The best pirate these Isles ever had, and now he leads the Spanish dead on Parrot Rock.",
+			"Mother Wren", "Bring me his skull. Be kind to it. He was a better man than most.",
+		],
+		"steps": [
+			{"kind": Step.BOUNTY, "island": 1, "captain": "Captain Hollowbell", "pronoun": "him", "crew": 3, "thieves": 0, "to": "wren", "talking": [
+				"Free! Free as a gull! Who's carrying me? Mind the bumps.",
+				"You sail like a cow swims, my friend.",
+				"The Admiral's flagship anchors off Cutlass Cay at night. Black hull, gold stern. You can't miss her.",
+				"He means to burn Merrow, you know. I heard the Doctor say so while I was still in his pocket.",
+				"I left a hoard once, for my cabin boy. Little Silas. I wonder what became of him.",
+				"Is it much further? I've no legs to stretch, but I'd like to stretch them.",
+			], "lines": [
+				"Mother Wren", "Rest, Hollowbell. You've earned it twice over.",
+				"Mother Wren", "And he's right: they mean to burn Merrow. Isabel is at the tavern. Talk to her.",
+			]},
+		],
+	},
+	{
+		"id": "c5", "act": 3, "title": "The Last Night of Peace", "giver": "isabel", "xp": 400, "gold": 100,
+		"intro": [
+			"Isabel Montero", "Martha has opened the tavern to everyone tonight. Rum, music, and a table of crews who were strangers a month ago.",
+			"Isabel Montero", "To the crews of Merrow. ...Listen. That's the harbour bell. Raven sails on the horizon.",
+			"Isabel Montero", "Barricades on the pier, quickly: three of them, by the tavern door.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "barricade", "where": "tavern", "count": 3, "to": "pier", "lines": [
+				"Isabel Montero", "Good. Now find your ships and your courage. Come to me when you are ready: they will come with the dark.",
+			]},
+		],
+	},
+	{
+		"id": "c6", "act": 3, "title": "The Siege of Port Merrow", "giver": "isabel", "xp": 1000, "gold": 400, "night": true, "shared": true, "reward": "Defender of Merrow",
+		"intro": [
+			"Isabel Montero", "Here they come. Three galleons, and the Cuervo Negro behind them. Every crew in the Isles, to the harbour!",
+			"Isabel Montero", "The battery will help if someone stands by it. Sink the galleons first; then the dead will try the beach.",
+		],
+		"steps": [
+			{"kind": Step.SIEGE_SEA, "galleons": 3},
+			{"kind": Step.SIEGE_BEACH, "waves": 3, "size": 6},
+			{"kind": Step.SNIPER, "boss": "La Viuda"},
+			{"kind": Step.DOCTOR, "raise": 4, "lines": [
+				"Doctor Ocaso", "Bravo. Bravo! Such spirit. It will make you excellent servants, in time.",
+				"Doctor Ocaso", "Teniente Montero. The Admiral would like a word. Do come quietly.",
+				"Isabel Montero", "Let go of me, you-",
+			], "end": [
+				"Moll Tinder", "Merrow stands. Scorched, but standing.",
+				"Moll Tinder", "But they took Isabel. The flagship went south, into the fog off Isla Ceniza.",
+			]},
+		],
+	},
 	# --- Tales: side stories, each opening after the chapter in "after". ---
 	{
 		"id": "t1", "act": 0, "title": "Coconut Thieves", "giver": "jonah", "xp": 250, "gold": 50, "tale": "Captain Coco", "after": "p1",
@@ -447,6 +542,8 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 	match int(step.kind):
 		Step.TALK:
 			return "Talk to %s at Port Merrow" % person_name(step.who)
+		Step.DOUSE when str(step.get("where", "")) == "lamp":
+			return "Climb the lighthouse and douse the green fire in the lamp (take water up)"
 		Step.READ:
 			match str(step.get("where", "dry")):
 				"sea":
@@ -498,11 +595,24 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 			return "Blow open the fort's gate (its powder is outside)"
 		Step.USE:
 			return "Free the prisoners in the cells" if step.object == "cells" else "Open the vault"
+		Step.SIEGE_SEA:
+			return "Sink the Spanish galleons in Merrow's bay (%d left)" % lit if lit > 0 else "Sink the Spanish galleons"
+		Step.SIEGE_BEACH:
+			return "Hold Merrow's beach against the dead (%d up)" % standing if standing > 0 else "Hold Merrow's beach"
+		Step.SNIPER:
+			return "Shoot La Viuda down from the flagship's quarterdeck"
+		Step.DOCTOR:
+			return "Fell what the Doctor raises (%d up)" % standing
 		Step.CHASE:
 			return "Catch the crab with Captain Coco on %s and bring him to %s" % [Islands.LAYOUT[step.island].name, person_name(step.to)]
 		Step.GATHER:
 			var what: String = {"planks": "a bundle of planks from each wreck", "tea": "floating tea crates (%d left)" % lit,
-				"hueso": "Señor Hueso's crate (on the pier)", "fine_tea": "the fine tea from Hueso's kitchen (%d left)" % lit}[step.item]
-			var to: String = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)
+				"hueso": "Señor Hueso's crate (on the pier)", "fine_tea": "the fine tea from Hueso's kitchen (%d left)" % lit,
+				"oil": "lamp oil from the tavern door", "cannon": "the cannons from Cutlass Cay's old camp (%d left)" % lit,
+				"saltshot": "salt, a piece of drowned bell and the Black Reef's brine (%d left)" % lit,
+				"barricade": "barricades from the tavern door (%d left)" % lit}[step.item]
+			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's headland", "pier": "the pier"}.get(str(step.to), "")
+			if to == "":
+				to = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)
 			return "Bring %s to %s" % [what, to]
 	return ""

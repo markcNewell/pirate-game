@@ -127,6 +127,41 @@ static func keeper_pos() -> Vector3:
 	return _centre() + Vector3(x, IslandMesh.ground(s, x, z), z)
 
 
+## The lighthouse's door (world, on the ground before it), and the gallery round its lamp where
+## you come out at the top (world).
+static func lighthouse_door() -> Vector3:
+	var foot := _lighthouse_foot()
+	var inward := -Vector3(foot.x, 0, foot.z).normalized()
+	var p := _centre() + foot + inward * 2.7
+	return Vector3(p.x, IslandMesh.ground(spec(), p.x - spec().x, p.z - spec().z), p.z)
+
+
+static func gallery_spot() -> Vector3:
+	var foot := _lighthouse_foot()
+	var outward := Vector3(foot.x, 0, foot.z).normalized()
+	return _centre() + foot + outward * 1.75 + Vector3(0, LIGHTHOUSE_HEIGHT + 0.25, 0)
+
+
+## Merrow's battery on the headland past the merchant's hut: four gun spots (world).
+static func battery_spot(i: int) -> Vector3:
+	var s := spec()
+	var a := HUT_ANGLE + 0.75 + 0.14 * (i - 1.5)
+	var r: float = s.radius - 5.0
+	var x := cos(a) * r
+	var z := sin(a) * r
+	return _centre() + Vector3(x, IslandMesh.ground(s, x, z), z)
+
+
+static func battery_centre() -> Vector3:
+	return (battery_spot(1) + battery_spot(2)) * 0.5
+
+
+## The middle of the pier, where barricades go up.
+static func pier_spot() -> Vector3:
+	var r0: float = spec().radius + PIER_START
+	return _centre() + Vector3(r0 + 9.0, PIER_Y, 0.0)
+
+
 ## The middle of the lighthouse's lamp room, in world space.
 static func lighthouse_lamp() -> Vector3:
 	return _centre() + _lighthouse_foot() + Vector3(0, LIGHTHOUSE_HEIGHT + 1.1, 0)
@@ -231,6 +266,14 @@ static func tavern_windows() -> Transform3D:
 static func _lighthouse(solid: MeshBuilder) -> void:
 	var foot := _lighthouse_foot()
 	solid.box(foot + Vector3(0, LIGHTHOUSE_HEIGHT * 0.5, 0), Vector3(1.9, LIGHTHOUSE_HEIGHT * 0.5, 1.9), Color.BLACK)
+	# The gallery round the lamp: its deck, the lamp room in the middle and a rail all round.
+	var top := foot + Vector3(0, LIGHTHOUSE_HEIGHT, 0)
+	solid.box(top + Vector3(0, 0.1, 0), Vector3(2.25, 0.12, 2.25), Color.BLACK)
+	solid.box(top + Vector3(0, 1.3, 0), Vector3(1.1, 1.1, 1.1), Color.BLACK)
+	for k in 8:
+		var a := TAU * k / 8.0
+		var at := top + Vector3(cos(a) * 2.25, 0.8, sin(a) * 2.25)
+		solid.box(at, Vector3(0.08, 0.6, 0.95), Color.BLACK, Basis(Vector3.UP, -a))
 
 
 ## The merchant's stall's collision: its floor, three walls and the counter.
