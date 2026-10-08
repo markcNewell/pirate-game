@@ -818,6 +818,8 @@ static func offered_by(who: String, done_lists: Array) -> int:
 static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) -> String:
 	if done:
 		match int(step.kind):
+			Step.DOUSE when str(step.get("where", "")) == "lamp":
+				return "Douse the green fire in Moll's lamp"
 			Step.DOUSE:
 				return "Douse the green fire on %s" % Islands.LAYOUT[step.island].name
 			Step.DIG_RACE:

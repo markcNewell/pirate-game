@@ -93,3 +93,48 @@ func test_every_world_event() -> void:
 			sim._step_skeletons(DT)
 		_check_world(sim, e)
 		_check_reachable(sim, e)
+
+
+func test_every_step_says_what_to_do() -> void:
+	for ch: Dictionary in Story.CHAPTERS:
+		for step: Dictionary in ch.steps:
+			for done: bool in [false, true]:
+				var text := Story.step_text(step, 1, 2, done)
+				var where := "%s step kind %d%s" % [ch.id, step.kind, " (done)" if done else ""]
+				check(text.strip_edges() != "", "%s: says something" % where)
+				check(not text.contains("%") and not text.contains("{") and not text.contains("<null>"), "%s: no unfilled gaps: %s" % [where, text])
+				check(text.length() <= 140, "%s: fits the card (%d letters): %s" % [where, text.length(), text])
+
+
+func test_the_mission_card_for_every_step() -> void:
+	# What the HUD shows as a chapter goes on (bots have no HUD, so the smoke tests never draw it).
+	for ch: Dictionary in Story.CHAPTERS:
+		for handled in ch.steps.size() + 1:
+			for deadline: float in [-1.0, 90.0]:
+				var m := {"kind": Missions.Kind.STORY, "captain": ch.id, "handled": handled, "total": 2, "standing": 1, "deadline": deadline}
+				var lines: Array = Hud.MissionCard.steps(m, 0.0)
+				check(not lines.is_empty(), "%s after %d steps: the card says something" % [ch.id, handled])
+				for line: Array in lines:
+					check(str(line[0]).strip_edges() != "", "%s after %d steps: no blank line" % [ch.id, handled])
+		check(Hud.MissionCard.act_name({"captain": ch.id}) != "", "%s has an act name" % ch.id)
+
+
+func test_everyone_the_story_names_exists() -> void:
+	for ch: Dictionary in Story.CHAPTERS:
+		check(Story.PEOPLE.has(ch.giver), "%s: its giver %s is one of Merrow's people" % [ch.id, ch.giver])
+		for step: Dictionary in ch.steps:
+			if step.has("who"):
+				var whom: Array = step.who if step.who is Array else [step.who]
+				for who: String in whom:
+					check(Story.PEOPLE.has(who), "%s: %s is one of Merrow's people" % [ch.id, who])
+			if step.has("to"):
+				var to: String = step.to
+				var place := to in ["lamp", "reef_edge", "battery", "pier"] or (to.begins_with("beach:") and int(to.trim_prefix("beach:")) < Islands.LAYOUT.size())
+				check(Story.PEOPLE.has(to) or place, "%s: things go to %s, someone or somewhere real" % [ch.id, to])
+			if step.has("island"):
+				# -1: the step finds its own island (the fort, say).
+				check(int(step.island) >= -1 and int(step.island) < Islands.LAYOUT.size(), "%s: island %d exists" % [ch.id, step.island])
+		if ch.has("after"):
+			check(Story.index_of(ch.after) >= 0, "%s follows %s, which exists" % [ch.id, ch.after])
+		if ch.has("gift"):
+			check(Shop.index_of(ch.gift) >= 0, "%s's gift %s is in Martha's book" % [ch.id, ch.gift])
