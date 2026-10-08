@@ -138,3 +138,35 @@ func test_everyone_the_story_names_exists() -> void:
 			check(Story.index_of(ch.after) >= 0, "%s follows %s, which exists" % [ch.id, ch.after])
 		if ch.has("gift"):
 			check(Shop.index_of(ch.gift) >= 0, "%s's gift %s is in Martha's book" % [ch.id, ch.gift])
+
+
+func test_the_mission_card_for_every_board_mission() -> void:
+	# Every company's mission with each of the war's twists, as the HUD would show it.
+	var twists := {
+		Missions.Kind.TREASURE: [{}, {"diggers": true}, {"cache": true}, {"wreck": true}],
+		Missions.Kind.BOUNTY: [{}, {"officer": true, "captain": "Teniente Ruiz"}, {"pressed": true, "captain": "Captain Hollowbell"}, {"ghost": true, "captain": Missions.GHOST_CAPTAIN}],
+		Missions.Kind.CARGO: [{}, {"goods": 3}, {"raided": true}],
+	}
+	for company in 3:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var base := Missions.make_offer(company, 2, Islands.mission_islands(), rng)
+		for twist: Dictionary in twists[int(base.kind)]:
+			var sim := ServerSim.new({"no-ai": true, "calm": true})
+			sim.add_player(1, "Anne", 1, "a")
+			var offer := base.duplicate(true)
+			offer.merge(twist, true)
+			sim._start_mission(ServerSim.CREW, offer)
+			var where := "%s %s" % [offer.title, twist.keys()]
+			var m := Game._decode_mission(sim._mission_array(ServerSim.CREW))
+			check(not m.is_empty(), "%s: sent to the crew" % where)
+			if m.is_empty():
+				continue
+			var lines: Array = Hud.MissionCard.steps(m, 0.0)
+			check(not lines.is_empty(), "%s: the card says something" % where)
+			for t: Dictionary in m.targets:
+				check(not t.done, "%s: nothing found yet" % where)
+			if twist.get("ghost", false):
+				check(not lines[0][1], "%s: the ghost isn't sunk yet" % where)
+				var ghost: ShipState = sim.ships[int(sim.crews[ServerSim.CREW].mission.ghost)]
+				check(Vector2(m.targets[0].x, m.targets[0].z).distance_to(Vector2(ghost.x, ghost.z)) < 1.0, "%s: the mark is on her" % where)

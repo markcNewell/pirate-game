@@ -1409,7 +1409,14 @@ func _mission_array(crew: int) -> Array:
 				var item: Loot = items.get(m.items[i])
 				var x: float = item.pos.x if item else 0.0
 				var z: float = item.pos.z if item else 0.0
-				targets.append_array([m.islands[i], x, z, 0 if item and item.state == Loot.State.BURIED else 1])
+				# Still to find: buried, or (wreck gold) still bobbing in the sea.
+				var waiting: bool = item != null and item.state in [Loot.State.BURIED, Loot.State.FLOATING]
+				targets.append_array([m.islands[i], x, z, 0 if waiting else 1])
+		Missions.Kind.BOUNTY when str(m.name) == Missions.GHOST_CAPTAIN:
+			# A ghost ship: the mark follows her; done once she is sunk.
+			var g: ShipState = ships.get(int(m.get("ghost", -1)))
+			var island: int = m.islands[0] if not m.islands.is_empty() else 0
+			targets.append_array([island, g.x if g else 0.0, g.z if g else 0.0, 0 if g and not g.is_sinking() else 1])
 		Missions.Kind.BOUNTY:
 			var island: int = m.islands[0]
 			var spec: Dictionary = Islands.LAYOUT[island]
