@@ -1095,7 +1095,7 @@ func _enter_polvorin(crew: int, step: Dictionary) -> void:
 	m.captain = boss.id
 	for n in int(step.guards):
 		var a := TAU * n / float(step.guards) + 0.3
-		_spanish_at(crew, fort, Fort.centre() + Vector3(cos(a), 0, sin(a)) * 6.5)
+		_spanish_at(crew, fort, Fort.ring_spot(a, 6.5))
 	sim._tell_crew(crew, "El Polvorín roars from his platform, a lit bomb in each fist!")
 
 
@@ -1391,13 +1391,11 @@ func _enter_doctor(crew: int, step: Dictionary) -> void:
 	_add_object(crew, StoryObject.Kind.OCASO, at, PI / 2.0)
 	for id in sim._crew_members(crew):
 		_say(id, step.lines)
-	var merrow := Islands.outpost_index()
+	# In two files along the pier's deck, toward the land (across it they would be in the sea).
 	for n in int(step.raise):
-		var a := TAU * n / float(step.raise)
-		var p := Outpost.pier_spot() + Vector3(cos(a) * 3.0 - 4.0, 0, sin(a) * 3.0)
-		var island_p := Islands.island_at(p.x, p.z)
-		p.y = Islands.ground_at(island_p, p.x, p.z) if island_p >= 0 else Outpost.PIER_Y
-		var sk := sim._new_skeleton(-1, Vector3(p.x, maxf(p.y, Outpost.PIER_Y), p.z))
+		var along := -2.5 - 1.6 * float(n / 2)
+		var p := Outpost.pier_spot() + Vector3(along, 0, 0.8 if n % 2 == 0 else -0.8)
+		var sk := sim._new_skeleton(-1, Vector3(p.x, Outpost.PIER_Y, p.z))
 		sk.spanish = true
 		sk.story_crew = crew
 		m.raised.append(sk.id)

@@ -75,6 +75,13 @@ static func agent_pos() -> Vector3:
 	return _centre() + Vector3(r0 + AGENT_AT.x, PIER_Y, AGENT_AT.z)
 
 
+## Is world (x, z) on the pier's deck?
+static func on_pier(x: float, z: float) -> bool:
+	var c := _centre()
+	var r := x - c.x
+	return absf(z - c.z) <= PIER_HALF_WIDTH and r >= spec().radius + PIER_START and r <= spec().radius + PIER_END
+
+
 ## Old Hobb the shipwright, at the landward end of the pier (world).
 static func hobb_pos() -> Vector3:
 	var r0: float = spec().radius + PIER_START

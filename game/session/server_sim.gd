@@ -2142,8 +2142,17 @@ func _floor_for(sk: Skeleton) -> Callable:
 			return ShipShape.floor_y(z, x)
 	# A camp's skeletons keep to their island; the story's raised dead to the one they stand on.
 	var island := sk.home if sk.home >= 0 else Islands.island_at(sk.pos.x, sk.pos.z, 4.0)
+	if island < 0 and Outpost.on_pier(sk.pos.x, sk.pos.z):
+		island = Islands.outpost_index()
 	if island < 0:
 		return func(_x: float, _z: float) -> float: return NAN
+	if island == Islands.outpost_index():
+		# Port Merrow: its pier's deck is ground too (the siege's dead come up on it).
+		return func(x: float, z: float) -> float:
+			if Outpost.on_pier(x, z):
+				return Outpost.PIER_Y
+			var g := Islands.ground_at(island, x, z)
+			return g if g > Waves.height(x, z, time) + Skeleton.SHORE else NAN
 	if Islands.LAYOUT[island].get("fort", false):
 		# The fort's walls and buildings: no walking through them (the gate once blown).
 		var spec: Dictionary = Islands.LAYOUT[island]

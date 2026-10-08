@@ -70,6 +70,18 @@ static func door_pos(spec_row: Array) -> Vector3:
 	return world(spec_row[0], spec_row[1] - spec_row[3] * 0.5 - 0.8)
 
 
+## A spot on a ring round the courtyard (world), `a` radians round from east, moved round the
+## ring until it is clear of the buildings (the dead must stand where they can walk).
+static func ring_spot(a: float, r: float) -> Vector3:
+	var c := centre()
+	for k in 24:
+		var p := Vector2(cos(a), sin(a)) * r
+		if not blocked(p.x, p.y, false):
+			return Vector3(c.x + p.x, PLATEAU_Y, c.z + p.y)
+		a += 0.15
+	return c
+
+
 ## Where Isabel keeps the fort once the story is done (world): in the courtyard, inside the gate.
 static func isabel_pos() -> Vector3:
 	return world(0.0, 5.5)

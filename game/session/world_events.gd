@@ -264,8 +264,7 @@ func _fort_wave() -> void:
 	wave += 1
 	print("[server] the fort's garrison: wave %d" % wave)
 	for n in FORT_SIZE:
-		var a := TAU * n / float(FORT_SIZE) + 0.5 * wave
-		var p := Fort.centre() + Vector3(cos(a), 0, sin(a)) * 6.5
+		var p := Fort.ring_spot(TAU * n / float(FORT_SIZE) + 0.5 * wave, 6.5)
 		p.y = Islands.ground_at(island, p.x, p.z)
 		var sk := sim._new_skeleton(-1, p)
 		sk.spanish = true
