@@ -39,7 +39,7 @@ static func blank(player_name: String, token: String, xp := 0) -> Dictionary:
 	return {
 		"name": player_name, "token": token, "xp": xp, "gold": 0, "rep": [0, 0, 0],
 		"titles": [], "title": "", "chapters": [], "deeds": {}, "owned": [], "look": -1, "dye": -1,
-		"blade": 0, "gun": 0,
+		"blade": 0, "gun": 0, "armour": 0,
 	}
 
 

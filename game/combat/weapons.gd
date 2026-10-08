@@ -5,6 +5,28 @@ extends RefCounted
 
 ## The two hands (the weapon slot a player holds): the blade and the gun.
 enum Kind { CUTLASS, PISTOL }
+## What a hurt was, for armour: a blade (swords, axes, claws), shot and blasts, or neither
+## (lightning, a giant's fist, the Heart's burn).
+enum Hit { NONE, BLADE, SHOT }
+
+## Armour as trade-offs (the story doc's armourer): better against one kind of hurt, worse
+## against the other. Damage taken is multiplied by these.
+const ARMOURS := [
+	{"name": "No armour", "blade": 1.0, "shot": 1.0},
+	{"name": "Padded coat", "blade": 0.7, "shot": 1.3},
+	{"name": "Steel cuirass", "blade": 1.3, "shot": 0.7},
+]
+
+
+## Damage after armour `armour_i` against a hurt of this kind.
+static func armoured(damage: int, armour_i: int, hit: int) -> int:
+	var a: Dictionary = ARMOURS[clampi(armour_i, 0, ARMOURS.size() - 1)]
+	match hit:
+		Hit.BLADE:
+			return int(round(damage * float(a.blade)))
+		Hit.SHOT:
+			return int(round(damage * float(a.shot)))
+	return damage
 
 ## What can go in each hand (docs/specs/2026-10-08-m14-the-armoury.md): fair choices, never
 ## upgrades. Blades all do about 42 damage a second; the guns trade range for punch.

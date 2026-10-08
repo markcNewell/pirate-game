@@ -27,6 +27,17 @@ blade and one gun, chosen at Martha's counter, and everyone sees what you carry.
 Damage over time is the same within each hand (blades about 42 a second; the pistol and musket
 about 16, the blunderbuss more only if every pellet lands, which happens only up close).
 
+## Armour (added after: a trade, never an upgrade)
+
+| Armour | Blades, teeth and claws | Shot, cannon splash and blasts | Price |
+|---|---|---|---|
+| None (start) | as they come | as they come | |
+| Padded coat | 0.7 times | 1.3 times | 700 |
+| Steel cuirass | 1.3 times | 0.7 times | 700 |
+
+Lightning, a giant's fist and the Heart's burn are the same for everyone. Armour is worn under
+your outfit (nothing to see yet), bought and put on at Martha's like the arms.
+
 ## Rules
 
 - **Buying**: at Martha's counter, a third column, "Arms". Rapier 600, boarding axe 600,

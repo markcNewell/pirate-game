@@ -1361,7 +1361,7 @@ func _sniper(crew: int, m: Dictionary) -> void:
 			var r: Dictionary = sim.players[m.shot_target]
 			if r.dead_until < 0.0 and sim._world_pos(r).distance_to(muzzle) < SNIPER_RANGE:
 				Net.send_event("sniper_shot", [muzzle.x, muzzle.y, muzzle.z, m.shot_target])
-				sim._hurt_player(m.shot_target, SNIPER_DAMAGE, "La Viuda's musket")
+				sim._hurt_player(m.shot_target, SNIPER_DAMAGE, "La Viuda's musket", -1, Weapons.Hit.SHOT)
 		return
 	if sim.time < m.next_shot:
 		return
@@ -1696,7 +1696,7 @@ func _explode(o: StoryObject) -> void:
 		var w := sim._world_pos(sim.players[id])
 		var d := w.distance_to(o.pos)
 		if d < BLAST_REACH:
-			sim._hurt_player(id, int(BLAST_DAMAGE * (1.0 - 0.5 * d / BLAST_REACH)), "a powder keg")
+			sim._hurt_player(id, int(BLAST_DAMAGE * (1.0 - 0.5 * d / BLAST_REACH)), "a powder keg", -1, Weapons.Hit.SHOT)
 	for sid in sim.skeletons.keys():
 		var sk: Skeleton = sim.skeletons[sid]
 		if sk.alive() and sk.frame < 0 and sk.pos.distance_to(o.pos) < BLAST_REACH:

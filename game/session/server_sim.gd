@@ -1455,7 +1455,7 @@ func _award_crew(crew: int, xp: int, why: String) -> void:
 ## what they own].
 func _send_profile(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate(), int(p.get("blade", 0)), int(p.get("gun", 0)), p.get("deeds", {}).duplicate()])
+	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate(), int(p.get("blade", 0)), int(p.get("gun", 0)), p.get("deeds", {}).duplicate(), int(p.get("armour", 0))])
 
 
 ## Count one more towards a deed (Deeds) for a pirate; the title when it is done.
@@ -1536,6 +1536,9 @@ func _wear(id: int, r: Dictionary, i: int) -> void:
 			Shop.Kind.GUN:
 				p.gun = Shop.ITEMS[i][1]
 				print("[server] %s carries the %s" % [r.name, Shop.ITEMS[i][2]])
+			Shop.Kind.ARMOUR:
+				p.armour = Shop.ITEMS[i][1]
+				print("[server] %s wears %s" % [r.name, Weapons.ARMOURS[p.armour].name])
 	else:
 		return
 	profiles.changed(r.name)
@@ -1946,7 +1949,7 @@ func _step_skeletons(dt: float) -> void:
 		if sk.step(goal, dt, _floor_for(sk)):
 			stats.skeleton_swings += 1
 			Net.send_event("swing", [sk.id])
-			_hurt_player(target, sk.damage, "a skeleton captain" if sk.captain else "a skeleton")
+			_hurt_player(target, sk.damage, "a skeleton captain" if sk.captain else "a skeleton", -1, Weapons.Hit.BLADE)
 
 
 ## The nearest living player the skeleton can get at, or -1.
@@ -2000,12 +2003,13 @@ func _floor_for(sk: Skeleton) -> Callable:
 		return g if g > Waves.height(x, z, time) + Skeleton.SHORE else NAN
 
 
-func _hurt_player(id: int, damage: int, by: String, attacker := -1) -> void:
+func _hurt_player(id: int, damage: int, by: String, attacker := -1, hit := Weapons.Hit.NONE) -> void:
 	if not players.has(id):
 		return
 	var r: Dictionary = players[id]
 	if r.dead_until >= 0.0:
 		return
+	damage = Weapons.armoured(damage, int(r.profile.get("armour", 0)), hit)
 	r.hp = maxi(0, r.hp - damage)
 	Net.send_event("hurt_player", [id, damage])
 	if r.hp > 0:
@@ -2131,7 +2135,7 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 				continue
 			_hurt_skeleton(target, damage, r.name, id)
 		else:
-			_hurt_player(-target, damage, "%s of %s" % [r.name, crew_name(r.crew)], id)
+			_hurt_player(-target, damage, "%s of %s" % [r.name, crew_name(r.crew)], id, Weapons.Hit.BLADE if weapon == Weapons.Kind.CUTLASS else Weapons.Hit.SHOT)
 
 
 func _skeleton_world(sk: Skeleton) -> Vector3:
@@ -2211,7 +2215,7 @@ func _splash(world: Vector3, shooter_crew := 0) -> void:
 			continue
 		var dmg := Weapons.splash_damage(_world_pos(r).distance_to(world))
 		if dmg > 0:
-			_hurt_player(id, dmg, "a cannonball")
+			_hurt_player(id, dmg, "a cannonball", -1, Weapons.Hit.SHOT)
 	for sid in skeletons.keys():
 		var sk: Skeleton = skeletons[sid]
 		if sk.alive():

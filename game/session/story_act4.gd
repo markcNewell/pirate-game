@@ -581,7 +581,7 @@ func step_admiral(sk: Skeleton, dt: float) -> bool:
 		for id in sim.players:
 			var r: Dictionary = sim.players[id]
 			if r.dead_until < 0.0 and _same_frame(r, sk) and sim._pos_in_frame(r, sk.frame).distance_to(sk.pos) < 1.2 and id == sk.lunge_target:
-				sim._hurt_player(id, LUNGE_DAMAGE, "the Raven Admiral's rapier")
+				sim._hurt_player(id, LUNGE_DAMAGE, "the Raven Admiral's rapier", -1, Weapons.Hit.BLADE)
 				sk.lunge_left = 0.0
 		if sk.lunge_left <= 0.0:
 			sk.lunge_at = -1.0

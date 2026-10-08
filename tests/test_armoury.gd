@@ -135,3 +135,21 @@ func test_any_gun_knocks_a_lantern_away() -> void:
 	r.profile.gun = 1
 	_attack(sim, r, Weapons.Kind.PISTOL, linnet.pos + Vector3(0, 1.1, 0))
 	check(not linnet.shield_up, "a blunderbuss does what a pistol does")
+
+
+func test_armour_is_a_trade() -> void:
+	for a: Dictionary in Weapons.ARMOURS:
+		check(absf(float(a.blade) + float(a.shot) - 2.0) < 0.001, "%s: what it saves one way it costs the other" % a.name)
+	var sim := _sim()
+	var r := _ashore(sim, Outpost.martha_pos())
+	r.profile.gold = 1000
+	sim.request(1, "buy", Shop.index_of("armour1"), [])
+	check_eq(int(r.profile.armour), 1, "a padded coat")
+	sim._hurt_player(1, 20, "a skeleton", -1, Weapons.Hit.BLADE)
+	check_eq(int(r.hp), ServerSim.HEALTH - 14, "softer against blades")
+	r.hp = ServerSim.HEALTH
+	sim._hurt_player(1, 30, "a cannonball", -1, Weapons.Hit.SHOT)
+	check_eq(int(r.hp), ServerSim.HEALTH - 39, "harder against shot")
+	r.hp = ServerSim.HEALTH
+	sim._hurt_player(1, 25, "lightning")
+	check_eq(int(r.hp), ServerSim.HEALTH - 25, "and nothing against lightning")

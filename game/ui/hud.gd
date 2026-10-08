@@ -530,7 +530,7 @@ func _process(delta: float) -> void:
 		close_board()
 	_card.queue_redraw()
 	if _shop.visible:
-		if "%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.owned] != _shop_seen:
+		if "%d|%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned] != _shop_seen:
 			_fill_shop()
 		if game.local_player.frame_position().distance_to(Outpost.martha_pos()) > Shop.REACH + 3.0 and game.local_player.mode == LocalPlayer.Mode.WORLD:
 			close_shop()
@@ -665,7 +665,7 @@ func close_shop() -> void:
 
 
 func _fill_shop() -> void:
-	_shop_seen = "%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.owned]
+	_shop_seen = "%d|%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned]
 	for child in _shop_box.get_children():
 		child.queue_free()
 	var title := _card_label("Big Martha's back room", 34, Color("5a3e22"))
@@ -688,7 +688,7 @@ func _fill_shop() -> void:
 		for i in Shop.ITEMS.size():
 			var item: Array = Shop.ITEMS[i]
 			# The arms column holds both hands: blades, then guns.
-			if item[0] != kind and not (kind == Shop.Kind.BLADE and item[0] == Shop.Kind.GUN):
+			if item[0] != kind and not (kind == Shop.Kind.BLADE and item[0] in [Shop.Kind.GUN, Shop.Kind.ARMOUR]):
 				continue
 			var name := _card_label(item[2], 17, Color("2a1a10"))
 			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -697,8 +697,8 @@ func _fill_shop() -> void:
 				name.add_theme_color_override("font_color", Shop.DYES[item[1]].darkened(0.35))
 			grid.add_child(name)
 			var own := Shop.has({"owned": game.owned}, i)
-			var arms: bool = item[0] in [Shop.Kind.BLADE, Shop.Kind.GUN]
-			var current: int = [game.my_outfit, game.my_dye, game.my_blade, game.my_gun][item[0]]
+			var arms: bool = item[0] in [Shop.Kind.BLADE, Shop.Kind.GUN, Shop.Kind.ARMOUR]
+			var current: int = [game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour][item[0]]
 			var wearing: bool = current == item[1]
 			var gift: bool = item[3] <= 0
 			var now := ("carried" if arms else "wearing") if wearing else ("owned" if own else ("a gift" if gift else "%d gold" % item[3]))

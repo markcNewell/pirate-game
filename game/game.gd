@@ -55,6 +55,8 @@ var my_blade := 0
 var my_gun := 0
 ## How far along each deed we are (Deeds), from the server.
 var deeds := {}
+## The armour we wear (Weapons.ARMOURS).
+var my_armour := 0
 var owned: Array = []
 ## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
 ## next X still to dig on a treasure voyage ({island, x, z} or empty).
@@ -357,6 +359,8 @@ func client_on_event(kind: String, data: Array) -> void:
 			owned = data[9]
 			if data.size() > 12:
 				deeds = data[12]
+			if data.size() > 13:
+				my_armour = int(data[13])
 			if data.size() > 11 and (int(data[10]) != my_blade or int(data[11]) != my_gun):
 				my_blade = int(data[10])
 				my_gun = int(data[11])
