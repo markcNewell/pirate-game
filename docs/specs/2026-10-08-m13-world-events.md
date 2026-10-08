@@ -1,6 +1,6 @@
 # Milestone 13: World events
 
-Status: built 09-10-2026, after the whole story (M7-M12), with `tests/smoke/world_test.sh`. The story doc
+Status: built 08-10-2026, after the whole story (M7-M12), with `tests/smoke/world_test.sh`. The story doc
 (docs/specs/2026-10-08-story.md, "World events") lists seven; this milestone builds five. Every
 choice below is Claude's default; change anything and the code follows.
 

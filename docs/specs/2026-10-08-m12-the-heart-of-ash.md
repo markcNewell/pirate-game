@@ -1,6 +1,6 @@
 # Milestone 12: The Heart of Ash (Act V and the epilogue)
 
-Status: built 09-10-2026, the last build step of the story (docs/specs/2026-10-08-story.md): the
+Status: built 08-10-2026, the last build step of the story (docs/specs/2026-10-08-story.md): the
 Anvil and the Maw, the six chapters, their art, three bots and `tests/smoke/act5_test.sh`.
 Every choice below is Claude's default; change anything and the code follows. Where the story doc
 asked for more than one night's work, this says what is built instead.

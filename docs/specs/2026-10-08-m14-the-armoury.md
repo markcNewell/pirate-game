@@ -1,6 +1,6 @@
 # Milestone 14: The armoury
 
-Status: built 09-10-2026, with `tests/smoke/armoury_test.sh` (test hooks `--gold`, `--blade`,
+Status: built 08-10-2026, with `tests/smoke/armoury_test.sh` (test hooks `--gold`, `--blade`,
 `--gun`). It answers the story doc's open decision 1 with its default: weapons
 are **fair choices**, never upgrades (docs/specs/2026-10-08-story.md, "Decisions for Mark"). Every
 number below is Claude's default; change anything and the code follows.
@@ -27,7 +27,7 @@ blade and one gun, chosen at Martha's counter, and everyone sees what you carry.
 Damage over time is the same within each hand (blades about 42 a second; the pistol and musket
 about 16, the blunderbuss more only if every pellet lands, which happens only up close).
 
-## Armour (added after: a trade, never an upgrade)
+## Armour (added in M17, `milestone-17-polish`: a trade, never an upgrade)
 
 | Armour | Blades, teeth and claws | Shot, cannon splash and blasts | Price |
 |---|---|---|---|

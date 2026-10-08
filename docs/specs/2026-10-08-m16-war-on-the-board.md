@@ -1,6 +1,6 @@
 # Milestone 16: The war on the board
 
-Status: built 09-10-2026. The story doc's "The board missions as the story moves on"
+Status: built 08-10-2026. The story doc's "The board missions as the story moves on"
 (docs/specs/2026-10-08-story.md): the three companies' repeatable missions change with how far
 the crew has got, so the war is felt between chapters. Every number below is Claude's default;
 change anything and the code follows.

@@ -13,7 +13,8 @@ the green lights on Gull Isle to the Bone Colossus and the party at the Drowned 
 side tales, and world events any crew can join (green fires, the Raven Patrol, a gold convoy,
 a raid on Merrow, a ghost galleon in the storm). Gold buys looks and arms at Big Martha's: a
 rapier, a boarding axe, a blunderbuss or a long musket, each a fair swap for the cutlass or
-pistol rather than an upgrade. Deeds (J) are long goals that earn titles: douse fifty green
+pistol rather than an upgrade, and armour that trades one thing for another (a padded coat
+softens blades but not shot, a steel cuirass the other way round). Deeds (J) are long goals that earn titles: douse fifty green
 fires, sink twenty-five Spanish galleons. And the mission board changes as the war goes on:
 Spanish caches, officers and the pressed dead, raided cargo runs, wreck gold and ghost ships. Every pirate earns XP and levels (which never make anyone
 stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
