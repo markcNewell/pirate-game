@@ -8,6 +8,7 @@ enum Step {
 	TALK, READ, DOUSE, BOUNTY, DIG_RACE, SALT, KEGS, SINK, VIGIL, BONFIRE, BOSS, CHASE, GATHER,
 	RESCUE, FERRY, DIVE, CONVOY, BELLS, ASK, SEARCH, BREACH, USE,
 	SIEGE_SEA, SIEGE_BEACH, SNIPER, DOCTOR,
+	HULK, GHOST, LANTERNS, GAMBIT, RISEN, CRIPPLE, ADMIRAL,
 }
 
 ## Who you can talk to. `where` names the Outpost function giving where they stand.
@@ -368,6 +369,98 @@ const CHAPTERS: Array[Dictionary] = [
 			]},
 		],
 	},
+	# --- Act IV: The Drowned Fleet (docs/specs/2026-10-08-m11-the-drowned-fleet.md). ---
+	{
+		"id": "d1", "act": 4, "title": "The Prison Hulk", "giver": "moll", "xp": 800, "gold": 250,
+		"intro": [
+			"Moll Tinder", "Hollowbell's skull said it, before Wren laid him down: the Admiral keeps his prisoners in an old hulk, in the fog off Isla Ceniza.",
+			"Moll Tinder", "She'll be there. Go quietly. Guards walk that deck with lanterns, and if one sees you he'll ring for every ship they have.",
+			"Moll Tinder", "The jailer keeps the keys at the stern. Bring her home.",
+		],
+		"steps": [
+			{"kind": Step.HULK, "guards": 3, "boss": "the jailer", "lines": [
+				"Isabel Montero", "You took your time. ...The keys. On his belt. Quickly, before his friends come looking.",
+			]},
+			{"kind": Step.USE, "object": "hulk", "lines": [
+				"Isabel Montero", "Out. Thank you. I owe you a ship's worth of thanks and I mean to pay it.",
+			]},
+			{"kind": Step.FERRY, "lines": [
+				"Isabel Montero", "Merrow. Still standing. Good.",
+				"Isabel Montero", "Find me at the tavern once I've slept. I know where the fleet is going, and how we get there before it.",
+			]},
+		],
+	},
+	{
+		"id": "d2", "act": 4, "title": "The Pilot's Chart", "giver": "isabel", "xp": 800, "gold": 200,
+		"intro": [
+			"Isabel Montero", "The drowned fleet lies inside the Black Reef. One channel runs in safely, and only its pilot knew it: Mateo Brisa. He's buried on Isla Calavera with his chart.",
+			"Isabel Montero", "The sailors had a song about him. 'Look out of the skull's left eye, count the teeth to the third, and dig where the third tooth points.' Or close enough.",
+		],
+		"steps": [
+			{"kind": Step.READ, "where": "calavera_eye", "hint": "Find the carving before the skull's left eye on Isla Calavera", "title": "Cut in the rock below the left eye", "text":
+				"A skull over an arrow, and under it, in Spanish:\n\nTHE PILOT KEEPS HIS CHART WHERE THE SKULL CANNOT SEE IT.\nCOUNT THE TEETH FROM THE LEFT.\nTHE THIRD ONE KNOWS."},
+			{"kind": Step.READ, "where": "calavera_tooth", "hint": "Find the third tooth-stone, counting from the left", "title": "Scratched on the third tooth-stone", "text":
+				"Three notches and an arrow, pointing back toward the skull's chin.\n\nBETWEEN THE TEETH AND THE STONES, MATEO SLEEPS. DIG GENTLY. HE BITES."},
+			{"kind": Step.GATHER, "item": "chart", "where": "grave", "count": 1, "to": "isabel", "lines": [
+				"Isabel Montero", "The channel. Every rock, every turn, in his hand. With this the Reef won't touch you.",
+				"Isabel Montero", "Pass it round your crew. And keep away from storms for a while. I hear things are rising in them.",
+			]},
+		],
+	},
+	{
+		"id": "d3", "act": 4, "title": "Ghost Lights", "giver": "wren", "xp": 800, "gold": 250,
+		"intro": [
+			"Mother Wren", "Sailors are seeing green lights inside the storm. Not lightning. Lanterns, on a ship that isn't there in the morning.",
+			"Mother Wren", "The drowned fleet is waking, one ship at a time. Find the storm. When she rises, put her back down.",
+		],
+		"steps": [
+			{"kind": Step.GHOST, "lines": [
+				"Mother Wren", "Down again. She'll lie quieter now. But there were forty ships in that fleet.",
+			]},
+		],
+	},
+	{
+		"id": "d4", "act": 4, "title": "Lanterns of the Deep", "giver": "wren", "xp": 900, "gold": 300,
+		"intro": [
+			"Mother Wren", "Ocaso has set great lanterns on the sea stacks round the Black Reef: green fire, to light the drowned fleet up from the bottom.",
+			"Mother Wren", "Three of them, each with a guard. Smash them all before the storm closes over the Reef: twelve minutes, no more.",
+		],
+		"steps": [
+			{"kind": Step.LANTERNS, "islands": [7, 8, 9], "garrison": 3, "time": 720.0, "lines": [
+				"Mother Wren", "Dark again. Whatever is down there will have to find its own way up.",
+			]},
+		],
+	},
+	{
+		"id": "d5", "act": 4, "title": "The Merchant's Gambit", "giver": "quill", "xp": 1000, "gold": 350,
+		"intro": [
+			"Abel Quill", "I have filled twelve crates with lead and painted them gold, and let it be known in the right taverns that a treasure ship sails from Merrow tonight.",
+			"Abel Quill", "You are the treasure ship. Sail close to the Black Reef. When the Cuervo Negro comes out for you, run. Bring her east of the fort, where Isabel waits.",
+			"Abel Quill", "Please don't get sunk. The crates were expensive.",
+		],
+		"steps": [
+			{"kind": Step.GAMBIT, "holes": 10, "lines": [
+				"Isabel Montero", "She's running back into the Reef, holed like a sieve! Quill's lead and your nerve. Well done.",
+				"Abel Quill", "Twelve crates of lead, one admiral, considerably annoyed. I call that a profit.",
+			]},
+		],
+	},
+	{
+		"id": "d6", "act": 4, "title": "The Battle of the Black Reef", "giver": "isabel", "xp": 1500, "gold": 500, "shared": "reef", "reward": "Raven-Breaker",
+		"intro": [
+			"Isabel Montero", "The storm sits on the Reef and won't move. Tonight they raise the fleet. Every crew in the Isles, to the Black Reef!",
+			"Isabel Montero", "Sink what rises. Then the Cuervo Negro: break her, board her, and end this with the Admiral himself.",
+		],
+		"steps": [
+			{"kind": Step.RISEN, "galleons": 3},
+			{"kind": Step.CRIPPLE, "holes": 14},
+			{"kind": Step.ADMIRAL, "marines": 4, "boss": "The Raven Admiral", "lines": [
+				"Isabel Montero", "He's over the side! And the Cuervo Negro's going down with her colours still up.",
+				"Isabel Montero", "There, in the smoke: a rowing boat, pulling hard for Isla Ceniza. Green light in it. Ocaso, and the Heart.",
+				"Isabel Montero", "Let him run. Tonight we won. Tomorrow we finish it.",
+			]},
+		],
+	},
 	# --- Tales: side stories, each opening after the chapter in "after". ---
 	{
 		"id": "t1", "act": 0, "title": "Coconut Thieves", "giver": "jonah", "xp": 250, "gold": 50, "tale": "Captain Coco", "after": "p1",
@@ -693,7 +786,12 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 		Step.BREACH:
 			return "Blow open the fort's gate (its powder is outside)"
 		Step.USE:
-			return "Free the prisoners in the cells" if step.object == "cells" else "Open the vault"
+			match str(step.object):
+				"cells":
+					return "Free the prisoners in the cells"
+				"hulk":
+					return "Open Isabel's cell on the hulk's deck"
+			return "Open the vault"
 		Step.SIEGE_SEA:
 			return "Sink the Spanish galleons in Merrow's bay (%d left)" % lit if lit > 0 else "Sink the Spanish galleons"
 		Step.SIEGE_BEACH:
@@ -704,13 +802,33 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 			return "Fell what the Doctor raises (%d up)" % standing
 		Step.CHASE:
 			return "Catch the crab with Captain Coco on %s and bring him to %s" % [Islands.LAYOUT[step.island].name, person_name(step.to)]
+		Step.HULK:
+			return "Board the prison hulk in the fog off Isla Ceniza unseen, and fell the jailer at her stern"
+		Step.GHOST:
+			return "Find the storm, and sink the ghost galleon that rises in it" if lit == 0 else "Sink the ghost galleon"
+		Step.LANTERNS:
+			return "Smash the green lanterns on the Black Reef's sea stacks (%d left)" % lit if lit > 0 else "Smash the green lanterns"
+		Step.GAMBIT:
+			match lit:
+				0:
+					return "Sail close to the Black Reef, the bait for the Cuervo Negro"
+				1:
+					return "Run! Lead the Cuervo Negro to Isabel's ambush east of the fort"
+			return "Hole the Cuervo Negro with La Golondrina (%d more)" % standing if standing > 0 else "Hole the Cuervo Negro"
+		Step.RISEN:
+			return "Sail into the Black Reef and sink the risen galleons (%d left)" % lit if lit > 0 else "Sail into the Black Reef's storm"
+		Step.CRIPPLE:
+			return "Cripple the Cuervo Negro (%d more holes)" % lit if lit > 0 else "Cripple the Cuervo Negro"
+		Step.ADMIRAL:
+			return "Board the Cuervo Negro and beat the Raven Admiral (strike from the side or behind)"
 		Step.GATHER:
 			var what: String = {"planks": "a bundle of planks from each wreck", "tea": "floating tea crates (%d left)" % lit,
 				"hueso": "Señor Hueso's crate (on the pier)", "fine_tea": "the fine tea from Hueso's kitchen (%d left)" % lit,
 				"oil": "lamp oil from the tavern door", "cannon": "the cannons from Cutlass Cay's old camp (%d left)" % lit,
 				"saltshot": "salt, a piece of drowned bell and the Black Reef's brine (%d left)" % lit,
 				"barricade": "barricades from the tavern door (%d left)" % lit,
-				"hoard": "Hollowbell's hoard from Cutlass Cay's old camp (%d left)" % lit}[step.item]
+				"hoard": "Hollowbell's hoard from Cutlass Cay's old camp (%d left)" % lit,
+				"chart": "the pilot's chart, dug from his grave on Isla Calavera"}[step.item]
 			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's battery", "pier": "the pier"}.get(str(step.to), "")
 			if to == "":
 				to = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)

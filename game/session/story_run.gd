@@ -75,7 +75,7 @@ const LINNET_BLIND_DOT := 0.8
 const PERSIST := [
 	StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.CAMP, StoryObject.Kind.GATE,
 	StoryObject.Kind.GUN, StoryObject.Kind.CELL, StoryObject.Kind.VAULT, StoryObject.Kind.BELL,
-	StoryObject.Kind.LAMP, StoryObject.Kind.BATTERY,
+	StoryObject.Kind.LAMP, StoryObject.Kind.BATTERY, StoryObject.Kind.CAGE, StoryObject.Kind.ISABEL,
 ]
 ## Night (time of day, 0 midnight .. 1): dusk when the sun sets, dawn when it rises.
 const DUSK := 0.78
@@ -88,10 +88,13 @@ var _next_object := 1
 var _fuses := {}
 ## Fort guns' next shot: object id -> server time.
 var _gun_ready := {}
+## Act IV's steps live in their own file.
+var act4: StoryAct4
 
 
 func _init(server: ServerSim) -> void:
 	sim = server
+	act4 = StoryAct4.new(self)
 
 
 static func is_night(server_time: float) -> bool:
@@ -272,6 +275,9 @@ func _enter_step(crew: int) -> void:
 			_enter_sniper(crew, step)
 		Story.Step.DOCTOR:
 			_enter_doctor(crew, step)
+		Story.Step.HULK, Story.Step.GHOST, Story.Step.LANTERNS, Story.Step.GAMBIT, Story.Step.RISEN, \
+				Story.Step.CRIPPLE, Story.Step.ADMIRAL:
+			act4.enter(crew, step)
 
 
 func _enter_read(crew: int, step: Dictionary) -> void:
@@ -287,6 +293,16 @@ func _enter_read(crew: int, step: Dictionary) -> void:
 			m.islands = [_nearest_island(at)]
 			_add_object(crew, StoryObject.Kind.BOTTLE, at, 0.0)
 			sim._tell_crew(crew, "Something bobs in the wreckage: a bottle with a letter in it.")
+		"calavera_eye", "calavera_tooth":
+			# The pilot's riddle, cut in the rock before the skull's left eye, then on a tooth-stone.
+			m.islands = [Calavera.index()]
+			var at := Calavera.eye(-1) if step.where == "calavera_eye" else Calavera.tooth(2) + Vector3(0, 0, 0)
+			if step.where == "calavera_tooth":
+				var out := (Calavera.tooth(2) - Calavera.eye(-1)) * Vector3(1, 0, 1)
+				at += out.normalized() * 1.0
+				at.y = Islands.ground_at(Calavera.index(), at.x, at.z)
+			var yaw := atan2(at.x - Islands.LAYOUT[Calavera.index()].x, at.z - Islands.LAYOUT[Calavera.index()].z)
+			_add_object(crew, StoryObject.Kind.CARVING, at, yaw)
 		_:
 			var island: int = step.island
 			m.islands = [island]
@@ -695,6 +711,9 @@ func _enter_gather(crew: int, step: Dictionary) -> void:
 			sim._set_floating(brine, REEF_EDGE)
 			brine.born = sim.time + 1e6  # it does not sink before you get there
 			m.items.append(brine.id)
+		"grave":
+			m.islands = [Calavera.index()]
+			act4.bury_chart(crew)
 		"beach":
 			var island: int = step.island
 			m.islands = [island]
@@ -1067,11 +1086,26 @@ func use(id: int, r: Dictionary, object_id: int) -> void:
 	var step := _step(m)
 	if int(step.kind) != Story.Step.USE or r.pos.distance_to(o.pos) > USE_REACH + 1.0:
 		return
-	var want := StoryObject.Kind.CELL if step.object == "cells" else StoryObject.Kind.VAULT
+	# The same frame: the fort's doors from the ground, the hulk's cage from her deck.
+	if (o.ship >= 0) != (r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == o.ship):
+		return
+	var want: int = {"cells": StoryObject.Kind.CELL, "hulk": StoryObject.Kind.CAGE}.get(str(step.object), StoryObject.Kind.VAULT)
 	if o.kind != want:
 		return
 	o.state = 0
 	Net.send_event("opened", [o.id])
+	if o.kind == StoryObject.Kind.CAGE:
+		# Isabel out of her cage and over to your ship as a passenger.
+		var isabel := _first_object(m, StoryObject.Kind.ISABEL)
+		if isabel:
+			isabel.ship = r.crew
+			isabel.pos = PASSENGER_SPOT
+			isabel.yaw = 0.0
+		print("[server] %s freed Isabel from the hulk" % r.name)
+		for pid in sim._crew_members(r.crew):
+			_say(pid, step.get("lines", []))
+		_next_step(r.crew)
+		return
 	if o.kind == StoryObject.Kind.VAULT:
 		# The Admiral's gold: chests stacked inside, for whoever carries them out.
 		var inside := Fort.building_pos(Fort.VAULT)
@@ -1407,7 +1441,9 @@ func _finish(crew: int) -> void:
 			sim._update_tag(id)
 		sim._send_profile(id)
 	sim._tell_crew(crew, "Chapter done: %s" % ch.title)
-	if ch.get("shared", false):
+	if str(ch.get("shared", "")) == "reef":
+		act4.share_battle(crew)
+	elif ch.get("shared", false):
 		# The call to arms: everyone who came to Merrow's aid shares in it.
 		var merrow := Outpost.spec()
 		for id in sim.players:
@@ -1484,7 +1520,7 @@ func _mission_of(crew: int) -> Dictionary:
 ## E on a journal or a bottle: everyone in the crew reads it.
 func read(r: Dictionary, object_id: int) -> void:
 	var o: StoryObject = objects.get(object_id)
-	if o == null or o.kind not in [StoryObject.Kind.BOOK, StoryObject.Kind.BOTTLE] or r.mode != LocalPlayer.Mode.WORLD:
+	if o == null or o.kind not in [StoryObject.Kind.BOOK, StoryObject.Kind.BOTTLE, StoryObject.Kind.CARVING] or r.mode != LocalPlayer.Mode.WORLD:
 		return
 	var reach: float = Vector2(r.pos.x - o.pos.x, r.pos.z - o.pos.z).length() if o.kind == StoryObject.Kind.BOTTLE else r.pos.distance_to(o.pos)
 	if reach > READ_REACH + 1.0 or o.crew != r.crew:
@@ -1494,7 +1530,8 @@ func read(r: Dictionary, object_id: int) -> void:
 	for id in sim._crew_members(r.crew):
 		Net.send_event_to(id, "journal", [step.title, step.text])
 	print("[server] %s read %s" % [r.name, step.title])
-	sim._tell_crew(r.crew, "%s found %s." % [r.name, "a letter" if o.kind == StoryObject.Kind.BOTTLE else "a journal"])
+	var found := {StoryObject.Kind.BOTTLE: "a letter", StoryObject.Kind.CARVING: "a carving"}.get(o.kind, "a journal") as String
+	sim._tell_crew(r.crew, "%s found %s." % [r.name, found])
 	_next_step(r.crew)
 
 
@@ -1668,7 +1705,8 @@ func splash(world: Vector3) -> void:
 
 
 ## Things that go on by themselves: fuses, the dead rising, bells, guns, bombs, dawn.
-func tick(_dt: float) -> void:
+func tick(dt: float) -> void:
+	act4.tick(dt)
 	for id in _fuses.keys():
 		if _fuses.has(id) and sim.time >= _fuses[id] and objects.has(id):
 			_explode(objects[id])
@@ -1816,8 +1854,10 @@ func on_skeleton_fell(sk: Skeleton) -> void:
 	var m := _mission_of(sk.story_crew)
 	if m.is_empty():
 		return
-	if (sk.sergeant or sk.bomber or sk.gideon or sk.sniper) and m.captain == sk.id:
+	if (sk.sergeant or sk.bomber or sk.gideon or sk.sniper or sk.jailer or sk.admiral) and m.captain == sk.id:
 		var step := _step(m)
+		if sk.admiral:
+			act4.on_admiral_fell(m)
 		print("[server] %s has fallen" % step.boss)
 		Net.send_message(0, "%s gives up!" % step.boss if sk.gideon else "%s has fallen!" % step.boss)
 		m.spot = sk.pos
@@ -1931,6 +1971,21 @@ func on_ship_sunk(ship_id: int, at: Vector3) -> void:
 		if m.is_empty():
 			continue
 		var step := _step(m)
+		if act4.on_ship_sunk(c, m, step, ship_id):
+			continue
+		if int(step.kind) == Story.Step.FERRY and ship_id == c and m.step >= 2 and str(Story.CHAPTERS[m.chapter].steps[m.step - 1].get("object", "")) == "hulk":
+			# Isabel lost again on the way home from the hulk: back to the fog for her.
+			print("[server] crew %d lost Isabel with their ship" % c)
+			sim._tell_crew(c, "The ship is lost, and Isabel with it! They'll have her back on the hulk by now...")
+			if sim.ships.has(m.ship):
+				sim.ships.erase(m.ship)
+			_clear_step(m)
+			for oid: int in m.objects.duplicate():
+				objects.erase(oid)
+			m.objects = []
+			m.step -= 2
+			_enter_step(c)
+			continue
 		if int(step.kind) == Story.Step.FERRY and ship_id == c:
 			print("[server] crew %d lost Isabel with their ship" % c)
 			sim._tell_crew(c, "The ship is lost, and Isabel with it! Moll sees another boat adrift...")
@@ -2108,6 +2163,16 @@ func counts(m: Dictionary) -> Array:
 			return [_step(m).who.size() - m.asked.size(), 0]
 		Story.Step.SIEGE_SEA:
 			return [m.ships.size(), 0]
+		Story.Step.GHOST:
+			return [1 if m.ship >= 0 else 0, standing(m)]
+		Story.Step.LANTERNS:
+			return [act4.lanterns_left(m), standing(m)]
+		Story.Step.GAMBIT:
+			return [m.stage, m.left]
+		Story.Step.RISEN:
+			return [m.ships.size() + int(step.galleons) - int(m.wave) if m.wave > 0 else 0, standing(m)]
+		Story.Step.CRIPPLE:
+			return [m.left, 0]
 	return [lit(m), standing(m)]
 
 

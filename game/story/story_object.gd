@@ -14,7 +14,9 @@ extends RefCounted
 ## VAULT the fort's doors (1 shut, 0 open), BOMB El Polvorín's bomb (fizzing).
 ## Act III: LAMP the green fire in Moll's lamp, BATTERY a gun of Merrow's battery, OCASO the
 ## Doctor himself.
-enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE, ISABEL, WRECK, BELL, SEARCH, GATE, GUN, CELL, VAULT, BOMB, LAMP, BATTERY, OCASO }
+## Act IV: CAGE Isabel's cage on the prison hulk (1 shut, 0 open), GLANTERN a lantern of the deep
+## (hits left), CARVING a carving of the pilot's riddle.
+enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE, ISABEL, WRECK, BELL, SEARCH, GATE, GUN, CELL, VAULT, BOMB, LAMP, BATTERY, OCASO, CAGE, GLANTERN, CARVING }
 
 var id := 0
 var kind := Kind.FIRE

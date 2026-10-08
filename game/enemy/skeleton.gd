@@ -60,6 +60,17 @@ var next_bomb := 0.0
 var sniper := false
 ## Linnet, Wren's drowned twin, with her blinding lantern (shield_up while it burns).
 var linnet := false
+## Act IV: a lantern guard walking the prison hulk's deck (his place on the loop), the hulk's
+## jailer, and the Raven Admiral (who lunges: see StoryAct4.step_admiral).
+var guard := false
+var patrol := 0
+var jailer := false
+var admiral := false
+var next_lunge := 0.0
+var lunge_at := -1.0
+var lunge_dir := Vector3.ZERO
+var lunge_left := 0.0
+var lunge_target := -1
 var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
@@ -103,6 +114,12 @@ func to_array() -> Array:
 
 ## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
 func look_code() -> int:
+	if jailer:
+		return 11
+	if admiral:
+		return 10
+	if guard:
+		return 9
 	if linnet:
 		return 8
 	if sniper:
@@ -152,6 +169,9 @@ static func from_array(a: Array) -> Skeleton:
 	s.bomber = look == 6
 	s.sniper = look == 7
 	s.linnet = look == 8
+	s.guard = look == 9
+	s.admiral = look == 10
+	s.jailer = look == 11
 	s.holding = int(a[10]) if a.size() > 10 else -1
 	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s

@@ -50,6 +50,7 @@ const ATTACK_SLACK := 0.1
 ## Attack targets at or above this id are the story's powder kegs (id - KEG_TARGET).
 const KEG_TARGET := 10000000
 const BELL_TARGET := 20000000
+const LANTERN_TARGET := 30000000
 
 var time := 0.0
 var ships := {}  # ship id -> ShipState
@@ -81,6 +82,7 @@ var stats := {
 	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
 	"galleons": 0, "blocked": 0, "given": 0, "broken": 0, "bells": 0, "gates": 0, "guns_silenced": 0,
 	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
+	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -235,7 +237,9 @@ func tick(dt: float) -> void:
 		var s: ShipState = ships[id]
 		var c := _crew_controls(id) if crews.has(id) else ShipControls.new()
 		if captains.has(id) and not s.is_sinking() and not _passive.has(id):
-			var orders: Array = captains[id].think(s, _nearest_crew_ship(s), wind, time, dt, Islands.LAYOUT, c)
+			# Isabel's ship (flag 4) hunts the Admiral's ships, not yours.
+			var foe := _nearest_enemy_ship(s) if s.flag == 4 else _nearest_crew_ship(s)
+			var orders: Array = captains[id].think(s, foe, wind, time, dt, Islands.LAYOUT, c)
 			for shot: Dictionary in orders:
 				_fire(id, shot.gun, shot.yaw, shot.pitch, Captain.RELOAD * captains[id].reload_scale + _rng.randf())
 		c.bail += _pending_bail.get(id, 0.0)
@@ -243,6 +247,10 @@ func tick(dt: float) -> void:
 		# In the storm the wind swirls and gusts; its length is how hard it pushes.
 		var gale := Storm.wind(Vector2(s.x, s.z), time, wind)
 		ShipPhysics.step(s, c, gale.normalized(), dt, Islands.ship_blockers(), gale.length())
+		if s.flag == 2 and s.sink > 0.0 and not story.act4.flagship_may_sink(id):
+			# The Cuervo Negro only goes down when the story says so (the end of Act IV).
+			s.sink = 0.0
+			s.water = ShipPhysics.SINK_LEVEL - 0.3
 	stats.max_speed = maxf(stats.max_speed, crew_ship().speed)
 
 	_separate_ships()
@@ -382,6 +390,21 @@ func log_line() -> String:
 # =====================================================================================
 
 ## The nearest crew ship afloat (what a skeleton captain hunts), or null.
+## For an ally: the nearest of the Admiral's ships (or the dead's), or null.
+func _nearest_enemy_ship(from: ShipState) -> ShipState:
+	var best: ShipState = null
+	var best_d := INF
+	for id in ships:
+		var s: ShipState = ships[id]
+		if s.kind != ShipState.Kind.SKELETON or s.flag == 4 or s.flag == 5 or s.is_sinking():
+			continue
+		var d := Vector2(s.x - from.x, s.z - from.z).length()
+		if d < best_d:
+			best = s
+			best_d = d
+	return best
+
+
 func _nearest_crew_ship(from: ShipState) -> ShipState:
 	var best: ShipState = null
 	var best_d := INF
@@ -635,8 +658,11 @@ func _projectile_hits(p: Dictionary, pos: Vector3, age: float, poses: Dictionary
 func _hull_hit(p: Dictionary, ship_id: int, local: Vector3, world: Vector3) -> void:
 	var s: ShipState = ships[ship_id]
 	var kind := 2
-	# The Admiral's flagship cannot be holed in this act (story: the siege).
-	if s.flag == 2:
+	# The Admiral's flagship cannot be holed but when a chapter is fighting her (Act IV); the
+	# prison hulk never; Isabel's ship takes no shot from a pirate, nor does a pirate from her.
+	var from_ship: ShipState = ships.get(int(p.ship))
+	var friendly := from_ship != null and ((from_ship.flag == 4 and s.kind == ShipState.Kind.CREW) or (from_ship.kind == ShipState.Kind.CREW and s.flag == 4))
+	if (s.flag == 2 and not story.act4.flagship_holeable(ship_id)) or s.flag == 5 or friendly:
 		Net.send_event("impact", [p.id, kind, world.x, world.y, world.z, ship_id, time])
 		return
 	# Saltshot: a crew that brewed it holes the dead's ships twice.
@@ -648,6 +674,9 @@ func _hull_hit(p: Dictionary, ship_id: int, local: Vector3, world: Vector3) -> v
 	if ShipShape.makes_hole(local):
 		kind = 1
 		stats.hits += 1
+		if s.flag == 2:
+			# Every hit below her waterline counts toward breaking her, holes patched or not.
+			story.act4.on_hole(ship_id)
 		if s.holes.size() < MAX_HOLES:
 			var h := ShipShape.hole_point(local)
 			s.holes.append([s.next_hole_id, h.x, h.y, h.z, 0.0])
@@ -792,8 +821,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 	var r: Dictionary = players[id]
 	if r.dead_until >= 0.0:
 		return
-	if r.mode == LocalPlayer.Mode.ON_SHIP and r.ship != r.crew and action not in ["attack", "weapon", "drop", "respawn", "pickup"]:
-		return  # aboard someone else's ship: fight, but no working their gear
+	if r.mode == LocalPlayer.Mode.ON_SHIP and r.ship != r.crew and action not in ["attack", "weapon", "drop", "respawn", "pickup", "use"]:
+		return  # aboard someone else's ship: fight (or open a cage), but no working their gear
 	match action:
 		"station":
 			_take_station(id, r, arg)
@@ -1441,6 +1470,7 @@ func _dig(r: Dictionary) -> void:
 			item.state = Loot.State.GROUND
 			item.pos.y = Islands.ground_at(island, item.pos.x, item.pos.z) + 0.05
 			stats.dug += 1
+			story.act4.on_dug(item)
 			print("[server] %s dug up a %s" % [r.name, item.label()])
 			Net.send_message(0, "%s dug up a %s!" % [r.name, item.label()])
 			return
@@ -1776,6 +1806,10 @@ func _step_skeletons(dt: float) -> void:
 		if sk.linnet:
 			story.step_linnet(sk)
 			continue
+		if sk.guard and story.act4.step_guard(sk, dt):
+			continue
+		if sk.admiral and story.act4.step_admiral(sk, dt):
+			continue
 		if sk.thief and story.step_thief(sk, dt, _floor_for(sk)):
 			continue
 		var target := _skeleton_target(sk)
@@ -1909,6 +1943,10 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 	for b: Array in story.bells():
 		ids.append(BELL_TARGET + int(b[0]))
 		feet.append(b[1] + Vector3(0, -1.0, 0))
+	# The lanterns of the deep (Act IV), aimed at their heads high on their posts.
+	for g: Array in story.act4.lanterns():
+		ids.append(LANTERN_TARGET + int(g[0]))
+		feet.append(g[1] + Vector3(0, 2.6, 0))
 	Net.send_event("attack", [id, weapon])
 	var damage := Weapons.CUTLASS_DAMAGE if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_DAMAGE
 	var struck: Array[int] = []
@@ -1920,13 +1958,20 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 			struck.append(i)
 	for i in struck:
 		var target: int = ids[i]
-		if target >= BELL_TARGET:
+		if target >= LANTERN_TARGET:
+			story.act4.strike_lantern(target - LANTERN_TARGET)
+		elif target >= BELL_TARGET:
 			story.strike_bell(target - BELL_TARGET)
 		elif target >= KEG_TARGET:
 			story.strike_keg(target - KEG_TARGET)
 		elif target > 0:
 			var sk: Skeleton = skeletons[target]
 			var from := eye if sk.frame < 0 else ShipPhysics.pose_of(ships[sk.frame], time).affine_inverse() * eye
+			if sk.admiral and weapon == Weapons.Kind.CUTLASS and StoryAct4.parries(sk, from):
+				# Steel rings on steel: strike him from the side or behind.
+				stats.parried += 1
+				Net.send_event("parry", [target])
+				continue
 			if sk.linnet and sk.shield_up:
 				# Her lantern: a blade passes through its light; a shot knocks it from her hand.
 				if weapon == Weapons.Kind.PISTOL:
@@ -1961,6 +2006,8 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 	var sk: Skeleton = skeletons[sid]
 	if not sk.alive():
 		return
+	if sk.guard:
+		story.act4.raise_alarm(sk.story_crew, by)
 	sk.hp -= damage
 	Net.send_event("hurt_skeleton", [sid, damage])
 	if sk.hp > 0:
