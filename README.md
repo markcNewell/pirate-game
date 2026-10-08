@@ -44,7 +44,24 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 | ![Sunset](docs/screenshots/sunset.png) | ![Night, lanterns lit](docs/screenshots/night.png) |
 | ![A storm on the horizon, with a rainbow](docs/screenshots/storm.png) | ![Inside the storm](docs/screenshots/in-the-storm.png) |
 | ![Port Merrow's lighthouse at night](docs/screenshots/lighthouse-night.png) | ![The rock arch on Gull Isle](docs/screenshots/gull-isle-arch.png) |
-| ![The tavern at Port Merrow](docs/screenshots/tavern.png) | |
+| ![The tavern at Port Merrow](docs/screenshots/tavern.png) | ![The title screen's play-test options](docs/screenshots/play-test.jpg) |
+
+**The story** (the Ash Fleet):
+
+| | |
+|---|---|
+| ![Act III: manning Merrow's battery in the siege](docs/screenshots/siege-battery.jpg) | ![Act IV: the prison hulk in the fog off Isla Ceniza](docs/screenshots/prison-hulk.jpg) |
+| ![Act IV: Lanterns of the Deep on the Black Reef's sea stacks](docs/screenshots/lanterns-of-the-deep.jpg) | ![Act IV: the Merchant's Gambit, with La Golondrina](docs/screenshots/merchants-gambit.jpg) |
+| ![Act IV: the Raven Admiral on his quarterdeck](docs/screenshots/raven-admiral.jpg) | ![Act V: lighting a beacon on Cutlass Cay](docs/screenshots/beacon.jpg) |
+| ![Act V: the Bone Colossus rises from the Maw](docs/screenshots/bone-colossus.jpg) | ![Linnet and her lantern, a tale](docs/screenshots/linnet.jpg) |
+
+**Your pirate and your ship**:
+
+| | |
+|---|---|
+| ![A ship refitted at Hobb's, with the raven figurehead](docs/screenshots/refitted-ship.jpg) | ![The Sergeant's halberd and Linnet's green lantern on the quarterdeck](docs/screenshots/trophies.jpg) |
+| ![Old Hobb's yard: sails, hull paint and flags](docs/screenshots/shipwright.jpg) | ![Crewmates in steel cuirasses](docs/screenshots/armour.jpg) |
+| ![Isabel holds Fuerte del Cuervo after the story](docs/screenshots/fort-port.jpg) | |
 
 ## Play
 
