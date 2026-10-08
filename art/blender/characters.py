@@ -909,7 +909,7 @@ def skeleton():
     body = kit.join("skeleton", parts)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(6):
+    for i in range(7):
         ob = kit.join("look%d" % i, skeleton_look(i))
         rig.bind(ob, arm)
         meshes.append(ob)
@@ -1090,6 +1090,28 @@ def skeleton_look(i):
         plume = kit.tube("plume", [(0, 2.0, 0.02), (0, 2.18, 0.08), (0, 2.22, 0.24), (0, 2.12, 0.36)], [0.04, 0.07, 0.06, 0.02], 8, "b8302a")
         head_bits.append(plume)
         parts += tower_shield("l") + halberd("r")
+    elif i == 6:
+        # El Polvorín, the fort's gunner: a barrel strapped round his ribs for armour, a bandolier
+        # of bombs, a red bandana, and soot everywhere.
+        parts += torn_breeches("3a3028", 9)
+        rings = [(0.95, 0.24, 0.2, 0, -0.01), (1.1, 0.27, 0.23, 0, -0.02), (1.3, 0.26, 0.22, 0, -0.015), (1.42, 0.21, 0.17, 0, 0.0)]
+        keg = kit.loft("powder_barrel", rings, "7a5a38", sides=20, power=2.0, cap_bottom=False, cap_top=False)
+        sol = keg.modifiers.new("solid", "SOLIDIFY")
+        sol.thickness = 0.02
+        kit.apply_all(keg)
+        kit.paint_where(keg, "2e2e36", lambda x, y, z: abs(y - 1.0) < 0.04 or abs(y - 1.36) < 0.04)
+        rig.set_weights(keg, rig.rigid("chest"))
+        parts.append(keg)
+        strap = [(0.2, 1.45, -0.12), (0.05, 1.25, -0.27), (-0.15, 1.05, -0.24), (-0.25, 0.95, 0.0)]
+        band = kit.tube("bombstrap", strap, 0.025, 6, "4a2c1c", caps=False)
+        rig.set_weights(band, rig.rigid("chest"))
+        parts.append(band)
+        for k in range(4):
+            p = strap[0] if k == 0 else strap[min(k, 3)]
+            b = kit.ellipsoid("bomb", (p[0] * 1.05, p[1] - 0.04, p[2] * 1.1), (0.07, 0.07, 0.07), "1e1e24", rings=5, sectors=8)
+            rig.set_weights(b, rig.rigid("chest"))
+            parts.append(b)
+        head_bits = bandana("b8302a", dots="1e1e24")
     elif i == 3:
         parts += torn_breeches("2a2a3a", 4)
         parts += coat("3a2a4a", trim="b89a40")
@@ -1489,6 +1511,44 @@ def keeper():
     return parts
 
 
+def isabel():
+    """Teniente Isabel Montero: a Spanish marine officer in a red coat with gold facings, a
+    gold sash, white breeches and boots, a black braid down her back and a straight sword."""
+    hair = "1e1a1c"
+    braid = kit.tube("braid", [(0, 1.7, 0.12), (0, 1.55, 0.15), (0, 1.4, 0.14), (0, 1.3, 0.12)], [0.035, 0.032, 0.028, 0.02], 8, hair)
+
+    def crown(x, y, z):
+        # Hair over the top and back of the head, swept back from a parting above the brow.
+        return y > HEAD_C.y + 0.035 + max(0.0, -(z - HEAD_C.z) / HEAD_R[2]) * 0.05 or (z > HEAD_C.z and y > HEAD_C.y - 0.06)
+    top = shell("hair_top", hair, 0.01, crown, thick=0.015)
+    head_bits = hair_back(hair, 0.06) + [top, braid] + face("2a2422", mouth=True, gruff=-0.7)
+    parts = head(head_bits)
+    parts += coat("8a1a18", trim="e0b04a")
+    parts += trousers("efe8da") + boots() + sash("e0b04a")
+    hilt = kit.tube("sword_hilt", [(0.22, 0.98, -0.08), (0.24, 1.1, -0.14)], 0.016, 5, "e0b04a")
+    blade = kit.tube("sword_scabbard", [(0.22, 0.98, -0.08), (0.25, 0.45, 0.18)], 0.02, 5, "2a2422")
+    for p in (hilt, blade):
+        rig.set_weights(p, rig.rigid("hips"))
+        parts.append(p)
+    return parts
+
+
+def gideon():
+    """Fat Gideon the smuggler: a big belly in a stained waistcoat, a greasy bandana, stubble and
+    a gold tooth's worth of grin."""
+    hair = "5a3a22"
+    head_bits = bandana("6a5a2a", dots="3a3018") + hair_back(hair, 0.02) + face(hair, mouth=True, gruff=1.2)
+    parts = head(head_bits)
+    belly = kit.ellipsoid("belly", (0, 1.08, -0.06), (0.26, 0.24, 0.24), "d0c098", rings=10, sectors=14)
+    kit.paint_where(belly, "a89870", lambda x, y, z: y < 0.95 or (abs(x) < 0.06 and z < -0.2))
+    rig.set_weights(belly, rig.rigid("hips"))
+    parts.append(belly)
+    parts += waistcoat("6a4a2a") + trousers("4a4a3a") + boots() + belt()
+    for side in ("r", "l"):
+        parts += sleeve(side, rolled=True)
+    return parts
+
+
 def npcs():
     arm = rig.build_armature("rig")
     base = [torso()]
@@ -1500,7 +1560,7 @@ def npcs():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper)):
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon)):
         ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)

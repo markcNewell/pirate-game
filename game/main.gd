@@ -293,23 +293,30 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = -0.2
-	elif game and view in ["graves", "store", "camp", "sergeant", "diggers"]:
+	elif game and view in ["graves", "store", "camp", "sergeant", "diggers", "bells", "fort", "polvorin", "wreck", "boat"]:
 		# Act I, started with --chapter (a2 graves, a3 store, a6 camp; a6 --chapter-step 1 the
 		# sergeant; a1 the diggers): stand back from the thing and look at it, everything holding
 		# its swing.
 		var look_at := Vector3.ZERO
 		var back := 7.0
-		var kinds := {"graves": StoryObject.Kind.GRAVE, "store": StoryObject.Kind.STORE, "camp": StoryObject.Kind.BONFIRE}
+		var kinds := {
+			"graves": StoryObject.Kind.GRAVE, "store": StoryObject.Kind.STORE, "camp": StoryObject.Kind.BONFIRE,
+			"bells": StoryObject.Kind.BELL, "fort": StoryObject.Kind.GATE, "wreck": StoryObject.Kind.WRECK,
+			"boat": StoryObject.Kind.BOAT,
+		}
 		if kinds.has(view):
 			for o: StoryObject in game.sim.story.objects.values():
 				if o.kind == kinds[view]:
 					look_at = o.pos
-			back = {"graves": 6.0, "store": 7.0, "camp": 13.0}[view]
+			back = {"graves": 6.0, "store": 7.0, "camp": 13.0, "bells": 6.0, "fort": 30.0, "wreck": 14.0, "boat": 8.0}[view]
+			if view == "bells":
+				look_at.y -= 1.5
 		for sk: Skeleton in game.sim.skeletons.values():
 			sk.cooldown = 1e6
-			if (view == "sergeant" and sk.sergeant) or (view == "diggers" and sk.digger and look_at == Vector3.ZERO):
+			sk.next_bomb = 1e9
+			if (view == "sergeant" and sk.sergeant) or (view == "polvorin" and sk.bomber) or (view == "diggers" and sk.digger and look_at == Vector3.ZERO):
 				look_at = sk.pos
-				back = 4.5
+				back = 4.5 if view != "polvorin" else 7.0
 		if view == "diggers":
 			# Wait until a digger is at its X, then stand by it.
 			get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void:
@@ -329,10 +336,18 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		if view == "sergeant":
 			# From the camp's gate side (+x), clear of the tents.
 			stand = look_at + Vector3(4.2, 0, -0.8)
-		stand.y = Islands.ground_at(isl, stand.x, stand.z)
+		elif view == "fort":
+			stand = look_at + Vector3(-back, 0, 6.0)
+		elif view == "polvorin":
+			stand = look_at + Vector3(-6.5, 0, 2.0)
+		elif view in ["wreck", "boat"]:
+			stand = look_at + Vector3(back, 0, back * 0.4)
+		stand.y = Islands.ground_at(maxi(0, Islands.island_at(stand.x, stand.z)), stand.x, stand.z)
+		if view in ["wreck", "boat"]:
+			stand.y = -0.6
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
-		game.local_player.pitch = -0.18
+		game.local_player.pitch = {"fort": 0.12, "wreck": -0.05, "boat": -0.05}.get(view, -0.18)
 	elif game and view == "crab":
 		# Coconut Thieves (--chapter t1): the crab with Captain Coco, seen from a few steps off.
 		for sk: Skeleton in game.sim.skeletons.values():

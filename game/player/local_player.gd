@@ -234,7 +234,7 @@ func _interact(delta: float) -> void:
 		Audio.play("dig", -4.0)
 	if target.is_empty():
 		return
-	if target.kind == "patch" or target.kind == "dig":
+	if target.kind in ["patch", "dig", "dive"]:
 		# Held actions: keep telling the server while E is down.
 		_patch_timer -= delta
 		if input.interact_held and _patch_timer <= 0.0:
@@ -258,7 +258,7 @@ func _interact(delta: float) -> void:
 			Audio.play("splash", -8.0, 1.2)
 		"sell", "drop", "board", "deliver", "eat":
 			game.send_request(target.kind, 0)
-		"talk", "read":
+		"talk", "read", "search", "use", "rescue":
 			game.send_request(target.kind, target.id)
 		"give":
 			game.send_request("give", 0)
@@ -359,6 +359,12 @@ func current_target() -> Dictionary:
 			best_dot = dot
 	if not best.is_empty():
 		return best
+	if _story_step_is(Story.Step.RESCUE):
+		for id in game.view_objects:
+			var o: StoryObject = game.view_objects[id]
+			var ship := game.view_ship
+			if o.kind == StoryObject.Kind.BOAT and Vector2(ship.x - o.pos.x, ship.z - o.pos.z).length() < StoryRun.RESCUE_REACH + 8.0:
+				return {"kind": "rescue", "id": o.id, "label": "E  throw her a line"}
 	if bucket and local.y > ShipShape.DECK_Y - 0.5:
 		return {"kind": "throw", "id": 0, "label": "E  throw the water overboard"}
 	var water := game.view_ship.water
@@ -389,13 +395,27 @@ func _give_target(held: Loot, here: Vector3) -> Dictionary:
 
 ## The story's things within reach ashore: a journal to read, a green fire to douse (or a word
 ## that you need water first), the sea to fill a bucket from while a fire burns, someone of
-## Port Merrow to talk to.
+## Port Merrow to talk to, Isabel's boat, the San Telmo to dive on, a crate to search, a door.
 func _story_target(here: Vector3) -> Dictionary:
 	var any_fire := false
 	for id in game.view_objects:
 		var o: StoryObject = game.view_objects[id]
 		var d := here.distance_to(o.pos)
+		var flat := Vector2(here.x - o.pos.x, here.z - o.pos.z).length()
 		match o.kind:
+			StoryObject.Kind.BOAT:
+				if flat < StoryRun.RESCUE_REACH and _story_step_is(Story.Step.RESCUE):
+					return {"kind": "rescue", "id": o.id, "label": "E  help her aboard"}
+			StoryObject.Kind.WRECK:
+				if flat < StoryRun.DIVE_REACH and swimming:
+					return {"kind": "dive", "id": o.id, "label": "Hold E  dive to the wreck"}
+			StoryObject.Kind.SEARCH:
+				if d < StoryRun.USE_REACH and o.state == 1:
+					return {"kind": "search", "id": o.id, "label": "E  search the crate"}
+			StoryObject.Kind.CELL, StoryObject.Kind.VAULT:
+				if d < StoryRun.USE_REACH and o.state == 1:
+					var what := "open the cell door" if o.kind == StoryObject.Kind.CELL else "open the vault"
+					return {"kind": "use", "id": o.id, "label": "E  %s" % what}
 			StoryObject.Kind.BOOK:
 				if d < StoryRun.READ_REACH:
 					return {"kind": "read", "id": o.id, "label": "E  read the journal"}
@@ -419,6 +439,15 @@ func _story_target(here: Vector3) -> Dictionary:
 			if here.distance_to(Story.person_pos(who)) < Story.TALK_REACH:
 				return {"kind": "talk", "id": i, "label": "E  talk to %s" % Story.person_name(who)}
 	return {}
+
+
+## Is the crew's chapter on a step of this kind?
+func _story_step_is(kind: int) -> bool:
+	var m: Dictionary = game.mission
+	if m.is_empty() or m.kind != Missions.Kind.STORY:
+		return false
+	var ch := Story.chapter(m.captain)
+	return not ch.is_empty() and int(m.handled) < ch.steps.size() and int(ch.steps[m.handled].kind) == kind
 
 
 func _looking_at(eye: Vector3, point: Vector3, reach: float, min_dot: float) -> bool:

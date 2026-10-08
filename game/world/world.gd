@@ -22,6 +22,7 @@ var _wind_lines: WindLines
 var _whale: Whale
 var _merchant: Node3D
 var _npcs: Array[Npc] = []
+var _isabel: Npc
 var _merchant_rest := 0.0
 var _gloom := 0.0
 var _strike_flash := 0.0
@@ -269,6 +270,12 @@ func _island(spec: Dictionary) -> void:
 			npc.position = at - root.position
 			root.add_child(npc)
 			_npcs.append(npc)
+		# Isabel waits by the tavern door once you have brought her ashore (see set_isabel).
+		_isabel = Npc.new("isabel", PI / 2.0)
+		_isabel.position = Outpost.isabel_pos() - root.position
+		_isabel.visible = false
+		root.add_child(_isabel)
+		_npcs.append(_isabel)
 		faces.append_array(port.faces)
 		root.add_child(_chimney_smoke(Outpost.tavern_chimney() - root.position))
 		var panes := Lantern.lit_panes(Models.part("tavern", "tavern_panes"), Color("3a4250"))
@@ -289,6 +296,10 @@ func _island(spec: Dictionary) -> void:
 			var light := Lantern.new(Color("ffd08a"), 1.6, 9.0)
 			light.position = lamp - root.position
 			root.add_child(light)
+	if spec.get("fort", false):
+		var fort := Toon.instance(Models.mesh("fort"))
+		fort.position = Vector3(0, Fort.PLATEAU_Y, 0)
+		root.add_child(fort)
 	if not spec.outpost:
 		var flies := Fireflies.new(spec.radius)
 		flies.position = Vector3(0, IslandMesh.ground(spec, 0.0, 0.0) + 1.6, 0)
@@ -377,3 +388,9 @@ func _make_clouds() -> void:
 		cloud.scale = Vector3.ONE * rng.randf_range(19.0, 29.0)
 		cloud.rotation.y = rng.randf() * TAU
 		_clouds.add_child(cloud)
+
+
+## Isabel shows at the tavern only for those who have brought her ashore (story chapter b1).
+func set_isabel(ashore: bool) -> void:
+	if _isabel:
+		_isabel.visible = ashore

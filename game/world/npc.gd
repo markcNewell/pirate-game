@@ -9,6 +9,8 @@ const WHO := {
 	"agent": {"shirt": Color("f4efe2"), "skin": Color("e8b48a")},
 	"castaway": {"shirt": Color("5a7a9a"), "skin": Color("b07a4a")},
 	"keeper": {"shirt": Color("e8e0d0"), "skin": Color("e0a888")},
+	"isabel": {"shirt": Color("efe8da"), "skin": Color("d8a07a")},
+	"gideon": {"shirt": Color("c8302a"), "skin": Color("e8b48a")},
 }
 const WATCH_RANGE := 12.0
 

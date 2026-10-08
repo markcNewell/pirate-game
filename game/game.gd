@@ -330,6 +330,8 @@ func client_on_event(kind: String, data: Array) -> void:
 		title = str(data[2])
 		rep = [int(data[3]), int(data[4]), int(data[5])]
 		chapters = data[6]
+		if world:
+			world.set_isabel(chapters.has("b1"))
 		if bot_role != "":
 			print("[bot %s] profile xp=%d gold=%d chapters=%s" % [bot_role, xp, purse, chapters])
 		return
@@ -547,6 +549,8 @@ func _update_skeletons(delta: float) -> void:
 			v.spanish = sk.spanish
 			v.digger = sk.digger
 			v.sergeant = sk.sergeant
+			v.gideon = sk.gideon
+			v.bomber = sk.bomber
 			add_child(v)
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
@@ -569,10 +573,14 @@ func _update_objects() -> void:
 		if not _object_views.has(id):
 			var v := StoryObjectView.new(o.kind, o.state)
 			add_child(v)
-			v.global_transform = Transform3D(Basis(Vector3.UP, o.yaw), o.pos)
 			_object_views[id] = v
 		else:
 			_object_views[id].set_state(o.state)
+		# On a ship's deck (Isabel aboard), it rides with the ship.
+		var at := Transform3D(Basis(Vector3.UP, o.yaw), o.pos)
+		if o.ship >= 0 and ship_views.has(o.ship):
+			at = frame_transform(o.ship) * at
+		_object_views[id].place(at)
 
 
 ## Place every chest and barrel: on the ground, afloat, stowed aboard or in someone's arms.

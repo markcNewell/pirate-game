@@ -18,6 +18,7 @@ var _glint: MeshInstance3D
 var _body: MeshInstance3D
 var _spark: MeshInstance3D
 var _smoke := 0.0
+var _topple := 0.0
 var _clock := randf() * 10.0
 
 
@@ -57,6 +58,47 @@ func _init(what: int, state := 1) -> void:
 			_body = Toon.instance(Models.part("story", "bottle"))
 			add_child(_body)
 			_add_glint(Vector3(0, 0.25, 0))
+		StoryObject.Kind.ISABEL:
+			var isabel := Npc.new("isabel", 0.0)
+			add_child(isabel)
+		StoryObject.Kind.WRECK:
+			# The San Telmo, settled on the bottom with her bow and a mast above the water.
+			var wreck := Toon.instance(Models.mesh("ship_wreck", Models.palette_recolor(Toon.SKELETON)))
+			wreck.rotation = Vector3(0.35, 0.0, 0.25)
+			wreck.position = Vector3(0, -5.5, 0)
+			add_child(wreck)
+			_add_glint(Vector3(0, 0.4, 0))
+		StoryObject.Kind.BELL:
+			_body = Toon.instance(Models.part("fort_parts", "bell_gallows"))
+			_body.position.y = -StoryRun.BELL_HEIGHT
+			add_child(_body)
+		StoryObject.Kind.SEARCH:
+			_body = Toon.instance(Models.part("loot", "crate_salt"))
+			add_child(_body)
+		StoryObject.Kind.GATE:
+			_body = Toon.instance(Models.part("fort_parts", "gate"))
+			add_child(_body)
+			_blocker(Vector3(0.6, Fort.WALL_H - 0.6, 2.0 * Fort.GATE_HALF), Vector3(0, (Fort.WALL_H - 0.6) * 0.5, 0))
+		StoryObject.Kind.GUN:
+			_body = Toon.instance(Models.part("ship_parts", "cannon"))
+			_body.position.y = 0.1
+			add_child(_body)
+		StoryObject.Kind.CELL:
+			_body = Toon.instance(Models.part("fort_parts", "cell_door"))
+			add_child(_body)
+		StoryObject.Kind.VAULT:
+			_body = Toon.instance(Models.part("fort_parts", "vault_door"))
+			add_child(_body)
+		StoryObject.Kind.BOMB:
+			add_child(Toon.instance(Models.part("fort_parts", "bomb")))
+			_spark = MeshInstance3D.new()
+			var s2 := SphereMesh.new()
+			s2.radius = 0.06
+			s2.height = 0.12
+			_spark.mesh = s2
+			_spark.material_override = Toon.glow_material(Color("ffd040"))
+			_spark.position = Vector3(0.02, 0.54, 0.06)
+			add_child(_spark)
 	for mi: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
 		if mi != _flame and mi != _glint and mi != _spark:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -82,6 +124,26 @@ func _add_flame(at: Vector3, size: float, reach: float) -> void:
 	_light.omni_range = reach
 	_light.position = at + Vector3(0, 0.8, 0)
 	add_child(_light)
+
+
+## A solid box players bump into (the shut gate), removed when it is blown.
+func _blocker(size: Vector3, at: Vector3) -> void:
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position = at
+	body.add_child(shape)
+	body.name = "blocker"
+	add_child(body)
+
+
+## Where the server says it is this frame (on a deck, for Isabel aboard).
+func place(at: Transform3D) -> void:
+	if kind == StoryObject.Kind.BOTTLE:
+		at.origin.y = global_position.y if is_inside_tree() else at.origin.y
+	global_transform = at
 
 
 func _add_glint(at: Vector3) -> void:
@@ -122,6 +184,31 @@ func set_state(state: int) -> void:
 				add_child(_body)
 		StoryObject.Kind.KEG:
 			_spark.visible = state == 2
+		StoryObject.Kind.BELL:
+			if state == 0 and was != -99:
+				_topple = 0.001
+			elif state == 0:
+				_body.rotation.z = 1.4
+		StoryObject.Kind.GATE:
+			if state == 0:
+				remove_child(_body)
+				_body.queue_free()
+				_body = Toon.instance(Models.part("fort_parts", "gate_broken"))
+				add_child(_body)
+				var blocker := get_node_or_null("blocker")
+				if blocker:
+					blocker.queue_free()
+		StoryObject.Kind.GUN:
+			if state == 0:
+				_body.rotation.x = 0.5
+				if was != -99:
+					_smoke = 8.0
+		StoryObject.Kind.CELL, StoryObject.Kind.VAULT:
+			if state == 0:
+				_body.rotation.y = -1.9
+		StoryObject.Kind.SEARCH:
+			if state == 0:
+				_body.rotation.z = 0.12
 
 
 ## No more flame or light; a wisp of smoke for a while if it has just happened.
@@ -151,6 +238,10 @@ func _process(delta: float) -> void:
 		var t := 0.5 + 0.5 * sin(_clock * 3.0)
 		_glint.scale = Vector3.ONE * (0.3 + 0.7 * t)
 		_glint.visible = t > 0.25
+	if _topple > 0.0 and _topple < 1.0:
+		# A shot-down bell's gallows keels over.
+		_topple = minf(1.0, _topple + delta * 2.0)
+		_body.rotation.z = 1.4 * _topple * _topple
 	if _spark and _spark.visible:
 		_spark.scale = Vector3.ONE * (0.6 + 0.6 * absf(sin(_clock * 31.0)))
 	if kind == StoryObject.Kind.BOTTLE:

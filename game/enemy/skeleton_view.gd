@@ -17,6 +17,9 @@ var captain := false
 var spanish := false
 var digger := false
 var sergeant := false
+## Fat Gideon (a living man, in the people's model) and El Polvorín (the barrel-chested gunner).
+var gideon := false
+var bomber := false
 var _digging := false
 var _model: Node3D
 var _player: AnimationPlayer
@@ -30,12 +33,23 @@ func _ready() -> void:
 	var outfit := "look%d" % (look % 3)
 	if captain:
 		outfit = "look3"
+	elif bomber:
+		outfit = "look6"
 	elif sergeant:
 		outfit = "look5"
 	elif spanish:
 		outfit = "look4"
-	_model = Models.instance("skeleton", {}, ["skeleton", outfit])
+	if gideon:
+		var who: Dictionary = Npc.WHO["gideon"]
+		_model = Models.instance("npcs", {
+			Models.SHIRT: who.shirt, Models.SHIRT_DARK: who.shirt.darkened(0.28),
+			Models.SKIN: who.skin, Models.SKIN_DARK: who.skin.darkened(0.12),
+		}, ["body", "gideon"])
+	else:
+		_model = Models.instance("skeleton", {}, ["skeleton", outfit])
 	add_child(_model)
+	if bomber:
+		_model.scale = Vector3.ONE * 1.35
 	if captain:
 		_model.scale = Vector3.ONE * 1.12
 	elif sergeant:
@@ -54,6 +68,8 @@ func _ready() -> void:
 	# A skeleton never stands quite in step with the next one.
 	_player.seek(randf() * _player.current_animation_length)
 	var skeleton: Skeleton3D = _model.find_children("*", "Skeleton3D", true, false)[0]
+	if gideon:
+		return  # no glowing eyes or rusty sword for a living smuggler
 	var head := BoneAttachment3D.new()
 	head.bone_name = "head"
 	skeleton.add_child(head)
@@ -78,6 +94,12 @@ func _ready() -> void:
 	var grip := Transform3D(turn, hand_rest.origin + turn * Avatar.GRIP)
 	if sergeant:
 		return  # his halberd is part of his outfit
+	if bomber:
+		# A lit bomb in his fist instead of a sword.
+		var held := Toon.instance(Models.part("fort_parts", "bomb"))
+		held.transform = hand_rest.affine_inverse() * Transform3D(Basis.IDENTITY, hand_rest.origin + Vector3(0, -0.12, -0.05))
+		hand.add_child(held)
+		return
 	if digger:
 		# A spade, gripped like the pirates' (its shaft through the fist).
 		var spade := Toon.instance(Models.part("tools", "shovel"))
