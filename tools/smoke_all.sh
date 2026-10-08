@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# Run every smoke test at once (each on its own ports) and print one summary.
-# Exits non-zero if any of them failed. Takes about as long as the slowest (~5 min).
+# Run the smoke tests side by side (each on its own ports) and print one summary.
+# Exits non-zero if any of them failed. At most JOBS run at once (default 8): each starts several
+# Godot processes, and all of them at once starve the bots of CPU until they miss their budgets.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 tests=(smoke_test combat_test treasure_test fighting_test crew_test storm_test missions_test story_test act1_test act2_test act3_test act4_test act5_test world_test armoury_test shipwright_test)
+JOBS="${JOBS:-8}"
 port=24800
-pids=()
+status=0
 for t in "${tests[@]}"; do
 	if [ -x "$ROOT/tests/smoke/$t.sh" ]; then
+		while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do wait -n || status=1; done
 		PORT=$port "$ROOT/tests/smoke/$t.sh" >"$OUT/$t.out" 2>&1 &
-		pids+=($!)
 		port=$((port + 10))
 	fi
 done
-status=0
-for pid in "${pids[@]}"; do wait "$pid" || status=1; done
+while [ "$(jobs -rp | wc -l)" -gt 0 ]; do wait -n || status=1; done
 for t in "${tests[@]}"; do
 	[ -f "$OUT/$t.out" ] || continue
 	echo "== $t"

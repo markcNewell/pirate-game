@@ -60,6 +60,8 @@ var my_armour := 0
 var owned: Array = []
 ## How each crew's ship looks (Shipwright): crew -> [sails, hull, flag, trophies].
 var ship_looks := {}
+## Is Fuerte del Cuervo our crew's port (the story done, the dead not holding it)?
+var fort_port := false
 ## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
 ## next X still to dig on a treasure voyage ({island, x, z} or empty).
 var mission := {}
@@ -388,7 +390,7 @@ func client_on_event(kind: String, data: Array) -> void:
 				local_player.weapon_view.set_sleeve(Shop.shirt_of(my_dye, my_index), Avatar.skin_for(my_index))
 		if world:
 			# Ashore after A Deserter at Dawn; taken in the siege until Act IV frees her.
-			world.set_isabel(chapters.has("b1") and (not chapters.has("c6") or chapters.has("d1")))
+			world.set_isabel(chapters.has("b1") and (not chapters.has("c6") or chapters.has("d1")) and not fort_port)
 		if bot_role != "":
 			print("[bot %s] profile xp=%d gold=%d chapters=%s" % [bot_role, xp, purse, chapters])
 		return
@@ -420,7 +422,15 @@ func client_on_event(kind: String, data: Array) -> void:
 				hud.show_journal(str(data[0]), str(data[1]))
 		"shop":
 			if hud:
-				hud.show_shop()
+				hud.show_shop(false, not data.is_empty())
+		"fort_port":
+			fort_port = bool(data[0])
+			if world:
+				# Isabel holds the fort now, with its barrels and her rack of arms.
+				world.set_fort_port(fort_port)
+				world.set_isabel(chapters.has("b1") and (not chapters.has("c6") or chapters.has("d1")) and not fort_port)
+			if bot_role != "":
+				print("[bot %s] the fort is %s" % [bot_role, "our port" if fort_port else "not our port"])
 		"wright":
 			if hud:
 				hud.show_shop(true)

@@ -96,6 +96,8 @@ var _shop_box: VBoxContainer
 var _shop_seen := ""
 ## Old Hobb's counter (the shipwright) rather than Martha's.
 var _shop_wright := false
+## Isabel's rack of arms at the fort: Martha's arms column only.
+var _shop_arms := false
 var _card: Control
 var _purse: Label
 var _level: Control
@@ -535,7 +537,7 @@ func _process(delta: float) -> void:
 	if _shop.visible:
 		if _shop_key() != _shop_seen:
 			_fill_shop()
-		var counter := Outpost.hobb_pos() if _shop_wright else Outpost.martha_pos()
+		var counter := Outpost.hobb_pos() if _shop_wright else (Fort.isabel_pos() if _shop_arms else Outpost.martha_pos())
 		if game.local_player.frame_position().distance_to(counter) > Shop.REACH + 3.0 and game.local_player.mode == LocalPlayer.Mode.WORLD:
 			close_shop()
 	if _map.visible:
@@ -652,12 +654,13 @@ func reading() -> bool:
 ## freed to click while it is open.
 ## What the open counter shows depends on: rebuilt when it changes.
 func _shop_key() -> String:
-	return "%s|%d|%d|%d|%d|%d|%d|%s|%s" % [_shop_wright, game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned, game.ship_looks.get(game.own_ship, [])]
+	return "%s|%s|%d|%d|%d|%d|%d|%d|%s|%s" % [_shop_wright, _shop_arms, game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned, game.ship_looks.get(game.own_ship, [])]
 
 
-## Martha's counter, or with `wright` Old Hobb's.
-func show_shop(wright := false) -> void:
+## Martha's counter, or with `wright` Old Hobb's, or with `arms` Isabel's at the fort.
+func show_shop(wright := false, arms := false) -> void:
 	_shop_wright = wright
+	_shop_arms = arms
 	close_board()
 	_talk.visible = false
 	_journal.visible = false
@@ -682,7 +685,7 @@ func _fill_shop() -> void:
 	if _shop_wright:
 		_fill_wright()
 		return
-	var title := _card_label("Big Martha's back room", 34, Color("5a3e22"))
+	var title := _card_label("Isabel's rack of arms" if _shop_arms else "Big Martha's back room", 34, Color("5a3e22"))
 	title.add_theme_font_override("font", display_font())
 	_shop_box.add_child(title)
 	_shop_box.add_child(_card_label("Looks and arms: nothing here makes you stronger.   You have %d gold." % game.purse, 17, Color("2a1a10")))
@@ -690,7 +693,8 @@ func _fill_shop() -> void:
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 36)
 	_shop_box.add_child(columns)
-	for kind: int in [Shop.Kind.OUTFIT, Shop.Kind.DYE, Shop.Kind.BLADE]:
+	var kinds: Array[int] = [Shop.Kind.BLADE] if _shop_arms else [Shop.Kind.OUTFIT, Shop.Kind.DYE, Shop.Kind.BLADE]
+	for kind: int in kinds:
 		var column := VBoxContainer.new()
 		columns.add_child(column)
 		column.add_child(_card_label(["Outfits", "Shirt dyes", "Arms (fair swaps, not upgrades)"][kind], 22, Color("8a2a1a")))
@@ -728,7 +732,7 @@ func _fill_shop() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	_shop_box.add_child(row)
-	for pair: Array in [["Your own outfit", -1], ["Your own shirt", -2]]:
+	for pair: Array in ([] if _shop_arms else [["Your own outfit", -1], ["Your own shirt", -2]]):
 		var b := Button.new()
 		b.text = pair[0]
 		b.pressed.connect(func() -> void: game.send_request("wear", pair[1]))

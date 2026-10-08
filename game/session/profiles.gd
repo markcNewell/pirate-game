@@ -16,6 +16,8 @@ var start_gold := 0
 var start_blade := 0
 var start_gun := 0
 var start_armour := 0
+## Test hook (--done a6,e6): chapters a new pirate has already played.
+var start_chapters: Array = []
 var _profiles := {}  # key -> profile Dictionary
 var _dirty := {}  # key -> true
 var _save_at := -1.0
@@ -63,6 +65,7 @@ func get_or_make(player_name: String, token: String) -> Dictionary:
 		p.blade = start_blade
 		p.gun = start_gun
 		p.armour = start_armour
+		p.chapters = start_chapters.duplicate()
 		_profiles[key] = p
 		changed(player_name)
 	elif str(p.token) == "" and token != "":

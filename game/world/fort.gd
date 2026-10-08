@@ -70,6 +70,19 @@ static func door_pos(spec_row: Array) -> Vector3:
 	return world(spec_row[0], spec_row[1] - spec_row[3] * 0.5 - 0.8)
 
 
+## Where Isabel keeps the fort once the story is done (world): in the courtyard, inside the gate.
+static func isabel_pos() -> Vector3:
+	return world(0.0, 5.5)
+
+
+## The fort's supply barrels once it is a friendly port (world): inside the wall, by the gate.
+static func barrels() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	for a: float in [0.3, 0.38, 0.46]:
+		out.append(world(a, 10.2))
+	return out
+
+
 static func platform_pos() -> Vector3:
 	return centre() + Vector3(0, PLATFORM.y, 0)
 

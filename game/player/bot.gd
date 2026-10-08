@@ -152,6 +152,8 @@ func _physics_process(delta: float) -> void:
 			_armourer(input)
 		"wright":
 			_wright(input)
+		"fortarms":
+			_fortarms(input)
 		"watcher":
 			_watcher()
 
@@ -1448,6 +1450,23 @@ func _wright(input: PlayerInput) -> void:
 	if _every(1.0):
 		game.send_request("wright", Shipwright.index_of("sails7"))
 		_say("asked Hobb for black sails")
+		_phase = "done"
+
+
+## Ashore at the fort once it is our port: in through the gate to Isabel, and buy a rapier.
+func _fortarms(input: PlayerInput) -> void:
+	if _player.dead or _phase == "done" or not game.fort_port:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var p := _player.body.global_position
+	if p.distance_to(Fort.isabel_pos()) > 2.0:
+		_head_to(input, _fort_way_in(p) if not _in_fort(p) else Fort.isabel_pos(), 0.5)
+		return
+	if _every(1.0):
+		game.send_request("buy", Shop.index_of("blade1"))
+		_say("asked Isabel for a rapier")
 		_phase = "done"
 
 

@@ -99,9 +99,13 @@ var skeletons := {}  # skeleton id -> Skeleton
 var camps := {}  # island index -> {"alive": int, "wake": time it may next wake}
 var _next_skeleton := 1
 var _passive := {}  # skeleton ships that only sit there (tests)
+## Restock requests for the fort's barrels count from here (Port Merrow's are 0-2).
+const FORT_BARRELS := 10
 ## What each crew's ship was last said to look like: crew -> [crew, sails, hull, flag, trophies].
 var _ship_looks := {}
 var _next_looks := 0.0
+## Whether each pirate was last told the fort is their port: peer id -> bool.
+var _fort_open := {}
 
 var ai_enabled := true
 var next_ai_time := AI_FIRST_DELAY
@@ -135,6 +139,8 @@ func _init(options: Dictionary = {}) -> void:
 	profiles.start_blade = int(options.get("blade", 0))
 	profiles.start_gun = int(options.get("gun", 0))
 	profiles.start_armour = int(options.get("armour", 0))
+	if options.has("done"):
+		profiles.start_chapters = Array(str(options.done).split(","))
 	story = StoryRun.new(self)
 	world = WorldEvents.new(self)
 	world.enabled = ai_enabled
@@ -264,6 +270,7 @@ func tick(dt: float) -> void:
 	if time >= _next_looks:
 		_next_looks = time + 1.0
 		_send_ship_looks()
+		_send_fort_ports()
 	var wind := Game.wind_dir(time)
 	_maybe_spawn_skeleton()
 	_maybe_respawn_crews()
@@ -813,6 +820,7 @@ func remove_player(id: int) -> String:
 	roster.erase(id)
 	tags.erase(id)
 	station_input.erase(id)
+	_fort_open.erase(id)
 	return who
 
 
@@ -943,6 +951,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_wear(id, r, arg)
 		"wright":
 			_wright(id, r, arg)
+		"armoury":
+			_open_fort_arms(id, r)
 		"read":
 			story.read(r, arg)
 		"douse":
@@ -1508,6 +1518,40 @@ func _deed_crew(crew: int, deed: String) -> void:
 		_deed(id, deed)
 
 
+## Once the story is done the fort is a friendly port for the crew (docs/specs/2026-10-08-m21-
+## fort-port.md): anyone aboard has finished it, and the dead aren't holding it just now.
+func fort_port(crew: int) -> bool:
+	if world.kind == WorldEvents.Kind.FORT:
+		return false
+	for pid in _crew_members(crew):
+		if players[pid].profile.chapters.has("e6"):
+			return true
+	return false
+
+
+## Is this pirate at a counter that sells arms: Martha's, or Isabel's at the fort?
+func _at_arms_counter(r: Dictionary) -> bool:
+	if r.pos.distance_to(Outpost.martha_pos()) <= Shop.REACH + 1.0:
+		return true
+	return fort_port(r.crew) and r.pos.distance_to(Fort.isabel_pos()) <= Shop.REACH + 1.0
+
+
+## E by Isabel in the fort's courtyard: her rack of arms opens (blades, guns, armour).
+func _open_fort_arms(id: int, r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or not fort_port(r.crew) or r.pos.distance_to(Fort.isabel_pos()) > Shop.REACH + 1.0:
+		return
+	Net.send_event_to(id, "shop", [1])
+
+
+## Tell each pirate whether the fort is their crew's port, when that changes.
+func _send_fort_ports() -> void:
+	for pid in players:
+		var open := fort_port(players[pid].crew)
+		if _fort_open.get(pid, false) != open:
+			_fort_open[pid] = open
+			Net.send_event_to(pid, "fort_port", [open])
+
+
 ## E by Old Hobb on the pier: his counter opens.
 func _open_wright(id: int, r: Dictionary) -> void:
 	if r.mode != LocalPlayer.Mode.WORLD or r.pos.distance_to(Outpost.hobb_pos()) > Shipwright.REACH + 1.0:
@@ -1570,26 +1614,31 @@ func _open_shop(id: int, r: Dictionary) -> void:
 	Net.send_event_to(id, "shop", [])
 
 
-## Buy item `i` from Martha (and wear it), or just wear it if already owned.
+## Buy item `i` from Martha, or arms from Isabel at the fort (and wear it), or just wear it if
+## already owned.
 func _buy(id: int, r: Dictionary, i: int) -> void:
 	if i < 0 or i >= Shop.ITEMS.size() or r.mode != LocalPlayer.Mode.WORLD:
 		return
-	if r.pos.distance_to(Outpost.martha_pos()) > Shop.REACH + 1.0:
+	if not _at_arms_counter(r):
 		return
+	var at_martha: bool = r.pos.distance_to(Outpost.martha_pos()) <= Shop.REACH + 1.0
+	if not at_martha and Shop.ITEMS[i][0] not in [Shop.Kind.BLADE, Shop.Kind.GUN, Shop.Kind.ARMOUR]:
+		return  # Isabel sells arms, not coats
+	var seller := "Martha" if at_martha else "Isabel"
 	var p: Dictionary = r.profile
 	var key := Shop.key(i)
 	if not Shop.has(p, i):
 		var price: int = Shop.ITEMS[i][3]
 		if price <= 0:
-			Net.send_message(id, "Martha: \"That one's not mine to sell, love. Someone has to give it you.\"")
+			Net.send_message(id, "%s: \"That one's not mine to sell. Someone has to give it you.\"" % seller)
 			return
 		if int(p.gold) < price:
-			Net.send_message(id, "Martha shakes her head: that's %d gold, and you have %d." % [price, int(p.gold)])
+			Net.send_message(id, "%s shakes her head: that's %d gold, and you have %d." % [seller, price, int(p.gold)])
 			return
 		p.gold = int(p.gold) - price
 		p.owned.append(key)
 		stats.bought += 1
-		print("[server] %s bought %s for %d gold" % [r.name, Shop.ITEMS[i][2], price])
+		print("[server] %s bought %s for %d gold from %s" % [r.name, Shop.ITEMS[i][2], price, seller])
 		Net.send_message(id, "Bought: %s." % Shop.ITEMS[i][2])
 	_wear(id, r, i)
 
@@ -1785,7 +1834,11 @@ func _belongs_to_mission(item_id: int, crew: int) -> bool:
 
 
 func _restock(r: Dictionary, barrel: int) -> void:
+	# Port Merrow's barrels are 0-2; the fort's, once it is the crew's port, FORT_BARRELS on.
 	var spots := Outpost.barrels()
+	if barrel >= FORT_BARRELS and fort_port(r.crew):
+		spots = Fort.barrels()
+		barrel -= FORT_BARRELS
 	if r.mode != LocalPlayer.Mode.WORLD or barrel < 0 or barrel >= spots.size():
 		return
 	if r.pos.distance_to(spots[barrel]) > ITEM_REACH + 1.0:

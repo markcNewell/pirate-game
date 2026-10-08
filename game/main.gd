@@ -258,6 +258,14 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = -0.12
+	elif game and view == "fortport":
+		# The fort as our port after the story: Isabel in the courtyard, the barrels by the gate.
+		game.sim.players[game.local_id].profile.chapters.append("e6")
+		game.sim._send_fort_ports()
+		var stand := Fort.world(-0.35, 9.5)
+		var d := Fort.isabel_pos() + Vector3(0, 0, 0) - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-d.x, -d.z) - 0.35)
+		game.local_player.pitch = -0.05
 	elif game and view == "hobb":
 		# Old Hobb's counter open on the pier, with gold to spend and black sails already ours.
 		var at := Outpost.hobb_pos()

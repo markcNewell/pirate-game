@@ -28,6 +28,7 @@ var _whale: Whale
 var _merchant: Node3D
 var _npcs: Array[Npc] = []
 var _isabel: Npc
+var _fort_port: Node3D
 var _merchant_rest := 0.0
 var _gloom := 0.0
 var _strike_flash := 0.0
@@ -444,6 +445,24 @@ func set_lamp_poisoned(on: bool) -> void:
 
 
 ## Isabel shows at the tavern only for those who have brought her ashore (story chapter b1).
+## The fort as our crew's port: Isabel in the courtyard and supply barrels by the gate.
+func set_fort_port(open: bool) -> void:
+	if open and _fort_port == null:
+		_fort_port = Node3D.new()
+		add_child(_fort_port)
+		var isabel := Npc.new("isabel", Fort.FACING + PI / 2.0)
+		isabel.position = Fort.isabel_pos()
+		_fort_port.add_child(isabel)
+		_npcs.append(isabel)
+		for p in Fort.barrels():
+			var barrel := Toon.instance(Models.part("supply_barrel", "supply_barrel"))
+			barrel.position = p
+			barrel.rotation.y = p.x
+			_fort_port.add_child(barrel)
+	if _fort_port:
+		_fort_port.visible = open
+
+
 func set_isabel(ashore: bool) -> void:
 	if _isabel:
 		_isabel.visible = ashore

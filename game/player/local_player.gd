@@ -271,6 +271,8 @@ func _interact(delta: float) -> void:
 			Audio.play("splash", -6.0, 0.8)
 		"pickup", "open", "restock":
 			game.send_request(target.kind, target.id)
+		"armoury":
+			game.send_request("armoury", 0)
 
 
 ## What E would do right now: {kind, id, label}, or empty.
@@ -320,6 +322,14 @@ func current_target() -> Dictionary:
 		var barrel := nearest_outpost_barrel()
 		if barrel >= 0:
 			return {"kind": "restock", "id": barrel, "label": "E  load supplies onto the ship"}
+		if game.fort_port:
+			var here := body.global_position
+			var spots := Fort.barrels()
+			for i in spots.size():
+				if here.distance_to(spots[i]) < ITEM_REACH:
+					return {"kind": "restock", "id": ServerSim.FORT_BARRELS + i, "label": "E  load supplies onto the ship"}
+			if here.distance_to(Fort.isabel_pos()) < Story.TALK_REACH:
+				return {"kind": "armoury", "id": 0, "label": "E  see Isabel's rack of arms"}
 		var tale := _story_target(body.global_position)
 		if not tale.is_empty():
 			return tale
