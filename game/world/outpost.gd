@@ -24,7 +24,7 @@ const AGENT_AT := Vector3(3.0, 0.0, -1.05)
 const TAVERN_ANGLE := 1.45
 ## Merrow's battery: on the beach between the merchant's hut and the tavern, facing the bay.
 const BATTERY_ANGLE := 0.95
-const BATTERY_IN := 3.0
+const BATTERY_IN := 5.0  # far enough up the beach to stay dry when the waves come in
 const BATTERY_STEP := 0.09
 const TAVERN_IN := 13.0
 

@@ -28,6 +28,43 @@ func _check_world(sim: ServerSim, where: String) -> void:
 		check(is_finite(it.pos.x) and is_finite(it.pos.y) and is_finite(it.pos.z), "%s: item %d has a position" % [where, id])
 
 
+## Things a pirate walks up to and presses E at: they must be on dry land you can stand on.
+const ON_LAND: Array[int] = [
+	StoryObject.Kind.FIRE, StoryObject.Kind.BOOK, StoryObject.Kind.GRAVE, StoryObject.Kind.KEG,
+	StoryObject.Kind.STORE, StoryObject.Kind.BONFIRE, StoryObject.Kind.SEARCH, StoryObject.Kind.CELL,
+	StoryObject.Kind.VAULT, StoryObject.Kind.BATTERY, StoryObject.Kind.CARVING, StoryObject.Kind.BRAZIER,
+	StoryObject.Kind.BEACON,
+]
+
+
+func _check_reachable(sim: ServerSim, where: String) -> void:
+	for id in sim.story.objects:
+		var o: StoryObject = sim.story.objects[id]
+		if o.ship >= 0 or o.kind not in ON_LAND:
+			continue
+		if o.kind == StoryObject.Kind.BOOK and sim.crews[ServerSim.CREW].mission.get("spot", Vector3.ZERO) == Vector3.ZERO and o.pos.length() < 2.0:
+			continue  # dropped "here", where the step before (not played in this test) ended
+		if Outpost.on_pier(o.pos.x, o.pos.z):
+			continue  # on Merrow's pier
+		var island := Islands.island_at(o.pos.x, o.pos.z)
+		check(island >= 0, "%s: object %d (kind %d) is on an island at %s" % [where, id, o.kind, o.pos])
+		if island < 0:
+			continue
+		var ground := Islands.ground_at(island, o.pos.x, o.pos.z)
+		var sea := Waves.height(o.pos.x, o.pos.z, sim.time)
+		check(ground > sea + 0.1, "%s: object %d (kind %d) is above the sea at %s (ground %.2f, sea %.2f)" % [where, id, o.kind, o.pos, ground, sea])
+		var spec: Dictionary = Islands.LAYOUT[island]
+		if spec.get("fort", false) and o.kind not in [StoryObject.Kind.KEG]:
+			check(not Fort.blocked(o.pos.x - spec.x, o.pos.z - spec.z, true), "%s: object %d (kind %d) is not inside the fort's walls" % [where, id, o.kind])
+	for id in sim.items:
+		var it: Loot = sim.items[id]
+		if it.state != Loot.State.GROUND or Outpost.on_pier(it.pos.x, it.pos.z):
+			continue
+		var island := Islands.island_at(it.pos.x, it.pos.z)
+		if island >= 0:
+			check(Islands.ground_at(island, it.pos.x, it.pos.z) > Waves.height(it.pos.x, it.pos.z, sim.time), "%s: item %d (%s) lies above the sea" % [where, id, it.label()])
+
+
 func test_every_step_of_every_chapter() -> void:
 	for i in Story.CHAPTERS.size():
 		var ch: Dictionary = Story.CHAPTERS[i]
@@ -40,6 +77,7 @@ func test_every_step_of_every_chapter() -> void:
 				sim.story.tick(DT)
 				sim._step_skeletons(DT)
 			_check_world(sim, "%s step %d" % [ch.id, step])
+			_check_reachable(sim, "%s step %d" % [ch.id, step])
 
 
 func test_every_world_event() -> void:
@@ -54,3 +92,4 @@ func test_every_world_event() -> void:
 			sim.world.tick(DT)
 			sim._step_skeletons(DT)
 		_check_world(sim, e)
+		_check_reachable(sim, e)
