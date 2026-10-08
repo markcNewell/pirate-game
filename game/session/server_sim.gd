@@ -80,7 +80,7 @@ var stats := {
 	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0, "xp": 0, "levels": 0,
 	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
 	"galleons": 0, "blocked": 0, "given": 0, "broken": 0, "bells": 0, "gates": 0, "guns_silenced": 0,
-	"dives": 0, "fort_shots": 0,
+	"dives": 0, "fort_shots": 0, "bought": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -836,7 +836,14 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_eat(r)
 		"talk":
 			if arg >= 0 and arg < Story.PEOPLE_IDS.size():
-				story.talk(id, r, Story.PEOPLE_IDS[arg])
+				if Story.PEOPLE_IDS[arg] == "martha":
+					_open_shop(id, r)
+				else:
+					story.talk(id, r, Story.PEOPLE_IDS[arg])
+		"buy":
+			_buy(id, r, arg)
+		"wear":
+			_wear(id, r, arg)
 		"read":
 			story.read(r, arg)
 		"douse":
@@ -1329,10 +1336,58 @@ func _award_crew(crew: int, xp: int, why: String) -> void:
 		_award(id, xp, why)
 
 
-## A pirate's own record, for their HUD: [xp, gold, title, rep x 3, chapters done].
+## A pirate's own record, for their HUD: [xp, gold, title, rep x 3, chapters done, outfit, dye,
+## what they own].
 func _send_profile(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate()])
+	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate()])
+
+
+## E at Big Martha's counter: her shop opens.
+func _open_shop(id: int, r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or r.pos.distance_to(Outpost.martha_pos()) > Shop.REACH + 1.0:
+		return
+	Net.send_event_to(id, "shop", [])
+
+
+## Buy item `i` from Martha (and wear it), or just wear it if already owned.
+func _buy(id: int, r: Dictionary, i: int) -> void:
+	if i < 0 or i >= Shop.ITEMS.size() or r.mode != LocalPlayer.Mode.WORLD:
+		return
+	if r.pos.distance_to(Outpost.martha_pos()) > Shop.REACH + 1.0:
+		return
+	var p: Dictionary = r.profile
+	var key := Shop.key(i)
+	if not p.owned.has(key):
+		var price: int = Shop.ITEMS[i][3]
+		if int(p.gold) < price:
+			Net.send_message(id, "Martha shakes her head: that's %d gold, and you have %d." % [price, int(p.gold)])
+			return
+		p.gold = int(p.gold) - price
+		p.owned.append(key)
+		stats.bought += 1
+		print("[server] %s bought %s for %d gold" % [r.name, Shop.ITEMS[i][2], price])
+		Net.send_message(id, "Bought: %s." % Shop.ITEMS[i][2])
+	_wear(id, r, i)
+
+
+## Wear an owned outfit or dye (`i`), or go back to your own outfit (-1) or shirt (-2).
+func _wear(id: int, r: Dictionary, i: int) -> void:
+	var p: Dictionary = r.profile
+	if i == -1:
+		p.look = -1
+	elif i == -2:
+		p.dye = -1
+	elif i >= 0 and i < Shop.ITEMS.size() and p.owned.has(Shop.key(i)):
+		if Shop.ITEMS[i][0] == Shop.Kind.OUTFIT:
+			p.look = Shop.ITEMS[i][1]
+		else:
+			p.dye = Shop.ITEMS[i][1]
+	else:
+		return
+	profiles.changed(r.name)
+	_send_profile(id)
+	_update_tag(id)
 
 
 ## The title a pirate wears: their latest earned, or the one for their level.
@@ -1344,7 +1399,7 @@ func _title_of(profile: Dictionary) -> String:
 ## What everyone sees over a pirate's head changed (or they joined): tell everyone.
 func _update_tag(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	tags[id] = [Progress.level(int(p.xp)), _title_of(p)]
+	tags[id] = [Progress.level(int(p.xp)), _title_of(p), int(p.look), int(p.dye)]
 	var flat := []
 	for pid in tags:
 		flat.append_array([pid] + tags[pid])

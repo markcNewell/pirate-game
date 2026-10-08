@@ -44,8 +44,13 @@ var purse := 0
 var title := ""
 var rep: Array = [0, 0, 0]
 var chapters: Array = []
-## What everyone shows over their heads: peer id -> [pirate level, title].
+## What everyone shows over their heads and wears: peer id -> [pirate level, title, outfit, dye].
 var tags := {}
+## Your own: place in the roster, Martha's outfit and dye you wear (-1 your own), what you own.
+var my_index := 0
+var my_outfit := -1
+var my_dye := -1
+var owned: Array = []
 ## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
 ## next X still to dig on a treasure voyage ({island, x, z} or empty).
 var mission := {}
@@ -296,20 +301,28 @@ func client_on_roster(new_roster: Dictionary) -> void:
 	ids.sort()
 	for id in ids:
 		if id == local_id and local_player and local_player.weapon_view:
-			local_player.weapon_view.set_sleeve(Avatar.SHIRTS[index % Avatar.SHIRTS.size()], Avatar.skin_for(index))
+			my_index = index
+			local_player.weapon_view.set_sleeve(Shop.shirt_of(my_dye, index), Avatar.skin_for(index))
 		# Players take looks in order of id, so everyone's differs; when someone joins in
 		# between, those after them change to keep it that way.
 		if id != local_id and avatars.has(id) and avatars[id].index != index:
 			avatars[id].queue_free()
 			avatars.erase(id)
 		if id != local_id and not avatars.has(id):
-			var avatar := Avatar.new(roster[id], index)
-			avatar.visible = false
-			add_child(avatar)
-			avatars[id] = avatar
-			if tags.has(id):
-				avatar.set_tag(tags[id][0], tags[id][1])
+			_make_avatar(id, index)
 		index += 1
+
+
+## Another player's figure, in their own look or what they bought from Martha.
+func _make_avatar(id: int, index: int) -> void:
+	if avatars.has(id):
+		avatars[id].queue_free()
+	var t: Array = tags.get(id, [1, "", -1, -1])
+	var avatar := Avatar.new(roster[id], index, t[2], t[3])
+	avatar.visible = false
+	add_child(avatar)
+	avatars[id] = avatar
+	avatar.set_tag(t[0], t[1])
 
 
 func client_on_message(text: String) -> void:
@@ -330,6 +343,12 @@ func client_on_event(kind: String, data: Array) -> void:
 		title = str(data[2])
 		rep = [int(data[3]), int(data[4]), int(data[5])]
 		chapters = data[6]
+		if data.size() > 9:
+			my_outfit = int(data[7])
+			my_dye = int(data[8])
+			owned = data[9]
+			if local_player and local_player.weapon_view:
+				local_player.weapon_view.set_sleeve(Shop.shirt_of(my_dye, my_index), Avatar.skin_for(my_index))
 		if world:
 			world.set_isabel(chapters.has("b1"))
 		if bot_role != "":
@@ -340,11 +359,17 @@ func client_on_event(kind: String, data: Array) -> void:
 	match kind:
 		"tags":
 			tags.clear()
-			for i in range(0, data.size() - 2, 3):
-				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2])]
-			for id in avatars:
-				if tags.has(id):
-					avatars[id].set_tag(tags[id][0], tags[id][1])
+			for i in range(0, data.size() - 4, 5):
+				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2]), int(data[i + 3]), int(data[i + 4])]
+			for id in avatars.keys():
+				if not tags.has(id):
+					continue
+				var t: Array = tags[id]
+				var a: Avatar = avatars[id]
+				if a.outfit != t[2] or a.dye != t[3]:
+					# Dressed differently from Martha's: dress the figure again.
+					_make_avatar(id, a.index)
+				avatars[id].set_tag(t[0], t[1])
 		"level":
 			if hud:
 				hud.level_up(int(data[0]), str(data[1]))
@@ -354,6 +379,9 @@ func client_on_event(kind: String, data: Array) -> void:
 		"journal":
 			if hud:
 				hud.show_journal(str(data[0]), str(data[1]))
+		"shop":
+			if hud:
+				hud.show_shop()
 		"doused":
 			if _object_views.has(int(data[0])):
 				_object_views[int(data[0])].set_state(int(data[4]) if data.size() > 4 else 0)

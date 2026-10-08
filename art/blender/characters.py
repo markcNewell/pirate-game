@@ -1549,6 +1549,34 @@ def gideon():
     return parts
 
 
+def martha():
+    """Big Martha of the Drowned Rat: a big, broad woman in a green dress with rolled sleeves,
+    a stained white apron, a red kerchief over her hair and a ladle in her fist."""
+    hair = "8a5a32"
+    head_bits = bandana("b8302a", dots="f2e8cc") + hair_back(hair, 0.03) + face(hair, mouth=True, gruff=-0.4)
+    parts = head(head_bits)
+    for side in ("r", "l"):
+        parts += sleeve(side, rolled=True)
+    parts += robe(SHIRT, SHIRT_DARK, name="dress")
+    apron = kit.loft("apron", [(0.35, 0.2, 0.17, 0, -0.04), (0.7, 0.22, 0.19, 0, -0.05), (1.0, 0.2, 0.18, 0, -0.06), (1.25, 0.17, 0.15, 0, -0.07)], "efe8da", sides=20, power=2.2, cap_bottom=False, cap_top=False)
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(apron.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if kit.G(f.calc_center_median())[2] > -0.05], context="FACES")
+    bm.to_mesh(apron.data)
+    bm.free()
+    kit.paint_where(apron, "c8b898", lambda x, y, z: y < 0.5 and abs(x) < 0.08)
+    rig.set_weights(apron, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
+    parts.append(apron)
+    g = Vector(rig.grip_point("r"))
+    ladle = kit.tube("ladle", [tuple(g + Vector((0, 0.1, 0))), tuple(g + Vector((0, -0.35, -0.05)))], 0.014, 5, "6a6e76")
+    bowl = kit.ellipsoid("ladlebowl", tuple(g + Vector((0, -0.4, -0.08))), (0.06, 0.04, 0.06), "6a6e76", rings=5, sectors=8)
+    for p in (ladle, bowl):
+        rig.set_weights(p, rig.rigid("hand_r"))
+        parts.append(p)
+    return parts
+
+
 def npcs():
     arm = rig.build_armature("rig")
     base = [torso()]
@@ -1560,7 +1588,7 @@ def npcs():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon)):
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha)):
         ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)

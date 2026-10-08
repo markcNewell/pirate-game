@@ -54,18 +54,24 @@ var _carrying := false
 var _act := Act.NONE
 
 
-## Which look, shirt and skin tone this player has (their place in the roster).
+## Which look, shirt and skin tone this player has (their place in the roster), and the outfit
+## and dye they bought from Martha (-1: their own).
 var index := 0
+var outfit := -1
+var dye := -1
 
 
-func _init(player_name: String, look_index: int) -> void:
+func _init(player_name: String, look_index: int, bought_outfit := -1, bought_dye := -1) -> void:
 	index = look_index
-	var shirt := SHIRTS[look_index % SHIRTS.size()]
+	outfit = bought_outfit
+	dye = bought_dye
+	var shirt := Shop.shirt_of(bought_dye, look_index)
 	var skin := skin_for(look_index)
+	var look := bought_outfit if bought_outfit >= 0 else look_index
 	_model = Models.instance("pirate", {
 		Models.SHIRT: shirt, Models.SHIRT_DARK: shirt.darkened(0.28),
 		Models.SKIN: skin, Models.SKIN_DARK: skin.darkened(0.12).lerp(Color("c0503a"), 0.12),
-	}, ["body", "look%d" % (look_index % LOOKS)])
+	}, ["body", "look%d" % (look % LOOKS)])
 	add_child(_model)
 	_skeleton = _model.find_children("*", "Skeleton3D", true, false)[0]
 	_build_tree()

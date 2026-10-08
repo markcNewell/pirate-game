@@ -80,3 +80,11 @@ barred door, a vault; El Polvorín (barrel chest, bandolier of bombs); bombs (ro
    gate, gunner, cells and vault.
 2. A smoke test: a bot shoots a bell; a bot dives at the wreck; a bot blows the fort's gate.
 3. All earlier tests and smoke tests pass.
+
+## Also built: Big Martha's back room (the first shop)
+
+Gold now buys something. Big Martha stands at the Drowned Rat's door; E at her opens her counter
+(the mouse is freed to click): the eight pirate outfits (350 to 1,200 gold) and ten shirt dyes
+(250 to 350), looks only. Buying wears it; anything owned can be worn again for free, and "your
+own outfit / shirt" goes back to the look the game gave you. Everyone sees what you wear. The
+weapons-as-choices armoury (Isabel's) and the shipwright come later.

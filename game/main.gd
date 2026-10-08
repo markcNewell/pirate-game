@@ -249,6 +249,17 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = -0.12
+	elif game and view == "shop":
+		# Big Martha's counter open, with gold to spend.
+		var at := Outpost.martha_pos()
+		var stand := at + Vector3(2.2, 0, 0.8)
+		stand.y = Islands.ground_at(Islands.outpost_index(), stand.x, stand.z)
+		var d := at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-d.x, -d.z))
+		game.sim.players[game.local_id].profile.gold = 1800
+		game.sim.players[game.local_id].profile.owned.append("outfit4")
+		game.sim._send_profile(game.local_id)
+		get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void: game.send_request("talk", Story.PEOPLE_IDS.find("martha")))
 	elif game and view in ["moll", "fire", "thieves"]:
 		# The story: talking to Moll at her lighthouse (the panel open), the green fire on Gull
 		# Isle with its journal (--chapter p1), or Bess's Spanish thieves by their boat (--chapter p2).

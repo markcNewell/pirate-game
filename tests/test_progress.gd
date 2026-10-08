@@ -135,5 +135,34 @@ func test_level_up_titles_the_pirate() -> void:
 	sim._award(1, Progress.xp_for(5), "a test")
 	check_eq(Progress.level(sim.players[1].profile.xp), 5)
 	check_eq(sim.players[1].profile.title, "Powder Monkey")
-	check_eq(sim.tags[1], [5, "Powder Monkey"], "everyone sees it")
+	check_eq(sim.tags[1], [5, "Powder Monkey", -1, -1], "everyone sees it")
 	check_eq(sim.stats.levels, 1)
+
+
+func test_martha_sells_looks_not_power() -> void:
+	var sim := _sim()
+	var r: Dictionary = sim.players[1]
+	r.mode = LocalPlayer.Mode.WORLD
+	r.pos = Outpost.martha_pos()
+	var captain := -1
+	for i in Shop.ITEMS.size():
+		if Shop.ITEMS[i][0] == Shop.Kind.OUTFIT and Shop.ITEMS[i][1] == 2:
+			captain = i
+	sim.request(1, "buy", captain, [])
+	check(r.profile.owned.is_empty(), "no gold, no coat")
+	r.profile.gold = 1500
+	sim.request(1, "buy", captain, [])
+	check_eq(r.profile.gold, 300, "paid for the captain's coat")
+	check(r.profile.owned.has("outfit2"), "it is ours")
+	check_eq(r.profile.look, 2, "and we wear it")
+	check_eq(sim.tags[1][2], 2, "everyone sees it")
+	sim.request(1, "wear", -1, [])
+	check_eq(r.profile.look, -1, "back to our own outfit")
+	sim.request(1, "buy", captain, [])
+	check_eq(r.profile.gold, 300, "wearing it again is free")
+	check_eq(r.profile.look, 2)
+	r.pos = Outpost.sell_spot()
+	sim.request(1, "buy", 8, [])
+	check(not r.profile.owned.has("dye0"), "only at Martha's counter")
+	for i in Shop.ITEMS.size():
+		check(Shop.ITEMS[i][3] > 0, "%s has a price" % Shop.ITEMS[i][2])

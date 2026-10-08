@@ -85,6 +85,10 @@ var _talk_at := 0
 var _journal: PanelContainer
 var _journal_title: Label
 var _journal_text: Label
+## Big Martha's counter (see show_shop); rebuilt when your gold or wardrobe changes.
+var _shop: PanelContainer
+var _shop_box: VBoxContainer
+var _shop_seen := ""
 var _card: Control
 var _purse: Label
 var _level: Control
@@ -312,6 +316,13 @@ func _ready() -> void:
 	_journal.visible = false
 	root.add_child(_journal)
 
+	_shop = _parchment_card()
+	_shop_box = VBoxContainer.new()
+	_shop_box.add_theme_constant_override("separation", 4)
+	_shop.add_child(_shop_box)
+	_shop.visible = false
+	root.add_child(_shop)
+
 	_map = TreasureMap.new()
 	_map.hud = self
 	_map.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -397,6 +408,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_board_key(event as InputEventKey)
 		get_viewport().set_input_as_handled()
 		return
+	if _shop.visible and event is InputEventKey and event.pressed and not event.echo:
+		if (event as InputEventKey).physical_keycode in [KEY_E, KEY_ESCAPE]:
+			close_shop()
+			get_viewport().set_input_as_handled()
+			return
 	if (_talk.visible or _journal.visible) and event is InputEventKey and event.pressed and not event.echo:
 		var key := (event as InputEventKey).physical_keycode
 		if key in [KEY_E, KEY_SPACE, KEY_ENTER]:
@@ -479,6 +495,11 @@ func _process(delta: float) -> void:
 	if _board.visible and game.local_player.frame_position().distance_to(ShipShape.map_table_target()) > 3.5:
 		close_board()
 	_card.queue_redraw()
+	if _shop.visible:
+		if "%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.owned] != _shop_seen:
+			_fill_shop()
+		if game.local_player.frame_position().distance_to(Outpost.martha_pos()) > Shop.REACH + 3.0 and game.local_player.mode == LocalPlayer.Mode.WORLD:
+			close_shop()
 	if _map.visible:
 		_map.queue_redraw()
 	var reload := game.local_player.cannon_reload()
@@ -586,7 +607,83 @@ func _close_reading() -> void:
 
 
 func reading() -> bool:
-	return _talk.visible or _journal.visible
+	return _talk.visible or _journal.visible or _shop.visible
+
+
+## Big Martha's counter: every outfit and dye, what each costs, and Buy or Wear; the mouse is
+## freed to click while it is open.
+func show_shop() -> void:
+	close_board()
+	_talk.visible = false
+	_journal.visible = false
+	_fill_shop()
+	_shop.visible = true
+	_shop.reset_size()
+	game.local_player.board_open = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func close_shop() -> void:
+	_shop.visible = false
+	game.local_player.board_open = false
+	if not _menu.visible:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _fill_shop() -> void:
+	_shop_seen = "%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.owned]
+	for child in _shop_box.get_children():
+		child.queue_free()
+	var title := _card_label("Big Martha's back room", 34, Color("5a3e22"))
+	title.add_theme_font_override("font", display_font())
+	_shop_box.add_child(title)
+	_shop_box.add_child(_card_label("Looks only: nothing here makes you stronger.   You have %d gold." % game.purse, 17, Color("2a1a10")))
+	# Outfits and dyes side by side, so the counter fits on the screen.
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 36)
+	_shop_box.add_child(columns)
+	for kind: int in [Shop.Kind.OUTFIT, Shop.Kind.DYE]:
+		var column := VBoxContainer.new()
+		columns.add_child(column)
+		column.add_child(_card_label("Outfits" if kind == Shop.Kind.OUTFIT else "Shirt dyes", 22, Color("8a2a1a")))
+		var grid := GridContainer.new()
+		grid.columns = 3
+		grid.add_theme_constant_override("h_separation", 12)
+		grid.add_theme_constant_override("v_separation", 2)
+		column.add_child(grid)
+		for i in Shop.ITEMS.size():
+			var item: Array = Shop.ITEMS[i]
+			if item[0] != kind:
+				continue
+			var name := _card_label(item[2], 17, Color("2a1a10"))
+			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			name.custom_minimum_size = Vector2(240 if kind == Shop.Kind.OUTFIT else 110, 0)
+			if kind == Shop.Kind.DYE:
+				name.add_theme_color_override("font_color", Shop.DYES[item[1]].darkened(0.35))
+			grid.add_child(name)
+			var own := game.owned.has(Shop.key(i))
+			var wearing: bool = (game.my_outfit if kind == Shop.Kind.OUTFIT else game.my_dye) == item[1]
+			grid.add_child(_card_label("wearing" if wearing else ("owned" if own else "%d gold" % item[3]), 16, Color("5a3e22")))
+			var button := Button.new()
+			button.text = "Wear" if own else "Buy"
+			button.disabled = wearing or (not own and game.purse < item[3])
+			button.custom_minimum_size = Vector2(80, 0)
+			button.pressed.connect(func() -> void:
+				game.send_request("buy", i)
+				Audio.play("coins", -4.0))
+			grid.add_child(button)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	_shop_box.add_child(row)
+	for pair: Array in [["Your own outfit", -1], ["Your own shirt", -2]]:
+		var b := Button.new()
+		b.text = pair[0]
+		b.pressed.connect(func() -> void: game.send_request("wear", pair[1]))
+		row.add_child(b)
+	var close := Button.new()
+	close.text = "Close (E)"
+	close.pressed.connect(close_shop)
+	row.add_child(close)
 
 
 func close_board() -> void:
