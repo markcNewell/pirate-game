@@ -145,8 +145,9 @@ func _raise_bounty(crew: int, step: Dictionary) -> void:
 		if out.length() < 0.5:
 			out = Vector2(1, 0)
 		var landing := landing_spot(island, out)
-		var boat_at: Vector3 = Vector3(spec.x, 0, spec.z) + Vector3(out.x, 0, out.y) * (float(spec.radius) + 0.5)
-		boat_at.y = 0.0
+		# Drawn up on the sand just below where they stepped ashore.
+		var boat_at: Vector3 = landing + Vector3(out.x, 0, out.y) * 3.0
+		boat_at.y = maxf(Islands.ground_at(island, boat_at.x, boat_at.z) - 0.05, -0.1)
 		_add_object(crew, StoryObject.Kind.BOAT, boat_at, atan2(-out.x, -out.y))
 		for n in int(step.thieves):
 			var at := landing + Vector3(out.y, 0, -out.x) * (1.5 * (n - 0.5))
@@ -174,6 +175,16 @@ static func landing_spot(island: int, out: Vector2) -> Vector3:
 			return Vector3(x, g, z)
 		r -= 0.5
 	return Vector3(spec.x, Islands.ground_at(island, spec.x, spec.z), spec.z)
+
+
+## Is a chapter being played out on this island? Its own camp stays asleep meanwhile: the story
+## brings its own dead.
+func busy_island(island: int) -> bool:
+	for c in sim.crews:
+		var m: Dictionary = sim.crews[c].mission
+		if not m.is_empty() and m.kind == Missions.Kind.STORY and m.islands.has(island) and island != Islands.outpost_index():
+			return true
+	return false
 
 
 func _dry_spot(island: int) -> Vector3:

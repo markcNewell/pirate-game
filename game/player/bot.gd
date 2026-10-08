@@ -17,6 +17,9 @@ extends Node
 ##   boarder - swim to the skeleton ship alongside, climb its ladder and fight its crew
 ##   duelist - jump in and fight the nearest pirate of another crew
 ##   thief   - steal the chest from another crew's deck and stow it on our own ship
+##   lights  - story chapter P1 on Gull Isle: read the journal, fill a bucket in the sea, douse
+##             the green fire and fell the dead that climb out
+##   moll    - swim ashore at Port Merrow and talk to Moll the keeper
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -98,6 +101,10 @@ func _physics_process(delta: float) -> void:
 			_duelist(input)
 		"thief":
 			_thief(input)
+		"lights":
+			_lights(input)
+		"moll":
+			_moll(input)
 
 
 func _process(_delta: float) -> void:
@@ -792,3 +799,81 @@ func _thief(input: PlayerInput) -> void:
 
 func _say(text: String) -> void:
 	print("[bot %s] %s" % [role, text])
+
+
+## The first story thing of a kind lying about (StoryObject.Kind), or null.
+func _story_object(kind: int, lit_only := false) -> StoryObject:
+	for id in game.view_objects:
+		var o: StoryObject = game.view_objects[id]
+		if o.kind == kind and (not lit_only or o.state == 1):
+			return o
+	return null
+
+
+func _lights(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var p := _player.body.global_position
+	var book := _story_object(StoryObject.Kind.BOOK)
+	if book:
+		if _head_to(input, book.pos, 1.4) and _every(0.5):
+			input.interact = true
+		return
+	if _phase == "act":
+		_say("read the journal")
+		_phase = "fire"
+	var fire := _story_object(StoryObject.Kind.FIRE, true)
+	if fire:
+		if not _player.bucket:
+			# Out from the fire toward the sea until our feet are wet.
+			var isl := Islands.island_at(fire.pos.x, fire.pos.z)
+			var spec: Dictionary = Islands.LAYOUT[maxi(isl, 0)]
+			var out := Vector3(fire.pos.x - spec.x, 0, fire.pos.z - spec.z).normalized()
+			if _player.current_target().get("kind", "") == "scoop":
+				if _every(0.5):
+					input.interact = true
+				return
+			_head_to(input, Vector3(spec.x, 0, spec.z) + out * (float(spec.radius) + 4.0), 0.5)
+			return
+		if _phase == "fire":
+			_say("filled the bucket")
+			_phase = "douse"
+		if _head_to(input, fire.pos, 1.6) and _every(0.5):
+			input.interact = true
+		return
+	if _phase == "douse":
+		_say("doused the green fire")
+		_phase = "dead"
+	if game.mission.is_empty() or int(game.mission.handled) >= 2:
+		if _phase != "done":
+			_say("the green fire is out and its dead are down")
+		_phase = "done"
+		return
+	var sk := _nearest_skeleton(-1, p)
+	if sk and sk.pos.distance_to(p) < 30.0:
+		_fight(input, sk, p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+		return
+	# Knocked down and sent back aboard: back to the grave, where the dead are.
+	var grave := _story_object(StoryObject.Kind.FIRE)
+	if grave:
+		_head_to(input, grave.pos, 3.0)
+
+
+func _moll(input: PlayerInput) -> void:
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	if game.mission.is_empty():
+		if _phase != "done":
+			_say("chapter over: %d chapters done" % game.chapters.size())
+		_phase = "done"
+		return
+	var at := Story.person_pos("moll")
+	if _head_to(input, at, 1.8):
+		var to := at - _player.body.global_position
+		_player.yaw = atan2(-to.x, -to.z)
+		if _every(0.5):
+			input.interact = true

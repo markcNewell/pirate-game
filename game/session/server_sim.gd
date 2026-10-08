@@ -1538,7 +1538,7 @@ func _wake_camps() -> void:
 			continue
 		var camp: Dictionary = camps.get(i, {"alive": 0, "wake": 0.0})
 		camps[i] = camp
-		if camp.alive > 0 or time < camp.wake:
+		if camp.alive > 0 or time < camp.wake or story.busy_island(i):
 			continue
 		var near := false
 		for id in players:

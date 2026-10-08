@@ -19,6 +19,11 @@ extends Node
 ##   --dolphins               dolphins visit straight away, for screenshots
 ##   --whale                  a whale surfaces ahead straight away, for screenshots
 ##   --model-sheet NAME       render a contact sheet of a Blender model (see tools/model_sheet.sh)
+##   --no-save                server: keep pirate profiles in memory only (tests)
+##   --profiles DIR           server: where pirate profiles are kept (default user://profiles)
+##   --xp N                   server: every new pirate starts with N XP
+##   --chapter ID             server: the first crew starts on story chapter ID (e.g. p1), at
+##                            step --chapter-step N (default 0)
 
 var _menu: Menu
 var _backdrop: MenuBackdrop
@@ -244,6 +249,50 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = -0.12
+	elif game and view in ["moll", "fire", "thieves"]:
+		# The story: talking to Moll at her lighthouse (the panel open), the green fire on Gull
+		# Isle with its journal (--chapter p1), or Bess's Spanish thieves by their boat (--chapter p2).
+		var look_at := Vector3.ZERO
+		var stand := Vector3.ZERO
+		match view:
+			"moll":
+				look_at = Story.person_pos("moll")
+				var spec := Outpost.spec()
+				var out := (look_at - Vector3(spec.x, look_at.y, spec.z)).normalized()
+				stand = look_at + out * 2.6 + Vector3(out.z, 0, -out.x) * 0.6
+				get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void: game.send_request("talk", 0))
+			"fire", "thieves":
+				var kind := StoryObject.Kind.FIRE if view == "fire" else StoryObject.Kind.BOAT
+				for o: StoryObject in game.sim.story.objects.values():
+					if o.kind == kind:
+						look_at = o.pos
+				var isl := Islands.island_at(look_at.x, look_at.z)
+				var spec: Dictionary = Islands.LAYOUT[maxi(isl, 0)]
+				var inward := (Vector3(spec.x, look_at.y, spec.z) - look_at).normalized()
+				stand = look_at + inward * (5.5 if view == "fire" else 9.0) + Vector3(inward.z, 0, -inward.x) * 2.0
+				if view == "thieves":
+					# Bess falls at once; her skull is theirs unless we stop them. Just before the
+					# shot, stand beside the first thief to get to it.
+					var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+					game.sim._hurt_skeleton(m.captain, 999, "the sea")
+					for s: Skeleton in game.sim.skeletons.values():
+						s.cooldown = 1e6
+					get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void:
+						for s: Skeleton in game.sim.skeletons.values():
+							s.cooldown = 1e6  # the island's own camp has woken by now too
+						for s: Skeleton in game.sim.skeletons.values():
+							if s.thief and s.alive():
+								var side := Vector3(cos(s.yaw), 0, -sin(s.yaw))
+								var at := s.pos + side * 3.5 - Vector3(-sin(s.yaw), 0, -cos(s.yaw)) * 1.5
+								at.y = Islands.ground_at(maxi(0, Islands.island_at(at.x, at.z)), at.x, at.z)
+								var d := s.pos - at
+								game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, at, atan2(-d.x, -d.z))
+								return)
+		var ground_island := Islands.island_at(stand.x, stand.z)
+		stand.y = Islands.ground_at(ground_island, stand.x, stand.z) if ground_island >= 0 else stand.y
+		var to := look_at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = -0.2
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":

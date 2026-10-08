@@ -1,13 +1,14 @@
 class_name Npc
 extends Node3D
-## One of the companies' people standing about (art/blender/characters.py, npcs): the Lantern
-## Order's mystic, the Merrow Traders' agent or a castaway trader. They breathe and shift
+## One of Port Merrow's people standing about (art/blender/characters.py, npcs): the Lantern
+## Order's mystic, the Merrow Traders' agent, a castaway trader or Moll the lighthouse keeper. They breathe and shift
 ## on their feet, and turn to watch you when you come near.
 
 const WHO := {
 	"mystic": {"shirt": Color("2a5a48"), "skin": Color("cfd6cc"), "lantern": Color("9cff8a")},
 	"agent": {"shirt": Color("f4efe2"), "skin": Color("e8b48a")},
 	"castaway": {"shirt": Color("5a7a9a"), "skin": Color("b07a4a")},
+	"keeper": {"shirt": Color("e8e0d0"), "skin": Color("e0a888")},
 }
 const WATCH_RANGE := 12.0
 

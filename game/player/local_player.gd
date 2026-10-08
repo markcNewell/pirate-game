@@ -258,6 +258,11 @@ func _interact(delta: float) -> void:
 			Audio.play("splash", -8.0, 1.2)
 		"sell", "drop", "board", "deliver", "eat":
 			game.send_request(target.kind, 0)
+		"talk", "read":
+			game.send_request(target.kind, target.id)
+		"douse":
+			game.send_request("douse", target.id)
+			Audio.play("splash", -6.0, 0.8)
 		"pickup", "open", "restock":
 			game.send_request(target.kind, target.id)
 
@@ -297,6 +302,9 @@ func current_target() -> Dictionary:
 		var barrel := nearest_outpost_barrel()
 		if barrel >= 0:
 			return {"kind": "restock", "id": barrel, "label": "E  load supplies onto the ship"}
+		var tale := _story_target(body.global_position)
+		if not tale.is_empty():
+			return tale
 		if not game.voyage.is_empty() and not swimming and Islands.island_at(body.global_position.x, body.global_position.z) >= 0:
 			return {"kind": "dig", "id": 0, "label": "Hold E  dig"}
 		return {}
@@ -342,6 +350,36 @@ func current_target() -> Dictionary:
 	var water := game.view_ship.water
 	if not bucket and water > 0.1 and ShipShape.is_below_deck(local) and local.y < ShipShape.LOWER_Y + water + 0.2:
 		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket"}
+	return {}
+
+
+## The story's things within reach ashore: a journal to read, a green fire to douse (or a word
+## that you need water first), the sea to fill a bucket from while a fire burns, someone of
+## Port Merrow to talk to.
+func _story_target(here: Vector3) -> Dictionary:
+	var any_fire := false
+	for id in game.view_objects:
+		var o: StoryObject = game.view_objects[id]
+		var d := here.distance_to(o.pos)
+		match o.kind:
+			StoryObject.Kind.BOOK:
+				if d < StoryRun.READ_REACH:
+					return {"kind": "read", "id": o.id, "label": "E  read the journal"}
+			StoryObject.Kind.FIRE:
+				if o.state != 1:
+					continue
+				any_fire = true
+				if d < StoryRun.DOUSE_REACH:
+					if bucket:
+						return {"kind": "douse", "id": o.id, "label": "E  douse the green fire"}
+					return {"kind": "hint", "id": 0, "label": "A green fire. Fill your bucket in the sea to douse it"}
+	if any_fire and not bucket and Waves.height(here.x, here.z, game.render_time) > here.y + StoryRun.SCOOP_DEPTH:
+		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket from the sea"}
+	if Islands.island_at(here.x, here.z) == Islands.outpost_index():
+		for i in Story.PEOPLE_IDS.size():
+			var who := Story.PEOPLE_IDS[i]
+			if here.distance_to(Story.person_pos(who)) < Story.TALK_REACH:
+				return {"kind": "talk", "id": i, "label": "E  talk to %s" % Story.person_name(who)}
 	return {}
 
 

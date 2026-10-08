@@ -465,8 +465,101 @@ def cargo_crate(goods):
     return kit.join("crate_" + name, parts)
 
 
+def grave():
+    """A fresh-dug pirate's grave (about 2 m long along Z, its head at -Z): a heaped mound of
+    dark earth with clods round it, stones at the edge and a driftwood cross lashed with rope.
+    A green fire stands on the mound's middle in the game."""
+    rng = random.Random(7)
+    earth, dark = "5a3e26", "3e2a1a"
+    mound = kit.ellipsoid("mound", (0, 0.0, 0.05), (0.55, 0.28, 1.05), earth, rings=8, sectors=16)
+    kit.jitter(mound, 0.03, 2)
+    kit.paint_where(mound, dark, lambda x, y, z: y < 0.06)
+    parts = [mound]
+    for k in range(9):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.75, 1.05)
+        clod = kit.ellipsoid("clod", (math.cos(a) * 0.62 * r, 0.03, math.sin(a) * 1.15 * r), (0.09, 0.06, 0.08), dark if k % 2 else earth, rings=4, sectors=6)
+        kit.jitter(clod, 0.015, k)
+        parts.append(clod)
+    for k in range(5):
+        x = rng.uniform(-0.6, 0.6)
+        z = rng.choice((-1, 1)) * rng.uniform(0.9, 1.15)
+        stone = kit.ellipsoid("stone", (x, 0.04, z), (0.08, 0.06, 0.07), ("8a8a84", "a09a90")[k % 2], rings=4, sectors=6)
+        kit.jitter(stone, 0.012, 10 + k)
+        parts.append(stone)
+    wood = "9a8a70"
+    parts.append(kit.tube("post", [(0.0, -0.15, -1.18), (0.02, 0.45, -1.2), (0.0, 0.95, -1.2)], [0.045, 0.04, 0.035], 6, wood, twist=0.3))
+    parts.append(kit.tube("arm", [(-0.3, 0.7, -1.19), (0.0, 0.72, -1.21), (0.3, 0.69, -1.2)], [0.032, 0.035, 0.03], 6, wood, twist=0.2))
+    for k in range(3):
+        y = 0.66 + 0.04 * k
+        parts.append(kit.noink(kit.lathe("lash", [(0.05, y), (0.05, y + 0.025)], 8, "c8b080", caps=False, centre=(0, 0, -1.2)), 0.3))
+    return kit.join("grave", parts)
+
+
+def journal():
+    """A sailor's journal lying open on the sand (about 0.36 x 0.26): a battered leather cover,
+    two fanned page blocks written in faded ink, a red ribbon."""
+    leather = "5a2e1a"
+    parts = []
+    for side in (-1, 1):
+        parts.append(kit.box("cover", (side * 0.09, 0.012, 0.0), (0.185, 0.012, 0.26), leather, bevel=0.004, rot=(0, 0, side * -0.06)))
+        pages = kit.box("pages", (side * 0.088, 0.032, 0.0), (0.17, 0.026, 0.245), "f2e8cc", bevel=0.006, rot=(0, 0, side * -0.06))
+        parts.append(pages)
+        for k in range(7):
+            z = -0.09 + k * 0.03
+            w = 0.12 if k % 3 else 0.08
+            parts.append(kit.noink(kit.box("ink", (side * (0.09 + (0.12 - w) * 0.3), 0.0465 + side * -0.0055 * 0.5, z), (w, 0.002, 0.006), "4a3a2e", rot=(0, 0, side * -0.06)), 0.0))
+    parts.append(kit.box("spine", (0, 0.01, 0), (0.03, 0.02, 0.262), "4a2414", bevel=0.006))
+    parts.append(kit.noink(kit.tube("ribbon", [(0.0, 0.05, 0.1), (0.02, 0.03, 0.16), (0.05, 0.008, 0.2)], 0.008, 4, "b8302a"), 0.4))
+    return kit.join("journal", parts)
+
+
+def rowboat():
+    """The Spanish dead's rowing boat, drawn up on a beach (about 3.8 m long along Z, its bow at
+    -Z): a thick double-ended hull, dark with a red strake, two thwarts, a pair of oars and a
+    pennant at the stern with the Admiral's black raven."""
+    hull_dark, hull, strake, wale, inside = "3a2e26", "7a5a3e", "a8322a", "2a2220", "8a6c4c"
+
+    def outer(y):
+        # Half-beam and half-length of the outside of the hull at height y (0 keel .. 0.5 rim).
+        t = y / 0.5
+        return 0.1 + 0.52 * math.sin(t * math.pi / 2) ** 0.8, 1.3 + 0.6 * math.sin(t * math.pi / 2) ** 0.7
+
+    rings = []
+    heights = (0.0, 0.05, 0.1, 0.16, 0.22, 0.28, 0.34, 0.39, 0.43, 0.47, 0.5)
+    for y in heights:
+        rx, rz = outer(y)
+        rings.append((y, rx, rz, 0, 0))
+    for y in reversed(heights[2:]):
+        rx, rz = outer(y)
+        rings.append((y, max(0.05, rx - 0.05), rz - 0.06, 0, 0))
+    body = kit.loft("hull", rings, hull, sides=32, power=2.0)
+
+    def inner(x, y, z):
+        rx, rz = outer(y)
+        return (x / rx) ** 2 + (z / rz) ** 2 < 0.93
+    kit.paint_where(body, hull_dark, lambda x, y, z: y < 0.13 and not inner(x, y, z))
+    kit.paint_where(body, strake, lambda x, y, z: 0.37 < y < 0.45 and not inner(x, y, z))
+    kit.paint_where(body, wale, lambda x, y, z: y >= 0.45 and not inner(x, y, z))
+    kit.paint_where(body, inside, inner)
+    parts = [body]
+    for z in (-0.55, 0.45):
+        parts.append(kit.box("thwart", (0, 0.36, z), (1.0, 0.04, 0.24), "8a6a4a", bevel=0.006))
+    for side in (-1, 1):
+        oar = [(side * 0.25, 0.14, -1.2), (side * 0.15, 0.3, 0.4), (side * 0.1, 0.42, 1.4)]
+        parts.append(kit.tube("oar", oar, [0.028, 0.03, 0.03], 6, "b08a5a"))
+        parts.append(kit.prism("blade", [(-0.08, 0.0), (0.08, 0.0), (0.06, -0.5), (-0.06, -0.5)], 0.02, "b08a5a", centre=(side * 0.26, 0.12, -1.2), plane="xz"))
+    parts.append(kit.tube("staff", [(0, 0.3, 1.55), (0, 1.3, 1.65)], 0.02, 5, "3a2e26"))
+    flag = kit.prism("pennant", [(0.0, 0.0), (0.0, 0.3), (0.45, 0.18), (0.4, 0.15), (0.45, 0.1)], 0.01, "b8302a", centre=(0.02, 1.0, 1.65), plane="xy")
+    parts.append(flag)
+    raven = kit.noink(kit.prism("raven", [(0.08, 0.08), (0.14, 0.12), (0.2, 0.11), (0.24, 0.14), (0.22, 0.09), (0.28, 0.07), (0.18, 0.06), (0.12, 0.03)], 0.014, "1a1418", centre=(0.02, 1.0, 1.65), plane="xy"), 0.2)
+    parts.append(raven)
+    return kit.join("rowboat", parts)
+
+
 def main(names):
     builders = {
+        "story": lambda: [grave(), journal(), rowboat()],
         "loot": lambda: [skull()] + [cargo_crate(g) for g in range(3)],
         "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],

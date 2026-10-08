@@ -116,6 +116,11 @@ func _splinters(pos: Vector3, count: int) -> void:
 		_items.append({"node": piece, "age": 0.0, "life": 2.5, "kind": "splinter", "vel": vel, "spin": spin})
 
 
+## A grey wisp rising from something put out (a doused green fire).
+func smoke(pos: Vector3) -> void:
+	_puff(pos + _jitter(0.2), Color(0.55, 0.6, 0.55, 0.6), 0.25, 0.9, 2.2, Vector3(0, 0.9, 0) + _jitter(0.15))
+
+
 func _puff(pos: Vector3, color: Color, start: float, end: float, life: float, vel: Vector3) -> void:
 	var puff := _fading_mesh(_puff_mesh, color)
 	puff.position = pos

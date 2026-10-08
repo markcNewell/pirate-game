@@ -75,6 +75,16 @@ var _help_hint: Label
 var _map: Control
 var _board: PanelContainer
 var _board_box: VBoxContainer
+## Someone talking (bottom of the screen) and a journal page (middle): see show_talk.
+var _talk: PanelContainer
+var _talk_name: Label
+var _talk_text: Label
+var _talk_hint: Label
+var _talk_lines: Array = []
+var _talk_at := 0
+var _journal: PanelContainer
+var _journal_title: Label
+var _journal_text: Label
 var _card: Control
 var _purse: Label
 var _level: Control
@@ -263,6 +273,45 @@ func _ready() -> void:
 	_board.visible = false
 	root.add_child(_board)
 
+	_talk = _parchment_card()
+	_talk.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_talk.offset_top = -250
+	_talk.offset_bottom = -40
+	_talk.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var talk_box := VBoxContainer.new()
+	talk_box.add_theme_constant_override("separation", 6)
+	_talk.add_child(talk_box)
+	_talk_name = _card_label("", 30, Color("5a3e22"))
+	_talk_name.add_theme_font_override("font", display_font())
+	_talk_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	talk_box.add_child(_talk_name)
+	_talk_text = _card_label("", 20, Color("2a1a10"))
+	_talk_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_talk_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_talk_text.custom_minimum_size = Vector2(680, 0)
+	talk_box.add_child(_talk_text)
+	_talk_hint = _card_label("", 16, Color("8a2a1a"))
+	_talk_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	talk_box.add_child(_talk_hint)
+	_talk.visible = false
+	root.add_child(_talk)
+
+	_journal = _parchment_card()
+	var journal_box := VBoxContainer.new()
+	journal_box.add_theme_constant_override("separation", 10)
+	_journal.add_child(journal_box)
+	_journal_title = _card_label("", 34, Color("5a3e22"))
+	_journal_title.add_theme_font_override("font", display_font())
+	journal_box.add_child(_journal_title)
+	_journal_text = _card_label("", 19, Color("2a1a10"))
+	_journal_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_journal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_journal_text.custom_minimum_size = Vector2(640, 0)
+	journal_box.add_child(_journal_text)
+	journal_box.add_child(_card_label("E  close", 16, Color("8a2a1a")))
+	_journal.visible = false
+	root.add_child(_journal)
+
 	_map = TreasureMap.new()
 	_map.hud = self
 	_map.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -348,6 +397,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		_board_key(event as InputEventKey)
 		get_viewport().set_input_as_handled()
 		return
+	if (_talk.visible or _journal.visible) and event is InputEventKey and event.pressed and not event.echo:
+		var key := (event as InputEventKey).physical_keycode
+		if key in [KEY_E, KEY_SPACE, KEY_ENTER]:
+			if _journal.visible:
+				_close_reading()
+			else:
+				_next_line()
+			get_viewport().set_input_as_handled()
+			return
+		if key == KEY_ESCAPE:
+			_close_reading()
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("menu"):
 		if _menu.visible:
 			_close_menu()
@@ -413,7 +475,7 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("help") and not _menu.visible:
 		toggle_help()
 	_map.visible = Input.is_action_pressed("map") and not game.mission.is_empty() and not _menu.visible
-	_prompt.visible = not _map.visible and not _board.visible and not game.local_player.dead
+	_prompt.visible = not _map.visible and not _board.visible and not reading() and not game.local_player.dead
 	if _board.visible and game.local_player.frame_position().distance_to(ShipShape.map_table_target()) > 3.5:
 		close_board()
 	_card.queue_redraw()
@@ -440,12 +502,17 @@ func show_board() -> void:
 	_board_box.add_child(title)
 	var m: Dictionary = game.mission
 	if not m.is_empty():
-		_board_box.add_child(_card_label("Your mission for the %s:" % Missions.COMPANY_NAMES[m.company], 20, Color("2a1a10")))
-		_board_box.add_child(_card_label(m.title, 30, Missions.COMPANY_COLOURS[m.company].darkened(0.45)))
+		if m.company < 0:
+			_board_box.add_child(_card_label("Your chapter of the story:", 20, Color("2a1a10")))
+			_board_box.add_child(_card_label(m.title, 30, Story.COLOUR.darkened(0.55)))
+		else:
+			_board_box.add_child(_card_label("Your mission for the %s:" % Missions.COMPANY_NAMES[m.company], 20, Color("2a1a10")))
+			_board_box.add_child(_card_label(m.title, 30, Missions.COMPANY_COLOURS[m.company].darkened(0.45)))
 		_board_box.add_child(_card_label("4  give up this mission        E  close", 18, Color("8a2a1a")))
 	else:
-		for i in game.offers.size():
-			var offer: Dictionary = game.offers[i]
+		var takeable := _takeable_offers()
+		for i in takeable.size():
+			var offer: Dictionary = takeable[i]
 			var c: int = offer.company
 			var head := _card_label("%d   %s  (level %d)" % [i + 1, Missions.COMPANY_NAMES[c], offer.level], 22, Missions.COMPANY_COLOURS[c].darkened(0.5))
 			head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -455,10 +522,71 @@ func show_board() -> void:
 			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			line.custom_minimum_size = Vector2(640, 0)
 			_board_box.add_child(line)
+		for offer: Dictionary in game.offers:
+			if offer.company >= 0:
+				continue
+			var head := _card_label("The Ash Fleet, %s:  %s" % [Story.ACT_NAMES[offer.level], offer.title], 22, Story.COLOUR.darkened(0.6))
+			head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			_board_box.add_child(head)
+			var line := _card_label("      %s." % offer.text, 18, Color("2a1a10"))
+			line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			_board_box.add_child(line)
 		_board_box.add_child(_card_label("1 / 2 / 3  take a mission        E  close", 18, Color("8a2a1a")))
 	_board.visible = true
 	_board.reset_size()
 	game.local_player.board_open = true
+
+
+## Someone talks: `lines` are [speaker, text] pairs, shown one at a time (E for the next).
+func show_talk(lines: Array) -> void:
+	if lines.size() < 2:
+		return
+	close_board()
+	_journal.visible = false
+	_talk_lines = lines
+	_talk_at = 0
+	_show_line()
+	game.local_player.board_open = true
+
+
+func _show_line() -> void:
+	_talk_name.text = str(_talk_lines[_talk_at])
+	_talk_text.text = str(_talk_lines[_talk_at + 1])
+	_talk_hint.text = "E  next" if _talk_at + 2 < _talk_lines.size() else "E  close"
+	_talk.visible = true
+	_talk.reset_size()
+
+
+func _next_line() -> void:
+	_talk_at += 2
+	if _talk_at + 1 < _talk_lines.size():
+		_show_line()
+		Audio.play("click", -8.0)
+	else:
+		_close_reading()
+
+
+## A journal page, read where it was found.
+func show_journal(title: String, text: String) -> void:
+	close_board()
+	_talk.visible = false
+	_journal_title.text = title
+	_journal_text.text = text
+	_journal.visible = true
+	_journal.reset_size()
+	game.local_player.board_open = true
+	Audio.play("click", -4.0)
+
+
+func _close_reading() -> void:
+	_talk.visible = false
+	_journal.visible = false
+	if not _board.visible:
+		game.local_player.board_open = false
+
+
+func reading() -> bool:
+	return _talk.visible or _journal.visible
 
 
 func close_board() -> void:
@@ -474,8 +602,9 @@ func _board_key(event: InputEventKey) -> void:
 	var key := event.physical_keycode
 	if key in [KEY_1, KEY_2, KEY_3] and game.mission.is_empty():
 		var i := key - KEY_1
-		if i < game.offers.size():
-			game.send_request("voyage", game.offers[i].company)
+		var takeable := _takeable_offers()
+		if i < takeable.size():
+			game.send_request("voyage", takeable[i].company)
 			Audio.play("click")
 			close_board()
 	elif key == KEY_4 and not game.mission.is_empty():
@@ -484,6 +613,11 @@ func _board_key(event: InputEventKey) -> void:
 		close_board()
 	elif key in [KEY_E, KEY_ESCAPE]:
 		close_board()
+
+
+## The board's company offers (the story's line is not taken from the board).
+func _takeable_offers() -> Array:
+	return game.offers.filter(func(o: Dictionary) -> bool: return o.company >= 0)
 
 
 func _card_label(text: String, size: int, colour: Color) -> Label:
@@ -780,8 +914,9 @@ class MissionCard:
 			heights.append(h)
 			height += h + 4.0
 		Hud.panel(self, Rect2(Vector2.ZERO, Vector2(size.x, height + 6.0)))
-		var colour: Color = Missions.COMPANY_COLOURS[m.company]
-		draw_string(font, Vector2(16, 26), Missions.COMPANY_NAMES[m.company].to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, colour)
+		var colour: Color = Story.COLOUR if m.company < 0 else Missions.COMPANY_COLOURS[m.company]
+		var head: String = Missions.COMPANY_NAMES[m.company] if m.company >= 0 else "The Ash Fleet: " + MissionCard.act_name(m)
+		draw_string(font, Vector2(16, 26), head.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, colour)
 		# A long title is set smaller rather than cut off.
 		var title_size := 28
 		while title_size > 18 and Hud.display_font().get_string_size(m.title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > width:
@@ -803,9 +938,22 @@ class MissionCard:
 			top += heights[i] + 4.0
 
 	## The steps as [text, done] (text starting "!" is a warning).
+	static func act_name(m: Dictionary) -> String:
+		var ch := Story.chapter(m.captain)
+		return Story.ACT_NAMES[ch.act] if not ch.is_empty() else ""
+
 	static func steps(m: Dictionary, now: float) -> Array:
 		var out := []
 		match int(m.kind):
+			Missions.Kind.STORY:
+				# Steps done so far, then the one under way; what comes after stays a surprise.
+				var ch := Story.chapter(m.captain)
+				if ch.is_empty():
+					return out
+				for i in mini(int(m.handled), ch.steps.size()):
+					out.append([Story.step_text(ch.steps[i]), true])
+				if int(m.handled) < ch.steps.size():
+					out.append([Story.step_text(ch.steps[m.handled], m.total, m.get("standing", 0)), false])
 			Missions.Kind.TREASURE:
 				for t: Dictionary in m.targets:
 					out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
@@ -886,6 +1034,20 @@ class TreasureMap:
 				_skull(x)
 			Missions.Kind.CARGO:
 				_crate(x)
+			Missions.Kind.STORY:
+				var ch := Story.chapter(m.captain)
+				if not ch.is_empty() and int(m.handled) < ch.steps.size():
+					match int(ch.steps[m.handled].kind):
+						Story.Step.BOUNTY:
+							_skull(x)
+						Story.Step.DOUSE:
+							for t: Dictionary in m.targets:
+								_flame(centre + Vector2(t.x - spec.x, t.z - spec.z) * scale, t.done)
+						Story.Step.READ:
+							_trail(beach, x, rng)
+							_book(x)
+						_:
+							_flame(x, false)
 		draw_string(Hud.display_font(), Vector2(0, 50), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 42, INKY)
 		if m.targets.size() > 1:
 			var k: int = m.targets.find(v)
@@ -963,6 +1125,26 @@ class TreasureMap:
 		draw_rect(r, INKY, false, 3.0)
 		draw_line(r.position, r.end, INKY, 2.0, true)
 		draw_line(r.position + Vector2(r.size.x, 0), r.position + Vector2(0, r.size.y), INKY, 2.0, true)
+
+	## A green flame (grey once doused) where a grave fire burns.
+	func _flame(at: Vector2, out: bool) -> void:
+		var col := Color("5a6a5a") if out else Color("3fa060")
+		var pts := PackedVector2Array()
+		for i in 20:
+			var a := TAU * i / 20.0
+			var r := 11.0 * (1.0 - 0.55 * maxf(0.0, -sin(a)))
+			pts.append(at + Vector2(cos(a) * r * 0.8, sin(a) * r + (-8.0 if sin(a) < 0.0 else 0.0) * absf(sin(a))))
+		draw_colored_polygon(pts, col)
+		pts.append(pts[0])
+		draw_polyline(pts, INKY, 2.0, true)
+
+	## An open book where a journal lies.
+	func _book(at: Vector2) -> void:
+		for side: float in [-1.0, 1.0]:
+			var page := PackedVector2Array([at, at + Vector2(side * 14, -4), at + Vector2(side * 14, 10), at + Vector2(0, 13)])
+			draw_colored_polygon(page, Color("fff6dc"))
+			page.append(page[0])
+			draw_polyline(page, INKY, 2.0, true)
 
 	func _compass_rose(at: Vector2) -> void:
 		for k in 4:

@@ -34,6 +34,9 @@ var view_wind := Vector2(0, -1)
 var view_players := {}  # peer id -> {mode, ship, pos, yaw, pitch, station, bucket, carry}
 var view_items := {}  # item id -> Loot
 var view_skeletons := {}  # skeleton id -> Skeleton
+## What the story has put in the world (fires, journals, boats): object id -> StoryObject.
+var view_objects := {}
+var _object_views := {}  # object id -> StoryObjectView
 ## Your own pirate as the server keeps them: XP, gold, the title you wear, standing with each
 ## company and the story chapters done (see ServerSim._send_profile).
 var xp := 0
@@ -258,6 +261,12 @@ func client_on_snapshot(data: Array) -> void:
 	for entry in data[5]:
 		var sk := Skeleton.from_array(entry)
 		snap_bones[sk.id] = sk
+	# Story things stand still, so the newest snapshot's are drawn as they are.
+	if data.size() > 6:
+		view_objects.clear()
+		for entry in data[6]:
+			var o := StoryObject.from_array(entry)
+			view_objects[o.id] = o
 	_snaps.append({"t": t, "ships": snap_ships, "players": snap_players, "items": snap_items, "bones": snap_bones})
 	while _snaps.size() > 2 and _snaps[1].t < t - 1.0:
 		_snaps.pop_front()
@@ -315,6 +324,8 @@ func client_on_event(kind: String, data: Array) -> void:
 		title = str(data[2])
 		rep = [int(data[3]), int(data[4]), int(data[5])]
 		chapters = data[6]
+		if bot_role != "":
+			print("[bot %s] profile xp=%d gold=%d chapters=%s" % [bot_role, xp, purse, chapters])
 		return
 	if not has_view():
 		return
@@ -329,6 +340,16 @@ func client_on_event(kind: String, data: Array) -> void:
 		"level":
 			if hud:
 				hud.level_up(int(data[0]), str(data[1]))
+		"talk":
+			if hud:
+				hud.show_talk(data)
+		"journal":
+			if hud:
+				hud.show_journal(str(data[0]), str(data[1]))
+		"doused":
+			if _object_views.has(int(data[0])):
+				_object_views[int(data[0])].douse()
+			Audio.play_at("splash", Vector3(data[1], data[2], data[3]), -2.0, 0.7)
 		"shot":
 			var id: int = data[0]
 			var ball := {
@@ -445,6 +466,7 @@ func _process(delta: float) -> void:
 
 	_update_balls()
 	_update_items()
+	_update_objects()
 	_update_skeletons(delta)
 	_update_traders(delta)
 	var cam := get_viewport().get_camera_3d()
@@ -494,6 +516,7 @@ func _update_skeletons(delta: float) -> void:
 			var v := SkeletonView.new()
 			v.look = id
 			v.captain = sk.captain
+			v.spanish = sk.spanish
 			add_child(v)
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
@@ -502,6 +525,23 @@ func _update_skeletons(delta: float) -> void:
 				continue
 			at = ship_views[sk.frame].global_transform * at
 		_skeleton_views[id].place(at, sk.walking, not sk.alive(), delta)
+
+
+## The story's fires, journals and boats: made when they appear, gone when they go.
+func _update_objects() -> void:
+	for id in _object_views.keys():
+		if not view_objects.has(id):
+			_object_views[id].queue_free()
+			_object_views.erase(id)
+	for id in view_objects:
+		var o: StoryObject = view_objects[id]
+		if not _object_views.has(id):
+			var v := StoryObjectView.new(o.kind, o.state == 1)
+			add_child(v)
+			v.global_transform = Transform3D(Basis(Vector3.UP, o.yaw), o.pos)
+			_object_views[id] = v
+		elif o.kind == StoryObject.Kind.FIRE and o.state == 0:
+			_object_views[id].douse()
 
 
 ## Place every chest and barrel: on the ground, afloat, stowed aboard or in someone's arms.
@@ -529,6 +569,10 @@ func _update_items() -> void:
 					at = Transform3D(cam.basis, cam * Vector3(0.0, -0.75, -0.85))
 				elif avatars.has(item.carrier):
 					at = avatars[item.carrier].global_transform * Transform3D(Basis.IDENTITY, Vector3(0, 0.75, -0.55))
+			Loot.State.HELD:
+				# In a Spanish skeleton's arms, running for its boat.
+				if _skeleton_views.has(item.carrier):
+					at = _skeleton_views[item.carrier].global_transform * Transform3D(Basis.IDENTITY, Vector3(0, 1.0, -0.45))
 		view.global_transform = at
 
 
@@ -693,10 +737,15 @@ static func _decode_mission(a: Array) -> Dictionary:
 	for i in int(a[7]):
 		var k := 8 + i * 4
 		targets.append({"island": int(a[k]), "x": float(a[k + 1]), "z": float(a[k + 2]), "done": int(a[k + 3]) == 1})
-	return {
+	var out := {
 		"kind": int(a[0]), "company": int(a[1]), "title": str(a[2]), "deadline": float(a[3]),
 		"captain": str(a[4]), "handled": int(a[5]), "total": int(a[6]), "targets": targets,
 	}
+	# A story chapter also says how many of the dead it raised still stand.
+	var extra := 8 + int(a[7]) * 4
+	if a.size() > extra:
+		out.standing = int(a[extra])
+	return out
 
 
 func send_request(action: String, arg: int, data: Array = []) -> void:

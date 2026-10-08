@@ -3,16 +3,20 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: all five milestones built.** Up to four crews of four players, each with its own galleon:
-sailing, swimming, cannons, skeleton ships, holes, patching, bailing and sinking; treasure maps,
-digging and selling at Port Merrow; health, cutlass and pistol, skeleton camps and boarding; and
-crew vs crew: fight other crews, sink their ships and steal their chests. The sea has a
+**Status: seven milestones built, the story under way.** Up to four crews of four players, each
+with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patching, bailing and
+sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. Three trading
+companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
+bounties and cargo runs from a mission board, and the story, [the Ash Fleet](docs/specs/2026-10-08-story.md),
+has begun: its prologue is playable. Every pirate earns XP and levels (which never make anyone
+stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
 24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
 waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
-[Blender models](docs/specs/2026-10-07-art-pass-2-blender.md).
+[Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -59,9 +63,11 @@ On the title screen:
 | Hatch | E at the hatch in front of the main mast climbs down; E at the ladder foot climbs up |
 | Patch a hole | look at it and hold E for 2 s |
 | Bail | E in the water below fills your bucket; E on deck throws it overboard |
-| Treasure | E at the map table (beside the wheel) for a voyage; hold M to read the map |
+| Missions | E at the map table (beside the wheel): the mission board; 1-3 takes an offer; hold M to read the map |
+| The story | at Port Merrow, E to talk to Moll the lighthouse keeper (and, later, Mother Wren); E reads journals |
+| Green fires | E in the shallows fills your bucket; E at a green fire douses it (the dead climb out) |
 | Dig | on an island, hold E for 2 s; at the X a chest comes up |
-| Chests | E picks up and puts down; carry one to the merchant at Port Merrow and press E to sell |
+| Chests, skulls, crates | E picks up and puts down; chests sell to Silas at his stall, skulls to Mother Wren on the beach, crates go to the trader |
 | Supplies | E at a supply barrel (Port Merrow's pier, or floating after a fight) refills the ship |
 | Fight | 1 cutlass, 2 pistol, left click to attack; skeletons guard every treasure island |
 | Board | swim to a skeleton ship and E at its ladder |
@@ -81,7 +87,8 @@ PirateGame.exe --headless -- --server --port 24565        # Windows
 ./pirate-game-server.x86_64 --headless -- --server        # Linux (from a release)
 ```
 
-Open UDP port 24565 and give friends your address. For an always-on server on a small cloud
+Open UDP port 24565 and give friends your address. The server remembers every pirate (level,
+gold, story) in `user://profiles/`, one file per name; `--profiles DIR` puts them elsewhere. For an always-on server on a small cloud
 machine, see [server/README.md](server/README.md).
 
 ## Develop
@@ -95,6 +102,8 @@ machine, see [server/README.md](server/README.md).
 | Fighting smoke test (island + boarding) | `tests/smoke/fighting_test.sh` |
 | Crew-vs-crew smoke test (duel, broadsides, theft) | `tests/smoke/crew_test.sh` |
 | Storm smoke test (lightning strikes a ship) | `tests/smoke/storm_test.sh` |
+| Missions smoke test (bounty, skull, cargo) | `tests/smoke/missions_test.sh` |
+| Story smoke test (prologue, thieves, saved pirates) | `tests/smoke/story_test.sh` |
 | Every smoke test at once | `tools/smoke_all.sh` |
 | Rebuild the sounds | `python3 tools/make_sounds.py` |
 | Rebuild the models (needs Blender 5.2) | `tools/build_models.sh` (or `tools/build_models.sh ship` for one script) |
@@ -112,8 +121,10 @@ Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`
 `--quit-after SECONDS`, `--no-ai`, `--ai-delay SECONDS`, `--test-holes N`, `--start-near N|outpost`,
 `--voyage-island N`, `--test-chest`, `--test-boarding`, `--crew N`, `--crews-close`, `--test-steal`,
 `--time T` (pin the time of day: 0 midnight, 0.5 noon, 0.79 sunset), `--storm X,Z` (pin the storm)
-and `--calm` (server: no storm).
-Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist` and `thief`.
+and `--calm` (server: no storm). Missions and story: `--mission treasure|bounty|cargo`, `--rep N`,
+`--chapter ID` (`p1`, `p2`) with `--chapter-step N`, `--xp N`, `--no-save`, `--profiles DIR`.
+Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist`, `thief`, `bounty`, `cargo`,
+`courier`, `lights` and `moll`.
 
 ### How it fits together
 

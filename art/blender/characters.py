@@ -909,7 +909,7 @@ def skeleton():
     body = kit.join("skeleton", parts)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(4):
+    for i in range(5):
         ob = kit.join("look%d" % i, skeleton_look(i))
         rig.bind(ob, arm)
         meshes.append(ob)
@@ -968,9 +968,9 @@ def rag_vest(color, seed):
     return [vest]
 
 
-def morion(color="6a6a72"):
-    """A rusty Spanish helmet: a domed skull cap, a brim curving up at front and back and a comb
-    along the top."""
+def morion(color="6a6a72", sweep=0.1, comb_h=0.1):
+    """A Spanish helmet: a domed skull cap, a brim curving up at front and back (`sweep` how
+    far) and a comb along the top (`comb_h` how tall)."""
     dome = kit.lathe("dome", [(0.0, 1.97), (0.07, 1.96), (0.12, 1.9), (0.14, 1.8), (0.14, 1.74)], 18, color)
     rows = []
     for k in range(4):
@@ -978,23 +978,54 @@ def morion(color="6a6a72"):
         row = []
         for i in range(28):
             a = 2 * math.pi * i / 28
-            up = (abs(math.sin(a)) ** 2) * 0.1 * (k / 3) ** 1.3
-            row.append((math.cos(a) * r * 0.9, 1.75 + up, -0.01 + math.sin(a) * r))
+            up = (abs(math.sin(a)) ** 2) * sweep * (k / 3) ** 1.3
+            # Narrow at the sides, long fore and aft: the boat-shaped brim of a morion.
+            side = 0.9 - 0.25 * (k / 3) * abs(math.cos(a)) * (sweep > 0.1)
+            row.append((math.cos(a) * r * side, 1.75 + up, -0.01 + math.sin(a) * r))
         rows.append(row)
     brim = kit.grid_surface("brim", rows, color, close_u=True)
     kit.orient(brim, lambda x, y, z: (0, 1, 0))
     sol = brim.modifiers.new("solid", "SOLIDIFY")
     sol.thickness = 0.012
     kit.apply_all(brim)
-    comb = kit.prism("comb", [(-0.13, 0.0), (0.13, 0.0), (0.08, 0.08), (0.0, 0.1), (-0.08, 0.08)], 0.015, color, centre=(0, 1.93, -0.01), plane="zy")
+    comb = kit.prism("comb", [(-0.13, 0.0), (0.13, 0.0), (0.08, 0.8 * comb_h), (0.0, comb_h), (-0.08, 0.8 * comb_h)], 0.015, color, centre=(0, 1.93, -0.01), plane="zy")
     rust = [kit.noink(kit.ellipsoid("rust", (0.07 * math.cos(a), 1.86 + 0.05 * math.sin(a * 3), -0.01 + 0.13 * math.sin(a)), (0.03, 0.02, 0.03), "8a5a3a", rings=4, sectors=6), 0.0) for a in (0.6, 2.2, 4.0)]
     return [dome, brim, comb] + rust
+
+
+def breastplate(color="b4bac2"):
+    """A Spanish soldier's steel breastplate over the ribs: a pointed peascod belly with a
+    ridge down the front, brass edging, a short flared skirt over the hips and leather straps
+    over the shoulders."""
+    rings = [
+        (0.97, 0.17, 0.14, 0, -0.02), (0.995, 0.168, 0.145, 0, -0.028), (1.03, 0.165, 0.15, 0, -0.035),
+        (1.12, 0.175, 0.15, 0, -0.03), (1.26, 0.19, 0.14, 0, -0.016), (1.37, 0.18, 0.125, 0, -0.004),
+        (1.415, 0.155, 0.112, 0, -0.002), (1.44, 0.13, 0.1, 0, 0.0),
+    ]
+    plate = kit.loft("breastplate", rings, color, sides=24, power=2.0, cap_bottom=False, cap_top=False)
+    sol = plate.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.01
+    kit.apply_all(plate)
+    kit.paint_where(plate, "8a9098", lambda x, y, z: z > 0.02)
+    # Brass edging round the neck and the waist.
+    kit.paint_where(plate, "c8a040", lambda x, y, z: y < 0.99 or y > 1.42)
+    ridge = kit.noink(kit.tube("ridge", [(0, 1.0, -0.172), (0, 1.2, -0.178), (0, 1.38, -0.15)], 0.008, 4, "c8ccd2"), 0.4)
+    skirt = kit.loft("tassets", [(0.86, 0.215, 0.17, 0, -0.01), (0.97, 0.175, 0.15, 0, -0.02)], "8a9098", sides=24, power=2.0, cap_bottom=False, cap_top=False)
+    sol = skirt.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.008
+    kit.apply_all(skirt)
+    straps = [kit.tube("strap", [(sx * 0.11, 1.44, -0.1), (sx * 0.13, 1.5, 0.0), (sx * 0.11, 1.44, 0.1)], 0.014, 5, "4a2c1c") for sx in (1, -1)]
+    for p in [plate, ridge] + straps:
+        rig.set_weights(p, rig.rigid("chest"))
+    rig.set_weights(skirt, rig.rigid("hips"))
+    return [plate, ridge, skirt] + straps
 
 
 def skeleton_look(i):
     """The skeleton's outfits: 0 torn breeches, a sash and a battered tricorn; 1 a faded
     bandana and the rags of a shirt; 2 a rusty morion helmet and a loincloth; 3 a bounty's
-    captain: a rotten captain's coat, a feathered hat and a green lantern."""
+    captain: a rotten captain's coat, a feathered hat and a green lantern; 4 one of the Spanish
+    dead: a steel morion and breastplate over red breeches."""
     parts = []
     if i == 0:
         parts += torn_breeches(RAGS, 1) + sash(RAGS_DARK)
@@ -1005,6 +1036,9 @@ def skeleton_look(i):
     elif i == 1:
         parts += torn_breeches("4a4a5a", 2) + rag_vest("8a8470", 5)
         head_bits = bandana("8a3a2e", dots="c8bca0")
+    elif i == 4:
+        parts += torn_breeches("8a2a24", 6) + sash("d8b040") + breastplate()
+        head_bits = morion("b4bac2", sweep=0.2, comb_h=0.15)
     elif i == 3:
         parts += torn_breeches("2a2a3a", 4)
         parts += coat("3a2a4a", trim="b89a40")
@@ -1379,6 +1413,31 @@ def castaway():
     return parts
 
 
+def spyglass(side="r"):
+    """A brass spyglass held in the fist, pointing forward and a little down."""
+    g = Vector(rig.grip_point(side))
+    parts = [kit.tube("glass", [tuple(g + Vector((0, 0.0, 0.12))), tuple(g + Vector((0, -0.01, -0.06))), tuple(g + Vector((0, -0.03, -0.26)))], [0.022, 0.026, 0.032], 10, "c8a040")]
+    for k, z in enumerate((0.1, -0.06, -0.25)):
+        parts.append(kit.lathe("band", [(0.026 + 0.004 * k, -0.012), (0.026 + 0.004 * k, 0.012)], 10, "6a4a22", caps=False, centre=tuple(g + Vector((0, -0.01 * k, z))), axis="z"))
+    for p in parts:
+        rig.set_weights(p, rig.rigid("hand_" + side))
+    return parts
+
+
+def keeper():
+    """Moll Tinder, the lighthouse keeper: a weathered woman in a yellow oilskin coat over dark
+    trousers and sea boots, a red scarf, grey hair in a bun under a knitted cap, and a brass
+    spyglass in her hand."""
+    hair = "b8b2a8"
+    bun = kit.ellipsoid("bun", (0, 1.7, 0.12), (0.06, 0.055, 0.05), hair, rings=6, sectors=10)
+    head_bits = beanie("2c4e6a") + hair_back(hair, 0.02) + [bun] + face("a8a298", mouth=True, gruff=-0.6)
+    parts = head(head_bits)
+    parts += coat("d0a43a", trim="4a3a22")
+    parts += trousers("2e3240") + boots() + neck_scarf("b8302a")
+    parts += spyglass("r")
+    return parts
+
+
 def npcs():
     arm = rig.build_armature("rig")
     base = [torso()]
@@ -1390,7 +1449,7 @@ def npcs():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway)):
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper)):
         ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)

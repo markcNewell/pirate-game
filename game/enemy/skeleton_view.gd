@@ -12,6 +12,8 @@ const RUST := {Color("d8dde2"): Color("9c8a74"), Color("9aa2ac"): Color("6e5e4c"
 var look := 0
 ## A bounty's captain: his own coat, hat and lantern, and a head taller.
 var captain := false
+## One of the Spanish dead: steel helmet and breastplate.
+var spanish := false
 var _model: Node3D
 var _player: AnimationPlayer
 var _material: ShaderMaterial
@@ -21,7 +23,8 @@ var _fall := 0.0
 
 
 func _ready() -> void:
-	_model = Models.instance("skeleton", {}, ["skeleton", "look3" if captain else "look%d" % (look % 3)])
+	var outfit := "look3" if captain else ("look4" if spanish else "look%d" % (look % 3))
+	_model = Models.instance("skeleton", {}, ["skeleton", outfit])
 	add_child(_model)
 	if captain:
 		_model.scale = Vector3.ONE * 1.12
