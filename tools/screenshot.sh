@@ -10,7 +10,8 @@
 #         gallery (c1), cannons (c2), battery (c6), viuda (c6, step 2), ocaso (c6, step 3),
 #         linnet (t10, with --time 0.9), hulk (d1), carving (d2), ghost (d3), lanterns (d4),
 #         golondrina (d5), admiral (d6, step 2), workshop (e2, step 1), beacon (e3, step 1),
-#         colossus (e5), anvil (e5, step 1),
+#         colossus (e5), anvil (e5, step 1), deeds, worldmark (a world event on the compass),
+#         hobb (his counter), refit, trophies, figurehead (a refitted ship with every trophy),
 #         title (the title screen: nothing is hosted), ship (--shot-from X,Y,Z --shot-look X,Y,Z in the ship's frame)
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
 #   BOTS="sails wheel" adds headless bot players to the hosted game first.

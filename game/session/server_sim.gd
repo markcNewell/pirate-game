@@ -83,7 +83,7 @@ var stats := {
 	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0, "xp": 0, "levels": 0,
 	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
 	"galleons": 0, "blocked": 0, "given": 0, "broken": 0, "bells": 0, "gates": 0, "guns_silenced": 0,
-	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
+	"dives": 0, "fort_shots": 0, "bought": 0, "refits": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
 	"blinks": 0, "braziers": 0, "beacons": 0, "slams": 0, "throws": 0, "joint_hits": 0, "crumbled": 0,
 	"world_events": 0, "world_won": 0, "deeds": 0,
@@ -99,6 +99,9 @@ var skeletons := {}  # skeleton id -> Skeleton
 var camps := {}  # island index -> {"alive": int, "wake": time it may next wake}
 var _next_skeleton := 1
 var _passive := {}  # skeleton ships that only sit there (tests)
+## What each crew's ship was last said to look like: crew -> [crew, sails, hull, flag, trophies].
+var _ship_looks := {}
+var _next_looks := 0.0
 
 var ai_enabled := true
 var next_ai_time := AI_FIRST_DELAY
@@ -213,6 +216,7 @@ func _ensure_crew(crew: int) -> void:
 		return
 	crews[crew] = {
 		"mission": {}, "offers": [], "respawn_at": -1.0, "empty_since": -1.0, "pinned": false,
+		"looks": [],
 	}
 	_launch_crew_ship(crew)
 
@@ -256,6 +260,9 @@ func tick(dt: float) -> void:
 	profiles.tick(time)
 	story.tick(dt)
 	world.tick(dt)
+	if time >= _next_looks:
+		_next_looks = time + 1.0
+		_send_ship_looks()
 	var wind := Game.wind_dir(time)
 	_maybe_spawn_skeleton()
 	_maybe_respawn_crews()
@@ -773,6 +780,9 @@ func add_player(id: int, player_name: String, wanted_crew := 0, token := "") -> 
 		"profile": profiles.get_or_make(clean, token),
 	}
 	roster[id] = clean
+	if crews[crew].looks.is_empty():
+		# A new ship wears the looks her first pirate aboard last fitted.
+		crews[crew].looks = players[id].profile.ship.duplicate()
 	print("[server] %s joined crew %d (peer %d)" % [clean, crew, id])
 	Net.send_roster(roster)
 	var ship: ShipState = ships[crew]
@@ -784,6 +794,8 @@ func add_player(id: int, player_name: String, wanted_crew := 0, token := "") -> 
 	_send_profile(id)
 	_update_tag(id)
 	world.tell(id)  # a world event already under way
+	for c in _ship_looks:
+		Net.send_event_to(id, "ship_look", _ship_looks[c])
 
 
 ## Returns the name of the player who left, or "".
@@ -916,6 +928,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			if arg >= 0 and arg < Story.PEOPLE_IDS.size():
 				if Story.PEOPLE_IDS[arg] == "martha" and not story.fresh_offer(r.crew, "martha"):
 					_open_shop(id, r)
+				elif Story.PEOPLE_IDS[arg] == "hobb":
+					_open_wright(id, r)
 				else:
 					story.talk(id, r, Story.PEOPLE_IDS[arg])
 		"climb_light":
@@ -926,6 +940,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_buy(id, r, arg)
 		"wear":
 			_wear(id, r, arg)
+		"wright":
+			_wright(id, r, arg)
 		"read":
 			story.read(r, arg)
 		"douse":
@@ -1487,6 +1503,58 @@ func _deed(id: int, deed: String, n := 1) -> void:
 func _deed_crew(crew: int, deed: String) -> void:
 	for id in _crew_members(crew):
 		_deed(id, deed)
+
+
+## E by Old Hobb on the pier: his counter opens.
+func _open_wright(id: int, r: Dictionary) -> void:
+	if r.mode != LocalPlayer.Mode.WORLD or r.pos.distance_to(Outpost.hobb_pos()) > Shipwright.REACH + 1.0:
+		return
+	Net.send_event_to(id, "wright", [])
+
+
+## Buy look `i` from Hobb and fit it to the crew's ship, or just fit it if already owned.
+func _wright(id: int, r: Dictionary, i: int) -> void:
+	if i < 0 or i >= Shipwright.ITEMS.size() or r.mode != LocalPlayer.Mode.WORLD:
+		return
+	if r.pos.distance_to(Outpost.hobb_pos()) > Shipwright.REACH + 1.0:
+		return
+	var p: Dictionary = r.profile
+	var item: Array = Shipwright.ITEMS[i]
+	if not Shipwright.has(p, i):
+		var price: int = item[3]
+		if int(p.gold) < price:
+			Net.send_message(id, "Hobb sucks his teeth: that's %d gold, and you have %d." % [price, int(p.gold)])
+			return
+		p.gold = int(p.gold) - price
+		p.owned.append(Shipwright.key(i))
+		stats.bought += 1
+		print("[server] %s bought %s %s for %d gold" % [r.name, item[2], ["sails", "hull paint", "flag"][item[0]], price])
+		Net.send_message(id, "Bought: %s %s." % [item[2], ["sails", "hull paint", "flag"][item[0]]])
+	var looks: Array = crews[r.crew].looks
+	while looks.size() < 3:
+		looks.append(0)
+	looks[item[0]] = item[1]
+	p.ship[item[0]] = item[1]
+	stats.refits += 1
+	print("[server] %s fitted %s %s to %s" % [r.name, item[2], ["sails", "hull paint", "flag"][item[0]], crew_name(r.crew)])
+	_tell_crew(r.crew, "%s has Hobb fit %s %s to the ship." % [r.name, item[2], ["sails", "hull paint", "flag"][item[0]]])
+	profiles.changed(r.name)
+	_send_profile(id)
+	_send_ship_looks()
+
+
+## Tell everyone how each crew's ship looks (fitted looks and trophies), when that changes.
+func _send_ship_looks() -> void:
+	for c in crews:
+		var looks: Array = crews[c].looks
+		var lists: Array = []
+		for pid in _crew_members(c):
+			lists.append(players[pid].profile.chapters)
+		var data := [c, int(looks[0]) if looks.size() > 0 else 0, int(looks[1]) if looks.size() > 1 else 0,
+			int(looks[2]) if looks.size() > 2 else 0, Shipwright.trophies(lists)]
+		if _ship_looks.get(c, []) != data:
+			_ship_looks[c] = data
+			Net.send_event("ship_look", data)
 
 
 ## E at Big Martha's counter: her shop opens.

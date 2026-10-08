@@ -94,6 +94,8 @@ var _journal_text: Label
 var _shop: PanelContainer
 var _shop_box: VBoxContainer
 var _shop_seen := ""
+## Old Hobb's counter (the shipwright) rather than Martha's.
+var _shop_wright := false
 var _card: Control
 var _purse: Label
 var _level: Control
@@ -531,9 +533,10 @@ func _process(delta: float) -> void:
 		close_board()
 	_card.queue_redraw()
 	if _shop.visible:
-		if "%d|%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned] != _shop_seen:
+		if _shop_key() != _shop_seen:
 			_fill_shop()
-		if game.local_player.frame_position().distance_to(Outpost.martha_pos()) > Shop.REACH + 3.0 and game.local_player.mode == LocalPlayer.Mode.WORLD:
+		var counter := Outpost.hobb_pos() if _shop_wright else Outpost.martha_pos()
+		if game.local_player.frame_position().distance_to(counter) > Shop.REACH + 3.0 and game.local_player.mode == LocalPlayer.Mode.WORLD:
 			close_shop()
 	if _map.visible:
 		_map.queue_redraw()
@@ -647,7 +650,14 @@ func reading() -> bool:
 
 ## Big Martha's counter: every outfit and dye, what each costs, and Buy or Wear; the mouse is
 ## freed to click while it is open.
-func show_shop() -> void:
+## What the open counter shows depends on: rebuilt when it changes.
+func _shop_key() -> String:
+	return "%s|%d|%d|%d|%d|%d|%d|%s|%s" % [_shop_wright, game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned, game.ship_looks.get(game.own_ship, [])]
+
+
+## Martha's counter, or with `wright` Old Hobb's.
+func show_shop(wright := false) -> void:
+	_shop_wright = wright
 	close_board()
 	_talk.visible = false
 	_journal.visible = false
@@ -666,9 +676,12 @@ func close_shop() -> void:
 
 
 func _fill_shop() -> void:
-	_shop_seen = "%d|%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.my_armour, game.owned]
+	_shop_seen = _shop_key()
 	for child in _shop_box.get_children():
 		child.queue_free()
+	if _shop_wright:
+		_fill_wright()
+		return
 	var title := _card_label("Big Martha's back room", 34, Color("5a3e22"))
 	title.add_theme_font_override("font", display_font())
 	_shop_box.add_child(title)
@@ -724,6 +737,55 @@ func _fill_shop() -> void:
 	close.text = "Close (E)"
 	close.pressed.connect(close_shop)
 	row.add_child(close)
+
+
+## Old Hobb's counter: sails, hull paint and flags for the crew's ship (Shipwright).
+func _fill_wright() -> void:
+	var title := _card_label("Old Hobb's yard", 34, Color("5a3e22"))
+	title.add_theme_font_override("font", display_font())
+	_shop_box.add_child(title)
+	_shop_box.add_child(_card_label("Looks for your ship: nothing here makes her faster.   You have %d gold." % game.purse, 17, Color("2a1a10")))
+	var fitted: Array = game.ship_looks.get(game.own_ship, [])
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 36)
+	_shop_box.add_child(columns)
+	for kind: int in [Shipwright.Kind.SAILS, Shipwright.Kind.HULL, Shipwright.Kind.FLAG]:
+		var column := VBoxContainer.new()
+		columns.add_child(column)
+		column.add_child(_card_label(["Sails", "Hull paint", "Flag"][kind], 22, Color("8a2a1a")))
+		var grid := GridContainer.new()
+		grid.columns = 3
+		grid.add_theme_constant_override("h_separation", 12)
+		grid.add_theme_constant_override("v_separation", 2)
+		column.add_child(grid)
+		for i in Shipwright.ITEMS.size():
+			var item: Array = Shipwright.ITEMS[i]
+			if item[0] != kind:
+				continue
+			var name := _card_label(item[2], 17, Color("2a1a10"))
+			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			name.custom_minimum_size = Vector2(150, 0)
+			if item[1] > 0:
+				var swatch: Color = [Shipwright.SAILS[item[1]] if kind == Shipwright.Kind.SAILS else Color(),
+					Shipwright.HULLS[item[1]].get("hull", Color()) if kind == Shipwright.Kind.HULL else Color(),
+					Shipwright.FLAGS[item[1]] if kind == Shipwright.Kind.FLAG else Color()][kind]
+				name.add_theme_color_override("font_color", swatch.darkened(0.55) if swatch.get_luminance() > 0.6 else swatch)
+			grid.add_child(name)
+			var own := Shipwright.has({"owned": game.owned}, i)
+			var on: bool = (int(fitted[kind]) if fitted.size() > kind else 0) == item[1]
+			grid.add_child(_card_label("on the ship" if on else ("owned" if own else "%d gold" % item[3]), 16, Color("5a3e22")))
+			var button := Button.new()
+			button.text = "Fit" if own else "Buy"
+			button.disabled = on or (not own and game.purse < item[3])
+			button.custom_minimum_size = Vector2(80, 0)
+			button.pressed.connect(func() -> void:
+				game.send_request("wright", i)
+				Audio.play("coins", -4.0))
+			grid.add_child(button)
+	var close := Button.new()
+	close.text = "Close (E)"
+	close.pressed.connect(close_shop)
+	_shop_box.add_child(close)
 
 
 func close_board() -> void:

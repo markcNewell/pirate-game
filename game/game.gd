@@ -58,6 +58,8 @@ var deeds := {}
 ## The armour we wear (Weapons.ARMOURS).
 var my_armour := 0
 var owned: Array = []
+## How each crew's ship looks (Shipwright): crew -> [sails, hull, flag, trophies].
+var ship_looks := {}
 ## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
 ## next X still to dig on a treasure voyage ({island, x, z} or empty).
 var mission := {}
@@ -150,9 +152,25 @@ func _ship_view_for(id: int, s: ShipState) -> ShipView:
 		v.kind = s.kind
 		v.crew = s.crew
 		v.flag = s.flag
+		if s.kind == ShipState.Kind.CREW:
+			v.looks = ship_looks.get(s.crew, [])
 		add_child(v)
 		ship_views[id] = v
 	return ship_views[id]
+
+
+## A crew's ship has new looks (or trophies): rebuild her view in their colours, in place.
+func _refit(crew: int, looks: Array) -> void:
+	if ship_looks.get(crew, []) == looks:
+		return
+	ship_looks[crew] = looks
+	if not has_view() or not ship_views.has(crew) or not view_ships.has(crew):
+		return
+	var old: ShipView = ship_views[crew]
+	ship_views.erase(crew)
+	var v := _ship_view_for(crew, view_ships[crew])
+	v.transform = old.transform
+	old.queue_free()
 
 
 static func wind_angle(t: float) -> float:
@@ -403,6 +421,11 @@ func client_on_event(kind: String, data: Array) -> void:
 		"shop":
 			if hud:
 				hud.show_shop()
+		"wright":
+			if hud:
+				hud.show_shop(true)
+		"ship_look":
+			_refit(int(data[0]), data.slice(1))
 		"doused":
 			if _object_views.has(int(data[0])):
 				_object_views[int(data[0])].set_state(int(data[4]) if data.size() > 4 else 0)

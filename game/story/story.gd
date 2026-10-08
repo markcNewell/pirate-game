@@ -21,9 +21,10 @@ const PEOPLE := {
 	"jonah": {"name": "Jonah Salt", "what": "a castaway trader, visiting"},
 	"isabel": {"name": "Isabel Montero", "what": "a Spanish deserter, at the tavern"},
 	"martha": {"name": "Big Martha", "what": "the Drowned Rat (outfits and dyes)"},
+	"hobb": {"name": "Old Hobb", "what": "the shipwright, on the pier (sails, paint and flags)"},
 }
 ## The order the people are numbered in over the network.
-const PEOPLE_IDS: Array[String] = ["moll", "wren", "silas", "quill", "jonah", "isabel", "martha"]
+const PEOPLE_IDS: Array[String] = ["moll", "wren", "silas", "quill", "jonah", "isabel", "martha", "hobb"]
 const TALK_REACH := 3.2
 ## What each says when they have no chapter for you.
 const CHATTER := {
@@ -34,6 +35,7 @@ const CHATTER := {
 	"jonah": ["Jonah Salt", "Captain Coco says hello. He doesn't say much else. He's a coconut."],
 	"isabel": ["Isabel Montero", "Martha's rum is terrible. I am drinking it anyway. Come back when you are ready to hurt the Admiral."],
 	"martha": ["Big Martha", "Coats, hats, dyes. Gold on the counter, and no fighting in my back room."],
+	"hobb": ["Old Hobb", "Paint won't make her faster, mind. But she'll look a sight better going down."],
 }
 ## What a giver says when their chapter wants the night.
 const WAIT_FOR_DUSK := "Not in daylight. Come back to me when the sun is down."
@@ -758,6 +760,8 @@ static func person_pos(who: String) -> Vector3:
 			return Outpost.isabel_pos()
 		"martha":
 			return Outpost.martha_pos()
+		"hobb":
+			return Outpost.hobb_pos()
 	return Vector3.ZERO
 
 

@@ -39,7 +39,7 @@ static func blank(player_name: String, token: String, xp := 0) -> Dictionary:
 	return {
 		"name": player_name, "token": token, "xp": xp, "gold": 0, "rep": [0, 0, 0],
 		"titles": [], "title": "", "chapters": [], "deeds": {}, "owned": [], "look": -1, "dye": -1,
-		"blade": 0, "gun": 0, "armour": 0,
+		"blade": 0, "gun": 0, "armour": 0, "ship": [0, 0, 0],
 	}
 
 
@@ -125,6 +125,10 @@ func _load(key: String) -> Dictionary:
 	p.gold = int(p.gold)
 	p.look = int(p.look)
 	p.dye = int(p.dye)
+	var ship: Array = []
+	for i in 3:
+		ship.append(int(p.ship[i]) if i < p.ship.size() else 0)
+	p.ship = ship
 	var rep: Array = []
 	for i in 3:
 		rep.append(int(p.rep[i]) if i < p.rep.size() else 0)

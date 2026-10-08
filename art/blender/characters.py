@@ -1689,6 +1689,35 @@ def martha():
     return parts
 
 
+def hobb():
+    """Old Hobb the shipwright: broad and grey, a big beard, a knitted cap, rolled sleeves on a
+    canvas shirt, a heavy leather apron, and a caulking mallet in his fist."""
+    hair = "c8c2b8"
+    beard = kit.ellipsoid("beard", (0, 1.53, surface_z(0, 1.56) + 0.005), (0.14, 0.11, 0.08), hair, rings=10, sectors=14)
+    head_bits = beanie("6a4a2c") + hair_back(hair, 0.0) + [beard] + face("b8b2a8", mouth=False, gruff=0.6)
+    parts = head(head_bits)
+    for side in ("r", "l"):
+        parts += sleeve(side, rolled=True)
+    parts += trousers("4a4238") + boots() + belt(buckle="8a8e96", color="3a2a1c")
+    apron = kit.loft("apron", [(0.45, 0.21, 0.18, 0, -0.04), (0.75, 0.23, 0.2, 0, -0.05), (1.05, 0.22, 0.19, 0, -0.06), (1.32, 0.18, 0.15, 0, -0.07)], "7a4a2a", sides=20, power=2.2, cap_bottom=False, cap_top=False)
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(apron.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if kit.G(f.calc_center_median())[2] > -0.06], context="FACES")
+    bm.to_mesh(apron.data)
+    bm.free()
+    kit.paint_where(apron, "5a3420", lambda x, y, z: y < 0.52 or abs(x) > 0.17)
+    rig.set_weights(apron, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
+    parts.append(apron)
+    g = Vector(rig.grip_point("r"))
+    handle = kit.tube("mallet", [tuple(g + Vector((0, 0.08, 0))), tuple(g + Vector((0, -0.32, -0.04)))], 0.016, 6, "8a6a42")
+    mallet = kit.tube("mallet_head", [tuple(g + Vector((-0.09, -0.36, -0.05))), tuple(g + Vector((0.09, -0.36, -0.05)))], 0.055, 10, "6a4a2c")
+    for p in (handle, mallet):
+        rig.set_weights(p, rig.rigid("hand_r"))
+        parts.append(p)
+    return parts
+
+
 def ocaso():
     """Doctor Tomás Ocaso, the King's alchemist: thin, in a long dark green coat full of bottles,
     spectacles of green glass, grey hair tied back, and a vial of green fire in his hand."""
@@ -1763,7 +1792,7 @@ def npcs():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha), ("ocaso", ocaso), ("cuervo", cuervo)):
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha), ("ocaso", ocaso), ("cuervo", cuervo), ("hobb", hobb)):
         ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)

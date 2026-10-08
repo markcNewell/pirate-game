@@ -274,14 +274,16 @@ func _island(spec: Dictionary) -> void:
 		# The other companies' people: the Lantern Order's mystic on the beach, the Traders' agent on
 		# the pier beside the cargo, Moll the keeper at the foot of her lighthouse, and Jonah Salt
 		# visiting from his island. All look out to sea.
-		for who: String in ["mystic", "agent", "keeper", "castaway", "martha"]:
+		for who: String in ["mystic", "agent", "keeper", "castaway", "martha", "hobb"]:
 			var at: Vector3 = {
 				"mystic": Outpost.mystic_pos(), "agent": Outpost.agent_pos(), "keeper": Outpost.keeper_pos(),
-				"castaway": Outpost.jonah_pos(), "martha": Outpost.martha_pos(),
+				"castaway": Outpost.jonah_pos(), "martha": Outpost.martha_pos(), "hobb": Outpost.hobb_pos(),
 			}[who]
 			var out := Vector3(at.x - spec.x, 0, at.z - spec.z).normalized()
 			if who == "agent":
 				out = Vector3(0, 0, 1)
+			elif who == "hobb":
+				out = Vector3(0, 0, -1)  # across the pier, toward the ships tied up
 			var npc := Npc.new(who, atan2(-out.x, -out.z))
 			npc.position = at - root.position
 			root.add_child(npc)

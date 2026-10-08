@@ -75,6 +75,12 @@ static func agent_pos() -> Vector3:
 	return _centre() + Vector3(r0 + AGENT_AT.x, PIER_Y, AGENT_AT.z)
 
 
+## Old Hobb the shipwright, at the landward end of the pier (world).
+static func hobb_pos() -> Vector3:
+	var r0: float = spec().radius + PIER_START
+	return _centre() + Vector3(r0 + 1.2, PIER_Y, 0.95)
+
+
 ## Where a cargo run's crates wait on the pier (world): along it, beside the agent.
 static func cargo_spot(i: int) -> Vector3:
 	var r0: float = spec().radius + PIER_START

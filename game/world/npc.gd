@@ -12,6 +12,7 @@ const WHO := {
 	"isabel": {"shirt": Color("efe8da"), "skin": Color("d8a07a")},
 	"gideon": {"shirt": Color("c8302a"), "skin": Color("e8b48a")},
 	"martha": {"shirt": Color("7a9a6a"), "skin": Color("e8b48a")},
+	"hobb": {"shirt": Color("c8b48a"), "skin": Color("d89a70")},
 	"ocaso": {"shirt": Color("e8e4d8"), "skin": Color("d8c8b0")},
 	"cuervo": {"shirt": Color("efe8da"), "skin": Color("dcae86")},
 }

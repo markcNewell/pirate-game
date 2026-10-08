@@ -150,6 +150,10 @@ func _physics_process(delta: float) -> void:
 			_giant(input)
 		"armourer":
 			_armourer(input)
+		"wright":
+			_wright(input)
+		"watcher":
+			_watcher()
 
 
 func _process(_delta: float) -> void:
@@ -1429,6 +1433,31 @@ func _giant(input: PlayerInput) -> void:
 			_say("firing at the Colossus")
 			_phase = "firing"
 		input.fire = true
+
+
+## Ashore to Old Hobb on the pier: buy black sails and have them fitted.
+func _wright(input: PlayerInput) -> void:
+	if _player.dead or _phase == "done":
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var at := Outpost.hobb_pos()
+	if not _head_to(input, at, 2.2):
+		return
+	if _every(1.0):
+		game.send_request("wright", Shipwright.index_of("sails7"))
+		_say("asked Hobb for black sails")
+		_phase = "done"
+
+
+## Stays aboard and says when a crew's ship is seen with new looks (Shipwright).
+func _watcher() -> void:
+	for crew: int in game.ship_looks:
+		var looks: Array = game.ship_looks[crew]
+		if int(looks[0]) > 0 and _phase != "seen":
+			_say("saw crew %d's ship with sails %d" % [crew, int(looks[0])])
+			_phase = "seen"
 
 
 func _armourer(input: PlayerInput) -> void:

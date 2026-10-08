@@ -474,10 +474,65 @@ def figurehead():
     parts.append(kit.tube("mer_tail", [tuple(base + Vector(p)) for p in tail], [0.12, 0.09, 0.05], 8, gold))
     for sx in (1, -1):
         parts.append(kit.ellipsoid("fluke", tuple(base + Vector((sx * 0.14, -1.5, 0.82))), (0.16, 0.05, 0.1), gold, rings=6, sectors=8))
-    # Scroll rails from the bow out to her.
+    return parts + head_rails()
+
+
+def head_rails():
+    """Gilded scroll rails from the bow out to the figurehead."""
+    parts = []
     for sx in (1, -1):
         rail = [(sx * 0.6, S.DECK_Y + 0.3, -12.4), (sx * 0.45, S.DECK_Y + 0.0, -12.9), (sx * 0.2, S.DECK_Y - 0.1, -13.3)]
-        parts.append(kit.tube("headrail", rail, 0.06, 6, gold))
+        parts.append(kit.tube("headrail", rail, 0.06, 6, slot("gold")))
+    return parts
+
+
+def raven_figurehead():
+    """The Admiral's raven (Act IV's trophy, ship parts): carved black under the bowsprit, wings
+    swept back along the bow, head out over the sea, a gilded beak and eye."""
+    black = "1e1a22"
+    base = Vector((0, S.DECK_Y - 0.15, -13.35))
+    parts = []
+    body = [(0, -0.75, 0.3), (0, -0.4, 0.05), (0, 0.0, -0.12), (0, 0.35, -0.2)]
+    parts.append(kit.tube("rv_body", [tuple(base + Vector(p)) for p in body], [0.14, 0.24, 0.24, 0.17], 10, black))
+    head = base + Vector((0, 0.62, -0.32))
+    parts.append(kit.ellipsoid("rv_head", tuple(head), (0.16, 0.17, 0.21), black, rings=8, sectors=12))
+    parts.append(kit.tube("rv_beak", [tuple(head + Vector((0, -0.02, -0.16))), tuple(head + Vector((0, -0.06, -0.5)))], [0.075, 0.008], 8, slot("gold")))
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.ellipsoid("rv_eye", tuple(head + Vector((sx * 0.13, 0.05, -0.08))), (0.03, 0.035, 0.035), slot("gold"), rings=4, sectors=6), 0.0))
+        # A wing swept back along the bow, its feathers fanned (a flat blade, tilted outward).
+        wing = kit.prism("rv_wing", [(0.0, 0.0), (0.25, 0.25), (0.6, 0.38), (1.05, 0.34), (1.3, 0.12), (1.05, 0.02), (0.8, -0.12), (0.55, -0.08), (0.3, -0.12)], 0.05, black, plane="zy")
+        kit.place(wing, tuple(base + Vector((sx * 0.22, 0.05, -0.05))), (0.0, 0.0, -sx * 0.35))
+        parts.append(wing)
+        for k in range(3):
+            parts.append(kit.tube("rv_feather", [tuple(base + Vector((sx * (0.24 + 0.02 * k), 0.12 + 0.1 * k, 0.35 + 0.18 * k))), tuple(base + Vector((sx * (0.3 + 0.03 * k), 0.08 + 0.1 * k, 0.75 + 0.2 * k)))], [0.035, 0.01], 5, black))
+    parts.append(kit.prism("rv_tail", [(-0.16, 0.0), (0.16, 0.0), (0.22, -0.38), (0.0, -0.3), (-0.22, -0.38)], 0.04, black, centre=tuple(base + Vector((0, -0.85, 0.36))), plane="xy"))
+    return parts + head_rails()
+
+
+def trophy_halberd():
+    """The Sergeant's halberd (Act I's trophy, ship parts), lashed upright to the quarterdeck's
+    starboard rail beside the wheel: an ash haft, an axe blade, a hook, a spike, a red tassel."""
+    foot = Vector((S.half_width(9.4, S.QUARTER_Y) - 0.35, S.QUARTER_Y, 9.4))
+    top = foot + Vector((0, 2.7, 0))
+    steel = "9aa0a8"
+    parts = [kit.tube("hb_haft", [tuple(foot), tuple(top)], 0.035, 8, "6a4a2c")]
+    parts.append(kit.prism("hb_axe", [(0.0, -0.22), (0.3, -0.32), (0.38, 0.0), (0.3, 0.27), (0.0, 0.15)], 0.025, steel, centre=tuple(top + Vector((0.03, -0.2, 0))), plane="xy"))
+    parts.append(kit.prism("hb_hook", [(0.0, 0.0), (-0.2, 0.08), (-0.15, -0.05)], 0.025, steel, centre=tuple(top + Vector((-0.03, -0.16, 0))), plane="xy"))
+    parts.append(kit.tube("hb_spike", [tuple(top), tuple(top + Vector((0, 0.38, 0)))], [0.035, 0.005], 6, "b4bac2"))
+    parts.append(kit.tube("hb_tassel", [tuple(top + Vector((0, -0.42, 0))), tuple(top + Vector((0.02, -0.75, 0.03)))], [0.05, 0.02], 6, "a8322a"))
+    for y in (0.55, 1.15):
+        parts.append(kit.lathe("hb_lash", [(0.05, 0.0), (0.06, 0.04), (0.06, 0.1), (0.05, 0.14)], 8, slot("rope"), centre=tuple(foot + Vector((0, y, 0)))))
+    parts.append(kit.box("hb_bracket", tuple(foot + Vector((0.12, 0.85, 0))), (0.22, 0.08, 0.1), slot("trim"), bevel=0.01))
+    return parts
+
+
+def trophy_lantern():
+    """Linnet's green lantern (The Other Lantern's trophy, ship parts), hung on an iron arm off
+    the quarterdeck's port quarter (ShipView lights its green glass)."""
+    root = Vector((-(S.half_width(11.6, S.QUARTER_Y) - 0.2), S.QUARTER_Y + S.RAIL_HEIGHT, 11.6))
+    tip = root + Vector((-0.55, 0.45, 0.0))
+    parts = [kit.tube("gl_arm", [tuple(root), tuple(root + Vector((-0.1, 0.4, 0))), tuple(tip)], 0.03, 6, slot("iron"))]
+    parts += hanging_lantern(tuple(tip + Vector((0, -0.55, 0))))
     return parts
 
 
@@ -1166,7 +1221,7 @@ def hull(skeleton=False):
     parts.append(kit.tube("forestay", [tuple(head_top), tuple(tip)], ROPE_R, 5, slot("rope"), caps=False))
     parts.append(kit.tube("mainstay", [tuple(main_top), tuple(tops[0] + Vector((0, 0.3, 0)))], ROPE_R, 5, slot("rope"), caps=False))
     parts.append(kit.tube("backstay", [tuple(main_top), (0, S.QUARTER_Y + 1.0, S.STERN_Z)], ROPE_R, 5, slot("rope"), caps=False))
-    parts += figurehead()
+    # (The figurehead is a part of its own, so a crew can swap it for a trophy: ShipView.)
     for side in (1, -1):
         parts += anchor((side * (S.half_width(-10.5, 2.0) + 0.2), 2.4, -10.5), side)
     parts += stern()
@@ -1577,6 +1632,10 @@ def parts_model():
     objs.append(wheel())
     objs.append(emblem())
     objs.append(raven_emblem())
+    objs.append(kit.join("figurehead", figurehead()))
+    objs.append(kit.join("figurehead_raven", raven_figurehead()))
+    objs.append(kit.join("trophy_halberd", trophy_halberd()))
+    objs.append(kit.join("trophy_lantern", trophy_lantern()))
     objs.append(capstan())
     objs.append(cannon())
     objs.append(flag())

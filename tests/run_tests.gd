@@ -46,6 +46,7 @@ func _initialize() -> void:
 			if not name.begins_with("test_"):
 				continue
 			suite.current = "%s %s" % [file, name]
+			suite.fresh_sea()
 			before = errors.count
 			suite.call(name)
 			if errors.count > before:
