@@ -29,6 +29,10 @@ extends Node
 ##             the lamp, climb down, fetch the jar of lamp oil and carry it up to the lamp
 ##   battery - The Siege of Port Merrow: go ashore and stand by Merrow's battery while it fires
 ##   viuda   - The siege, at La Viuda: from our deck, shoot her down off the flagship
+##   sneak   - The Prison Hulk: swim to the hulk, climb aboard, fell the jailer, open the cage
+##   lanterns - Lanterns of the Deep: go ashore on a sea stack and shoot its lantern to pieces
+##   duel    - The battle's end: board the crippled Cuervo Negro and fight the Raven Admiral,
+##             from behind where his parry can't reach
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -128,6 +132,12 @@ func _physics_process(delta: float) -> void:
 			_battery(input)
 		"viuda":
 			_viuda(input)
+		"sneak":
+			_sneak(input)
+		"lanterns":
+			_lanterns(input)
+		"duel":
+			_duel(input)
 
 
 func _process(_delta: float) -> void:
@@ -373,7 +383,21 @@ func _nearest_ladder_bottom() -> Vector3:
 
 
 func _treasure(input: PlayerInput) -> void:
-	match _phase.trim_suffix("_out"):
+	if _player.dead:
+		return
+	var now := _phase.trim_suffix("_out")
+	if now in ["to_x", "dig", "pick"]:
+		if _player.mode == LocalPlayer.Mode.ON_SHIP:
+			# Felled and back aboard: over the side and back to the X.
+			_go_overboard(input)
+			return
+		# The island's dead come for whoever digs on it: see them off first.
+		var here := _player.body.global_position
+		var sk := _nearest_skeleton(-1, here)
+		if sk and sk.pos.distance_to(here) < 5.0:
+			_fight(input, sk, here + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+			return
+	match now:
 		"act":
 			# To the map table for a voyage.
 			if not game.voyage.is_empty():
@@ -1122,3 +1146,146 @@ func _viuda(input: PlayerInput) -> void:
 			_say("shooting at La Viuda")
 			_phase = "shoot"
 		input.fire = true
+
+
+## The id of the first ship flying `flag` (ShipState.flag), or -1.
+func _ship_flying(flag: int) -> int:
+	for id in game.view_ships:
+		if id != game.own_ship and game.view_ships[id].flag == flag and game.view_ships[id].kind == ShipState.Kind.SKELETON:
+			return id
+	return -1
+
+
+## Off our deck toward ship `target`, through the water to her nearer ladder, and up it.
+func _board(input: PlayerInput, target: int) -> void:
+	if _player.mode == LocalPlayer.Mode.ON_SHIP and _player.ship_id == game.own_ship:
+		var s: ShipState = game.view_ships[target]
+		_go_overboard(input, _side_facing(Vector3(s.x, 0, s.z)))
+		return
+	if not game.ship_views.has(target):
+		return
+	var p := _player.body.global_position
+	var best := Vector3.ZERO
+	var best_d := INF
+	# The hulk: always her stern rope, out of her guards' sight.
+	var sides := [ShipShape.STERN_ROPE] if game.view_ships[target].flag == 5 else [-1, 1]
+	for side: int in sides:
+		var b: Vector3 = game.ship_views[target].global_transform * ShipShape.ladder_bottom(side)
+		if b.distance_to(p) < best_d:
+			best = b
+			best_d = b.distance_to(p)
+	var at_theirs: bool = _player.nearest_ladder() != 0 and _player._ladder_ship == target
+	if (_head_to(input, best, 1.5) or at_theirs) and _every(0.5):
+		input.interact = true
+
+
+func _sneak(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if game.mission.is_empty():
+		if _phase != "done":
+			_say("Isabel is home")
+		_phase = "done"
+		return
+	var hulk := _ship_flying(5)
+	if hulk < 0:
+		return
+	if _player.mode != LocalPlayer.Mode.ON_SHIP or _player.ship_id != hulk:
+		if _player.mode == LocalPlayer.Mode.ON_SHIP and _player.ship_id == game.own_ship and _phase in ["free", "home"]:
+			return  # Isabel aboard: home we go (the test only needs her out)
+		_board(input, hulk)
+		return
+	if _phase == "act":
+		_say("aboard the hulk")
+		_phase = "aboard"
+	var here := _player.frame_position()
+	var jailer: Skeleton = null
+	for id in game.view_skeletons:
+		var sk: Skeleton = game.view_skeletons[id]
+		if sk.jailer and sk.alive() and sk.frame == hulk:
+			jailer = sk
+	if jailer:
+		if here.distance_to(jailer.pos) > 2.0:
+			_go(input, jailer.pos)
+		_fight(input, jailer, here + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+		return
+	if _phase == "aboard":
+		_say("the jailer is down")
+		_phase = "cage"
+	for id in game.view_objects:
+		var o: StoryObject = game.view_objects[id]
+		if o.kind == StoryObject.Kind.CAGE and o.ship == hulk:
+			if o.state == 0:
+				if _phase == "cage":
+					_say("Isabel is out of her cage")
+					_phase = "free"
+				return
+			if _go(input, o.pos + Vector3(-1.4, 0, 0)):
+				_look_at(o.pos + Vector3(0, 1.0, 0))
+				_press(input, "use")
+
+
+func _lanterns(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	var p := _player.body.global_position
+	var best: StoryObject = null
+	for id in game.view_objects:
+		var o: StoryObject = game.view_objects[id]
+		if o.kind == StoryObject.Kind.GLANTERN and o.state > 0 and (best == null or p.distance_to(o.pos) < p.distance_to(best.pos)):
+			best = o
+	if best == null:
+		if _phase != "done":
+			_say("no lanterns left burning")
+		_phase = "done"
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input, _side_facing(best.pos))
+		return
+	if not _head_to(input, best.pos, 5.0):
+		return
+	if _player.weapon != Weapons.Kind.PISTOL:
+		input.weapon_key = Weapons.Kind.PISTOL
+		return
+	var to := best.pos + Vector3(0, 3.7, 0) - (p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+	_player.yaw = atan2(-to.x, -to.z)
+	_player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+	if _every(1.0):
+		if _phase == "act":
+			_say("shooting at a lantern of the deep")
+			_phase = "shoot"
+		input.fire = true
+
+
+func _duel(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	var flagship := _ship_flying(2)
+	if flagship < 0:
+		if _phase != "done":
+			_say("the Cuervo Negro is gone")
+		_phase = "done"
+		return
+	if _player.mode != LocalPlayer.Mode.ON_SHIP or _player.ship_id != flagship:
+		_board(input, flagship)
+		return
+	if _phase == "act":
+		_say("aboard the Cuervo Negro")
+		_phase = "aboard"
+	var here := _player.frame_position()
+	var admiral: Skeleton = null
+	for id in game.view_skeletons:
+		var sk: Skeleton = game.view_skeletons[id]
+		if sk.admiral and sk.alive() and sk.frame == flagship:
+			admiral = sk
+	if admiral == null:
+		if _phase != "won":
+			_say("the Raven Admiral has fallen")
+		_phase = "won"
+		return
+	# Round to his back, where his parry can't reach, then cut.
+	var facing := Vector3(-sin(admiral.yaw), 0, -cos(admiral.yaw))
+	var behind := admiral.pos - facing * 1.5
+	if here.distance_to(behind) > 0.8 and here.distance_to(admiral.pos) > 1.2:
+		_go(input, behind)
+	_fight(input, admiral, here + Vector3.UP * LocalPlayer.EYE_HEIGHT)

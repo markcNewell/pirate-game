@@ -10,7 +10,8 @@ const RECOIL := 0.5
 var kind := ShipState.Kind.CREW
 ## Crew number (1-4) for the sail colours; 0 for skeleton ships.
 var crew := 1
-## ShipState.flag: 1 for a Spanish galleon (black sails, the raven), else 0.
+## ShipState.flag: 0 the pirate dead's wreck, 1 a Spanish galleon (black sails, the raven), 2 the
+## Cuervo Negro, 3 a ghost galleon, 4 Isabel's La Golondrina, 5 the prison hulk (no yards or sails).
 var flag := 0
 
 var _rigs: Array[Node3D] = []
@@ -63,7 +64,7 @@ static func warm_up() -> void:
 
 ## A Spanish galleon: sound hull and sails (not a wreck), but crewed by the dead.
 func _spanish() -> bool:
-	return kind == ShipState.Kind.SKELETON and flag >= 1
+	return kind == ShipState.Kind.SKELETON and flag in [1, 2, 5]
 
 
 func _part(name: String) -> ArrayMesh:
@@ -74,12 +75,28 @@ func _ready() -> void:
 	var palette: Dictionary = Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew)
 	if _spanish():
 		palette = Toon.FLAGSHIP if flag == 2 else Toon.SPANISH
+	elif kind == ShipState.Kind.SKELETON and flag == 3:
+		palette = Toon.GHOST
+	elif kind == ShipState.Kind.SKELETON and flag == 4:
+		palette = Toon.MERROW
 	ShipMesh.use_palette(palette)
 	_paint = Models.palette_recolor(palette)
-	var hull := "ship_wreck" if kind == ShipState.Kind.SKELETON and not _spanish() else "ship_hull"
-	add_child(Toon.instance(Models.mesh(hull, _paint)))
-	for m in ShipShape.MAST_Z.size():
-		_build_rig(m)
+	var wreck := kind == ShipState.Kind.SKELETON and flag in [0, 3]
+	add_child(Toon.instance(Models.mesh("ship_wreck" if wreck else "ship_hull", _paint)))
+	if flag != 5 or kind != ShipState.Kind.SKELETON:
+		for m in ShipShape.MAST_Z.size():
+			_build_rig(m)
+	else:
+		# The prison hulk: a rope hanging down her stern into the sea (ShipShape.STERN_ROPE).
+		var rope := MeshBuilder.new()
+		var top := ShipShape.ladder_top(ShipShape.STERN_ROPE) + Vector3(0, 0.9, 1.5)
+		var bottom := ShipShape.ladder_bottom(ShipShape.STERN_ROPE) + Vector3(0, -0.5, 0)
+		rope.cylinder(top, bottom, 0.045, 0.045, 6, Color("8a7a5a"))
+		for k in 6:
+			var y := lerpf(bottom.y + 0.6, top.y - 0.4, k / 5.0)
+			var at := bottom.lerp(top, (y - bottom.y) / (top.y - bottom.y))
+			rope.cylinder(at - Vector3(0.09, 0, 0), at + Vector3(0.09, 0, 0), 0.06, 0.06, 6, Color("6a5a3a"))
+		add_child(Toon.instance(rope.build()))
 
 	# The stern windows: dark by day, glowing from the cabin lamps at night.
 	var panes := MeshBuilder.new()
@@ -89,7 +106,7 @@ func _ready() -> void:
 
 	# The ship's name in gold letters across the transom.
 	var name_plate := Label3D.new()
-	name_plate.text = ServerSim.CREW_NAMES[crew - 1] if crew > 0 else "The Rotten Grin"
+	name_plate.text = ServerSim.CREW_NAMES[crew - 1] if crew > 0 else Game.ship_name_for(flag)
 	name_plate.font = Hud.display_font()
 	name_plate.font_size = 64
 	name_plate.pixel_size = 0.0056
@@ -211,7 +228,7 @@ func _build_rig(mast: int) -> void:
 		var yard := Toon.instance(_part("yard_%d_%d" % [mast, k]))
 		yard.position = Vector3(0, top, -ShipShape.MAST_RADIUS - 0.2)
 		rig.add_child(yard)
-		var torn := "torn_" if kind == ShipState.Kind.SKELETON and not _spanish() else ""
+		var torn := "torn_" if kind == ShipState.Kind.SKELETON and flag in [0, 3] else ""
 		# The canvas rolled up on top of the yard, shown as the sail is taken in.
 		var bundle := Toon.instance(_part("furl_%d_%d" % [mast, k]))
 		bundle.position = yard.position

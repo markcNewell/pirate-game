@@ -104,6 +104,23 @@ func _init(what: int, state := 1) -> void:
 			vial.omni_range = 4.0
 			vial.position = Vector3(-0.3, 1.0, -0.2)
 			add_child(vial)
+		StoryObject.Kind.CAGE:
+			add_child(Toon.instance(Models.part("fort_parts", "cage")))
+			_body = Toon.instance(Models.part("fort_parts", "cell_door"))
+			_body.position = Vector3(-0.9, 0.1, -0.7)
+			add_child(_body)
+		StoryObject.Kind.GLANTERN:
+			_body = Toon.instance(Models.part("reef", "great_lantern"))
+			add_child(_body)
+			_light = OmniLight3D.new()
+			_light.light_color = Color("7dff8a")
+			_light.light_energy = 3.0
+			_light.omni_range = 18.0
+			_light.position = Vector3(0, 3.8, 0)
+			add_child(_light)
+		StoryObject.Kind.CARVING:
+			add_child(Toon.instance(Models.part("calavera", "carving")))
+			_add_glint(Vector3(0, 1.3, 0))
 		StoryObject.Kind.BOMB:
 			add_child(Toon.instance(Models.part("fort_parts", "bomb")))
 			_spark = MeshInstance3D.new()
@@ -218,9 +235,21 @@ func set_state(state: int) -> void:
 				_body.rotation.x = 0.5
 				if was != -99:
 					_smoke = 8.0
-		StoryObject.Kind.CELL, StoryObject.Kind.VAULT:
+		StoryObject.Kind.CELL, StoryObject.Kind.VAULT, StoryObject.Kind.CAGE:
 			if state == 0:
 				_body.rotation.y = -1.9
+		StoryObject.Kind.GLANTERN:
+			if state <= 0:
+				remove_child(_body)
+				_body.queue_free()
+				_body = Toon.instance(Models.part("reef", "great_lantern_broken"))
+				add_child(_body)
+				_light.visible = false
+				if was != -99:
+					_smoke = 5.0
+			elif was != -99 and state < was:
+				_topple = 0.0
+				_body.rotation.z = 0.08
 		StoryObject.Kind.SEARCH:
 			if state == 0:
 				_body.rotation.z = 0.12

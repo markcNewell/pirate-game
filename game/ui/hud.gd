@@ -1065,9 +1065,12 @@ class MissionCard:
 					out.append([Story.step_text(ch.steps[i], 0, 0, true), true])
 				if int(m.handled) < ch.steps.size():
 					out.append([Story.step_text(ch.steps[m.handled], m.total, m.get("standing", 0)), false])
-				if m.deadline > 0.0:
+				if m.deadline > 0.0 and int(m.handled) < ch.steps.size():
+					# The clock: until dawn for the vigil, before the storm for the lanterns.
 					var left: float = m.deadline - now
-					out.append(["%d:%02d until dawn" % [int(left) / 60, int(left) % 60] if left > 0.0 else "!Dawn is breaking", false])
+					var kind := int(ch.steps[m.handled].kind)
+					var until := {Story.Step.VIGIL: ["until dawn", "!Dawn is breaking"], Story.Step.LANTERNS: ["before the storm closes", "!The storm is closing"]}.get(kind, ["left", "!Time is up"]) as Array
+					out.append(["%d:%02d %s" % [int(left) / 60, int(left) % 60, until[0]] if left > 0.0 else until[1], false])
 			Missions.Kind.TREASURE:
 				for t: Dictionary in m.targets:
 					out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
@@ -1184,8 +1187,11 @@ class TreasureMap:
 							for t: Dictionary in m.targets:
 								if t.island == v.island:
 									_flame(centre + Vector2(t.x - spec.x, t.z - spec.z) * scale, t.done)
-						Story.Step.BREACH, Story.Step.USE, Story.Step.SIEGE_SEA, Story.Step.SIEGE_BEACH, Story.Step.SNIPER, Story.Step.DOCTOR:
+						Story.Step.BREACH, Story.Step.USE, Story.Step.SIEGE_SEA, Story.Step.SIEGE_BEACH, Story.Step.SNIPER, Story.Step.DOCTOR, \
+								Story.Step.HULK, Story.Step.GAMBIT, Story.Step.RISEN, Story.Step.CRIPPLE, Story.Step.ADMIRAL, Story.Step.GHOST:
 							_skull(x)
+						Story.Step.LANTERNS:
+							_flame(x, false)
 						Story.Step.CHASE, Story.Step.GATHER:
 							for t: Dictionary in m.targets:
 								if Islands.island_at(t.x, t.z, 30.0) == v.island or t.island == v.island:

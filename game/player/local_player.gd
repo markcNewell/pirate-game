@@ -327,7 +327,12 @@ func current_target() -> Dictionary:
 			return {"kind": "dig", "id": 0, "label": "Hold E  dig"}
 		return {}
 	if ship_id != game.own_ship:
-		return {}  # aboard someone else's ship: nothing of theirs to use
+		# Aboard someone else's ship: nothing of theirs to use, but a cage to open (the hulk).
+		for id in game.view_objects:
+			var o: StoryObject = game.view_objects[id]
+			if o.kind == StoryObject.Kind.CAGE and o.ship == ship_id and o.state == 1 and frame_position().distance_to(o.pos) < StoryRun.USE_REACH + 0.5:
+				return {"kind": "use", "id": o.id, "label": "E  open the cage"}
+		return {}
 	# Of everything in reach, use the thing we are looking at most directly.
 	var local := frame_position()
 	var eye := local + Vector3.UP * EYE_HEIGHT
@@ -431,6 +436,9 @@ func _story_target(here: Vector3) -> Dictionary:
 			StoryObject.Kind.BOOK:
 				if d < StoryRun.READ_REACH:
 					return {"kind": "read", "id": o.id, "label": "E  read the journal"}
+			StoryObject.Kind.CARVING:
+				if d < StoryRun.READ_REACH:
+					return {"kind": "read", "id": o.id, "label": "E  read the carving"}
 			StoryObject.Kind.BOTTLE:
 				if Vector2(here.x - o.pos.x, here.z - o.pos.z).length() < StoryRun.READ_REACH:
 					return {"kind": "read", "id": o.id, "label": "E  take the letter from the bottle"}
@@ -581,7 +589,8 @@ func nearest_ladder() -> int:
 		var s: ShipState = game.view_ships.get(id)
 		if s == null or s.is_sinking():
 			continue
-		for side: int in [-1, 1]:
+		var sides := [-1, 1, ShipShape.STERN_ROPE] if s.flag == 5 and s.kind == ShipState.Kind.SKELETON else [-1, 1]
+		for side: int in sides:
 			var bottom: Vector3 = game.ship_views[id].global_transform * ShipShape.ladder_bottom(side)
 			if Vector2(p.x - bottom.x, p.z - bottom.z).length() < LADDER_REACH and absf(p.y - bottom.y) < 3.0:
 				_ladder_ship = id

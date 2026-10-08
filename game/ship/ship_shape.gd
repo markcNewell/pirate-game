@@ -41,6 +41,7 @@ const MAST_RADIUS := 0.35
 
 ## Ladders hang over both sides here, and the bulwark has a gap of +-LADDER_GAP around them.
 const LADDER_Z := -2.5
+const STERN_ROPE := 2
 const LADDER_GAP := 0.75
 
 const CAPSTAN := Vector3(0.0, DECK_Y, -3.2)
@@ -256,11 +257,17 @@ static func muzzle(gun: int, yaw: float, pitch: float) -> Vector3:
 
 
 ## Bottom of a ladder at the waterline (where swimmers grab it) and its top on deck.
+## Side -1 or +1: the ladders amidships. Side 2: the rope hanging from the prison hulk's stern
+## (Act IV), up onto her quarterdeck behind her guards' rounds.
 static func ladder_bottom(side: int) -> Vector3:
+	if side == STERN_ROPE:
+		return Vector3(0.0, 0.0, HALF_LENGTH + 0.8)
 	return Vector3(side * (half_width(LADDER_Z, 0.0) + 0.35), 0.0, LADDER_Z)
 
 
 static func ladder_top(side: int) -> Vector3:
+	if side == STERN_ROPE:
+		return Vector3(0.0, QUARTER_Y, HALF_LENGTH - 1.8)
 	return Vector3(side * (half_width(LADDER_Z, DECK_Y) - 1.0), DECK_Y, LADDER_Z)
 
 

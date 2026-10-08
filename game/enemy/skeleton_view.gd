@@ -23,6 +23,11 @@ var gideon := false
 var bomber := false
 var sniper := false
 var linnet := false
+## Act IV: a lantern guard (a lantern in his left hand), the hulk's jailer (big), and the Raven
+## Admiral (a living man, in the people's model, with his rapier).
+var guard := false
+var jailer := false
+var admiral := false
 var _glint: MeshInstance3D
 var _lantern: Node3D
 var _lantern_light: OmniLight3D
@@ -40,6 +45,8 @@ func _ready() -> void:
 	var outfit := "look%d" % (look % 3)
 	if linnet:
 		outfit = "look8"
+	elif guard or jailer:
+		outfit = "look4"
 	elif captain:
 		outfit = "look3"
 	elif bomber:
@@ -50,19 +57,22 @@ func _ready() -> void:
 		outfit = "look5"
 	elif spanish:
 		outfit = "look4"
-	if gideon:
-		var who: Dictionary = Npc.WHO["gideon"]
+	if gideon or admiral:
+		var person := "gideon" if gideon else "cuervo"
+		var who: Dictionary = Npc.WHO[person]
 		_model = Models.instance("npcs", {
 			Models.SHIRT: who.shirt, Models.SHIRT_DARK: who.shirt.darkened(0.28),
 			Models.SKIN: who.skin, Models.SKIN_DARK: who.skin.darkened(0.12),
-		}, ["body", "gideon"])
+		}, ["body", person])
 	else:
 		_model = Models.instance("skeleton", {}, ["skeleton", outfit])
 	add_child(_model)
 	if bomber:
 		_model.scale = Vector3.ONE * 1.35
-	if captain and not linnet:
+	if (captain and not linnet) or jailer:
 		_model.scale = Vector3.ONE * 1.12
+	if admiral:
+		_model.scale = Vector3.ONE * 1.06
 	elif sergeant:
 		_model.scale = Vector3.ONE * 1.25
 	# Its own copy of the toon material, so its red flash is its own.
@@ -79,8 +89,8 @@ func _ready() -> void:
 	# A skeleton never stands quite in step with the next one.
 	_player.seek(randf() * _player.current_animation_length)
 	var skeleton: Skeleton3D = _model.find_children("*", "Skeleton3D", true, false)[0]
-	if gideon:
-		return  # no glowing eyes or rusty sword for a living smuggler
+	if gideon or admiral:
+		return  # no glowing eyes or rusty sword for a living man (the Admiral's rapier is his own)
 	var head := BoneAttachment3D.new()
 	head.bone_name = "head"
 	skeleton.add_child(head)
@@ -103,8 +113,8 @@ func _ready() -> void:
 	var hand_rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_r"))
 	var turn := Basis(Vector3.BACK, deg_to_rad(Avatar.ARM_A))
 	var grip := Transform3D(turn, hand_rest.origin + turn * Avatar.GRIP)
-	if linnet:
-		# Her lantern, held up in her left hand, and its green light.
+	if linnet or guard:
+		# A lantern, held up in the left hand, and its green light (Linnet's; a guard's).
 		var left := BoneAttachment3D.new()
 		left.bone_name = "hand_l"
 		skeleton.add_child(left)
@@ -118,7 +128,8 @@ func _ready() -> void:
 		_lantern_light.omni_range = 7.0
 		_lantern_light.position = Vector3(0, -0.22, 0)
 		_lantern.add_child(_lantern_light)
-		return
+		if linnet:
+			return
 	if sniper:
 		# Her musket is part of her outfit; this is the glint off its barrel as she aims.
 		_glint = MeshInstance3D.new()
@@ -174,6 +185,13 @@ func shield_hit(knocked: bool) -> void:
 
 func swing() -> void:
 	_player.play("slash", 0.08)
+
+
+## The Raven Admiral draws back to lunge.
+func lunge() -> void:
+	if _player.has_animation("slash"):
+		_player.play("slash", 0.05)
+		_player.seek(0.0)
 
 
 ## Linnet's lantern, knocked from her hand by a shot (or already gone when we first see her).

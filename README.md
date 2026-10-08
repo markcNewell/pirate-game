@@ -3,13 +3,13 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: ten milestones built, the story under way.** Up to four crews of four players, each
+**Status: eleven milestones built, the story under way.** Up to four crews of four players, each
 with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patching, bailing and
 sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. Three trading
 companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
 bounties and cargo runs from a mission board, and the story, [the Ash Fleet](docs/specs/2026-10-08-story.md),
-has begun: the prologue and Acts I to III are playable (twenty chapters, from the green lights
-on Gull Isle to the siege of Port Merrow), with eleven side tales. Every pirate earns XP and levels (which never make anyone
+has begun: the prologue and Acts I to IV are playable (twenty-six chapters, from the green lights
+on Gull Isle to the Battle of the Black Reef), with eleven side tales. Every pirate earns XP and levels (which never make anyone
 stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
 24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
 waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
@@ -17,7 +17,7 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
 [Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
-[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md).
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -108,6 +108,7 @@ machine, see [server/README.md](server/README.md).
 | Act I smoke test (salt, powder kegs, diggers, bonfire) | `tests/smoke/act1_test.sh` |
 | Act II smoke test (a bell, the dive, the fort's gate) | `tests/smoke/act2_test.sh` |
 | Act III smoke test (the lighthouse, the battery, La Viuda) | `tests/smoke/act3_test.sh` |
+| Act IV smoke test (the hulk's jailer, a lantern of the deep, the Raven Admiral) | `tests/smoke/act4_test.sh` |
 | Every smoke test at once | `tools/smoke_all.sh` |
 | Rebuild the sounds | `python3 tools/make_sounds.py` |
 | Rebuild the models (needs Blender 5.2) | `tools/build_models.sh` (or `tools/build_models.sh ship` for one script) |

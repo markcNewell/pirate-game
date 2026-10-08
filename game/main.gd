@@ -397,6 +397,59 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = {"gallery": -0.5, "cannons": -0.25, "battery": 0.0, "ocaso": -0.05}[view]
+	elif game and view in ["hulk", "ghost", "golondrina", "admiral"]:
+		# Act IV, from a camera of its own riding with a ship: the prison hulk in the fog (d1);
+		# a ghost galleon rising in the storm (d3); La Golondrina at the ambush (d5); the Raven
+		# Admiral on his quarterdeck (d6, --chapter-step 2).
+		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+		for sk: Skeleton in game.sim.skeletons.values():
+			sk.cooldown = 1e6
+		var own := game.sim.crew_ship()
+		if view == "ghost":
+			Storm.pin = Vector2(own.x, own.z)
+		elif view == "golondrina":
+			own.x = StoryAct4.AMBUSH.x - 20.0
+			own.z = StoryAct4.AMBUSH.y + 30.0
+			m.stage = 1
+			m.ship = game.sim.spawn_galleon(ServerSim.CREW, 0.0, 2, Vector3(own.x + 120.0, 0, own.z + 40.0))
+			game.sim._passive[m.ship] = true
+		var cam := Camera3D.new()
+		cam.far = 3000.0
+		cam.fov = 50.0
+		game.add_child(cam)
+		cam.make_current()
+		var shots := {
+			"hulk": [Vector3(13.0, 5.5, -6.0), Vector3(0, ShipShape.DECK_Y + 1.0, -1.0)],
+			"ghost": [Vector3(34.0, 9.0, 26.0), Vector3(0, 2.0, 0)],
+			"golondrina": [Vector3(26.0, 8.0, 30.0), Vector3(0, 4.0, 0)],
+			"admiral": [Vector3(3.5, ShipShape.QUARTER_Y + 2.0, 2.5), Vector3(0, ShipShape.QUARTER_Y + 1.3, 7.5)],
+		}
+		var follow := func() -> void:
+			var id: int = m.ships[0] if view == "golondrina" and not m.ships.is_empty() else m.ship
+			if id >= 0 and game.ship_views.has(id):
+				var ship: Transform3D = game.ship_views[id].global_transform
+				cam.look_at_from_position(ship * shots[view][0], ship * shots[view][1])
+		get_tree().process_frame.connect(follow)
+	elif game and view in ["carving", "lanterns"]:
+		# Act IV ashore: before the carving at Isla Calavera's left eye (d2); beside a lantern of
+		# the deep on its sea stack (d4).
+		for sk: Skeleton in game.sim.skeletons.values():
+			sk.cooldown = 1e6
+		var kind := StoryObject.Kind.CARVING if view == "carving" else StoryObject.Kind.GLANTERN
+		var look_at := Vector3.ZERO
+		for o: StoryObject in game.sim.story.objects.values():
+			if o.kind == kind:
+				look_at = o.pos
+		var island := maxi(0, Islands.island_at(look_at.x, look_at.z, 4.0))
+		var spec: Dictionary = Islands.LAYOUT[island]
+		var out := (look_at - Vector3(spec.x, look_at.y, spec.z)).normalized()
+		if out.length() < 0.5:
+			out = Vector3(1, 0, 0)  # a lantern stands in the middle of its stack
+		var stand := look_at + out.rotated(Vector3.UP, 0.5) * (3.5 if view == "carving" else 5.5)
+		stand.y = Islands.ground_at(island, stand.x, stand.z)
+		var to := look_at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = 0.25 if view == "carving" else 0.3
 	elif game and view == "linnet":
 		# The Other Lantern (--chapter t10, best with --time 0.9): Linnet on Gull Isle, a few
 		# steps off, her lantern gathering to flare.

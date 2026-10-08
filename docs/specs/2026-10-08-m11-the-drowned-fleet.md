@@ -1,6 +1,7 @@
 # Milestone 11: The Drowned Fleet (Act IV)
 
-Status: written 08-10-2026, the fifth build step of the story (docs/specs/2026-10-08-story.md).
+Status: built 09-10-2026 (the fifth build step of the story, docs/specs/2026-10-08-story.md):
+the places, the six chapters, their art, three bots and `tests/smoke/act4_test.sh`.
 Every choice below is Claude's default; change anything and the code follows. Where the story doc
 asked for more than one night's work, this says what is built instead.
 
@@ -20,7 +21,7 @@ his own quarterdeck.
 |---|---|
 | The Black Reef | A ring of rocks and wrecks far to the south-east, under a storm that never leaves. Its heart tears the hull of any ship that doesn't know the channel. |
 | The pilot's chart | Shows the safe channel. Once anyone in your crew has it (chapter 20), the Reef's rocks leave your ship alone. |
-| Prison hulk | An old Spanish galleon with her masts cut down, anchored in the fog, used as a jail. |
+| Prison hulk | An old Spanish galleon with bare masts (no yards or sails), anchored in the fog, used as a jail. A rope hangs down her stern. |
 | Lantern guard | A Spanish dead sentry with a lantern. If one sees you, he rings the alarm and two skeleton ships come. |
 | Ghost galleon | A drowned galleon that rises out of the sea in a storm, streaming water, and hunts whoever is near. Sunk, it goes back down. |
 | Lantern of the Deep | A great green lantern on a sea stack, lighting the drowned fleet's way up. Smash it (cutlass or pistol). |
@@ -47,7 +48,8 @@ his own quarterdeck.
 | 24 | The Battle of the Black Reef | Isabel | Call to arms, in the Reef's storm. Three ghost galleons rise: sink them. Hole the *Cuervo Negro* until she lies dead in the water. Board her: the Raven Admiral and four marines on the quarterdeck. Beat him; he goes over the side as she sinks, and a rowing boat slips away into the smoke. Title **Raven-Breaker**. | 1,500 / 500 |
 
 Simplifications against the story doc: the riddle is three steps on one island rather than a
-whole-island riddle map; the hulk has no below-decks (the cells are on her deck); *La Golondrina*
+whole-island riddle map; the hulk has no below-decks (Isabel's cage is on her deck) and keeps
+bare masts rather than stumps; *La Golondrina*
 is a plain AI ship that fights enemies near her, not a ship anyone sails; the Admiral's raven
 figurehead is the title only for now.
 
@@ -55,11 +57,14 @@ figurehead is the title only for now.
 
 - **Act gate**: Act IV needs pirate level 14 (the best in the crew).
 - **Fog**: within 120 m of the hulk the view closes to about 60 m, grey-green.
-- **Lantern guards**: each walks a loop of the hulk's deck. He sees a pirate within 9 m and
-  within 50 degrees of where he faces. The alarm rings once per attempt; two skeleton ships come
-  from 250 m off. Felled guards see nothing.
-- **The jailer**: a Spanish officer (200 health) at the hulk's stern; felling him opens the step
-  to the cell. E at the cell door frees Isabel onto your ship (as in Act II); then ferry her home.
+- **Lantern guards**: they walk a loop of the hulk's forward deck, round Isabel's cage. Each
+  sees a pirate on the deck within 9 m and within 50 degrees of where he faces. The alarm rings
+  once per attempt (also when a guard is struck); two skeleton ships come from 250 m off.
+- **The stern rope**: E at the foot of the rope hanging from the hulk's stern climbs up onto her
+  quarterdeck, out of the guards' sight; the side ladders come up among them.
+- **The jailer**: a Spanish officer (160 health) on the hulk's quarterdeck; felling him opens the
+  step to the cage. E at the cage door frees Isabel onto your ship (as in Act II); then ferry her
+  home.
 - **Isla Calavera's riddle**: two carvings to read (E), then a grave to dig (hold E with the
   spade, as for treasure). Digging it raises the pilot (a captain) and two dead. The chart is a
   small case carried in your hands; E at Isabel hands it over.
@@ -88,7 +93,7 @@ figurehead is the title only for now.
 Isla Calavera's skull rock and tooth-stones; carvings in the rock; the pilot's grave; Isla
 Ceniza (grey sand, dead trees, a smoking hill); the Reef's rocks and wreck masts; the sea stacks
 with their great green lanterns; the prison hulk (masts cut to stumps); the lantern guards; the
-ghost galleon (green-black hull, weed, rags of sails, water pouring off); *La Golondrina*
+ghost galleon (green-black hull, rags of sails, the sea boiling as she rises); *La Golondrina*
 (white and blue); the Raven Admiral (black feathered cloak, plumed helmet, rapier); the chart case.
 
 ## Done when

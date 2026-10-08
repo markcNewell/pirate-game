@@ -8,14 +8,15 @@ extends RefCounted
 const GUARD_SIGHT := 9.0
 const GUARD_ARC := 0.87
 const GUARD_SPEED := 1.3
-## The guards' loop round the hulk's deck (ship frame), and where the jailer and the cage stand.
+## The guards' loop round the hulk's forward deck, about Isabel's cage (ship frame); the jailer
+## keeps the quarterdeck, where the rope from her stern comes up out of the guards' sight.
 const PATROL: Array[Vector3] = [
-	Vector3(-1.7, ShipShape.DECK_Y, -6.0), Vector3(1.7, ShipShape.DECK_Y, -6.0),
-	Vector3(1.7, ShipShape.DECK_Y, 3.0), Vector3(-1.7, ShipShape.DECK_Y, 3.0),
+	Vector3(-1.9, ShipShape.DECK_Y, -9.0), Vector3(1.9, ShipShape.DECK_Y, -9.0),
+	Vector3(1.9, ShipShape.DECK_Y, -3.5), Vector3(-1.9, ShipShape.DECK_Y, -3.5),
 ]
 const JAILER_AT := Vector3(0.0, ShipShape.QUARTER_Y, 8.5)
-const JAILER_HEALTH := 200
-const CAGE_AT := Vector3(0.0, ShipShape.DECK_Y, -2.0)
+const JAILER_HEALTH := 160
+const CAGE_AT := Vector3(0.0, ShipShape.DECK_Y, -6.3)
 const ALARM_SHIPS := 2
 ## A ghost galleon rises from this far down (as ShipState.sink) over GHOST_RISE seconds.
 const GHOST_DEPTH := -0.75
@@ -161,9 +162,13 @@ func _enter_cripple(crew: int, _step: Dictionary) -> void:
 ## On the crippled flagship's quarterdeck: the Raven Admiral and his marines.
 func _enter_admiral(crew: int, step: Dictionary) -> void:
 	var m: Dictionary = sim.crews[crew].mission
+	if not sim.ships.has(m.ship):
+		# Started here (tests, screenshots): the flagship already broken, off the crew's bow.
+		var own: ShipState = sim.ships.get(crew)
+		var at := Vector3(own.x + 40.0, 0, own.z) if own else Vector3(Reef.CENTRE.x, 0, Reef.CENTRE.y)
+		m.ship = sim.spawn_galleon(crew, 0.0, 2, at)
+		cripple(m.ship)
 	var id: int = m.ship
-	if not sim.ships.has(id):
-		return
 	var admiral := sim._new_skeleton(id, Vector3(0.0, ShipShape.QUARTER_Y, 7.5))
 	admiral.admiral = true
 	admiral.spanish = true

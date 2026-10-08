@@ -65,6 +65,9 @@ jobs:
       - name: Act III smoke test
         run: tests/smoke/act3_test.sh
 
+      - name: Act IV smoke test
+        run: tests/smoke/act4_test.sh
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test

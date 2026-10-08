@@ -37,6 +37,8 @@ static func mesh_for(kind: int, tier: int, variant := 0) -> ArrayMesh:
 			return Models.part("loot", "brine_barrel")
 		Loot.Kind.BARRICADE:
 			return Models.part("loot", "barricade")
+		Loot.Kind.CHART:
+			return Models.part("reef", "chart_case")
 	return Models.part("chests", "chest_%d" % tier)
 
 

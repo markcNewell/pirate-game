@@ -8,7 +8,8 @@
 #         moll (talking to her), fire (with --chapter p1 --chapter-step 1), thieves (with --chapter p2),
 #         diggers (a1), graves (a2), store (a3), galleon (a4), camp (a6), sergeant (a6, step 1),
 #         gallery (c1), cannons (c2), battery (c6), viuda (c6, step 2), ocaso (c6, step 3),
-#         linnet (t10, with --time 0.9),
+#         linnet (t10, with --time 0.9), hulk (d1), carving (d2), ghost (d3), lanterns (d4),
+#         golondrina (d5), admiral (d6, step 2),
 #         title (the title screen: nothing is hosted), ship (--shot-from X,Y,Z --shot-look X,Y,Z in the ship's frame)
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
 #   BOTS="sails wheel" adds headless bot players to the hosted game first.

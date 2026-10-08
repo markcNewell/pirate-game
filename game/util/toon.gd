@@ -84,6 +84,25 @@ const FLAGSHIP := {
 	"bone": Color("1a1418"),
 }
 
+## A ghost galleon of the drowned fleet (Act IV): sea-black hull, green glow, weed-grey rags.
+const GHOST := {
+	"hull": Color("1e2e2a"),
+	"hull_dark": Color("121c1a"),
+	"bottom": Color("0c1210"),
+	"stripe": Color("6ac87a"),
+	"deck": Color("3e4a44"),
+	"rail": Color("26302c"),
+	"mast": Color("3a3a30"),
+	"rope": Color("6a7a60"),
+	"trim": Color("0a100e"),
+	"sail": Color("6a7a6e"),
+	"tattered": true,
+	"lantern": Color("9cff8a"),
+	"gold": Color("6ac87a"),
+}
+## Isabel's La Golondrina (Act IV): white sails with Merrow's blue.
+const MERROW := {"sail": Color("f2efe6"), "stripe": Color("3c6fd6"), "flag": Color("2a4a8a")}
+
 const CREWS := [
 	{},
 	{"sail": Color("e05a4a"), "stripe": Color("fff2d0"), "flag": Color("7a1414")},

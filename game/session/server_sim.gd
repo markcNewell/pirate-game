@@ -126,6 +126,20 @@ func _init(options: Dictionary = {}) -> void:
 	profiles.start_rep = (options_level - 1) * Missions.LEVEL_POINTS
 	story = StoryRun.new(self)
 	_ensure_crew(CREW)
+	# Test hook: where the crew's ship starts (before any chapter, which may place things by it).
+	if options.has("start-near"):
+		var where := str(options["start-near"])
+		if where in ["hulk", "reef"]:
+			# Act IV: alongside the prison hulk in the fog, or at the edge of the Black Reef.
+			var at := StoryRun.HULK_FOG + Vector2(-32.0, 10.0) if where == "hulk" else Reef.CENTRE + Vector2(-210.0, 0.0)
+			crew_ship().x = at.x
+			crew_ship().z = at.y
+			crew_ship().yaw = -PI / 2.0
+		else:
+			var spot := Outpost.anchorage() if where == "outpost" else _anchorage(int(where))
+			crew_ship().x = spot.x
+			crew_ship().z = spot.z
+			crew_ship().yaw = Captain.bearing(Vector2(spot.x, spot.z), _island_xz(where))
 	# Test hook: the crew is already on a story chapter (from step --chapter-step, 0 = first).
 	if options.has("chapter") and Story.index_of(str(options.chapter)) >= 0:
 		story.start(CREW, Story.index_of(str(options.chapter)), int(options.get("chapter-step", 0)))
@@ -138,12 +152,6 @@ func _init(options: Dictionary = {}) -> void:
 					items[id].ship = CREW
 					items[id].pos = Vector3(-1.2 + 1.0 * k, ShipShape.DECK_Y, -2.2)
 					k += 1
-	if options.has("start-near"):
-		var where := str(options["start-near"])
-		var spot := Outpost.anchorage() if where == "outpost" else _anchorage(int(where))
-		crew_ship().x = spot.x
-		crew_ship().z = spot.z
-		crew_ship().yaw = Captain.bearing(Vector2(spot.x, spot.z), _island_xz(where))
 	if options.has("test-boarding"):
 		_spawn_passive_skeleton_ship()
 	if options.has("test-chest"):
@@ -931,7 +939,7 @@ func _take_station(id: int, r: Dictionary, station: int) -> void:
 
 ## Up a ladder from the water: the ship asked for, or else whichever ladder is in reach.
 func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
-	if r.mode != LocalPlayer.Mode.WORLD or absi(side) != 1:
+	if r.mode != LocalPlayer.Mode.WORLD or (absi(side) != 1 and side != ShipShape.STERN_ROPE):
 		return
 	var order: Array = ships.keys()
 	if ships.has(wanted):
@@ -939,7 +947,7 @@ func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
 		order.push_front(wanted)
 	for ship_id in order:
 		var s: ShipState = ships[ship_id]
-		if s.is_sinking():
+		if s.is_sinking() or (side == ShipShape.STERN_ROPE and s.flag != 5):
 			continue
 		var bottom := ShipPhysics.pose_of(s, time) * ShipShape.ladder_bottom(side)
 		if Vector2(r.pos.x - bottom.x, r.pos.z - bottom.z).length() > LADDER_TOLERANCE:
@@ -952,7 +960,8 @@ func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
 		else:
 			print("[server] %s climbed aboard" % r.name)
 		# Face inboard: starboard ladder looks toward -x, which is a quarter turn left.
-		_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.ladder_top(side), PI / 2.0 * side, ship_id)
+		var facing := 0.0 if side == ShipShape.STERN_ROPE else PI / 2.0 * side
+		_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.ladder_top(side), facing, ship_id)
 		return
 
 
@@ -2008,6 +2017,8 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 		return
 	if sk.guard:
 		story.act4.raise_alarm(sk.story_crew, by)
+	if sk.admiral and damage > 0:
+		print("[server] the Raven Admiral is wounded by %s (%d left)" % [by, sk.hp - damage])
 	sk.hp -= damage
 	Net.send_event("hurt_skeleton", [sid, damage])
 	if sk.hp > 0:

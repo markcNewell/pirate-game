@@ -262,7 +262,9 @@ func client_on_snapshot(data: Array) -> void:
 			if not mission.is_empty() and mission.kind == Missions.Kind.STORY:
 				# A story step with chests to dig (Dig Faster) works the spade like a treasure map.
 				var ch := Story.chapter(mission.captain)
-				digging = not ch.is_empty() and mission.handled < ch.steps.size() and int(ch.steps[mission.handled].kind) == Story.Step.DIG_RACE
+				if not ch.is_empty() and mission.handled < ch.steps.size():
+					var current: Dictionary = ch.steps[mission.handled]
+					digging = int(current.kind) == Story.Step.DIG_RACE or (int(current.kind) == Story.Step.GATHER and str(current.get("where", "")) == "grave")
 			if digging:
 				for target: Dictionary in mission.targets:
 					if not target.done:
@@ -413,6 +415,25 @@ func client_on_event(kind: String, data: Array) -> void:
 			var at := Vector3(data[0], data[1], data[2])
 			for k in 8:
 				effects.smoke(at + Vector3(randf_range(-0.5, 0.5), randf_range(0.2, 1.6), randf_range(-0.5, 0.5)))
+		"parry":
+			if _skeleton_views.has(int(data[0])):
+				var v: Node3D = _skeleton_views[int(data[0])]
+				v.shield_hit(false)
+				Audio.play_at("clang", v.global_position + Vector3.UP * 1.3, 0.0, 1.4)
+		"lunge":
+			if _skeleton_views.has(int(data[0])):
+				var v: Node3D = _skeleton_views[int(data[0])]
+				v.lunge()
+				Audio.play_at("swing", v.global_position + Vector3.UP, 2.0, 0.6)
+		"lantern_hit":
+			if _object_views.has(int(data[0])):
+				var o: Node3D = _object_views[int(data[0])]
+				o.set_state(int(data[1]))
+				Audio.play_at("clang", o.global_position + Vector3.UP * 3.5, 0.0, 1.9 if int(data[1]) > 0 else 1.2)
+		"ghost":
+			if view_ships.has(int(data[0])):
+				var g: ShipState = view_ships[int(data[0])]
+				Audio.play_at("rattle", Vector3(g.x, 0.0, g.z), 6.0, 0.4)
 		"lantern_shot":
 			if _skeleton_views.has(int(data[0])):
 				var v: Node3D = _skeleton_views[int(data[0])]
@@ -607,6 +628,9 @@ func _update_skeletons(delta: float) -> void:
 			v.bomber = sk.bomber
 			v.sniper = sk.sniper
 			v.linnet = sk.linnet
+			v.guard = sk.guard
+			v.jailer = sk.jailer
+			v.admiral = sk.admiral
 			add_child(v)
 			if sk.linnet and not sk.shield_up:
 				v.drop_lantern()
@@ -680,6 +704,18 @@ func _update_items() -> void:
 
 ## Bubbles while a ship goes down, and wreckage left floating where she went.
 func _sinking_effects(id: int, s: ShipState, delta: float) -> void:
+	if s.sink < 0.0:
+		# A ghost galleon rising: the sea boils round her and pours off her decks.
+		_wrecked[id] = _wrecked.get(id, 0.0) + delta
+		if _wrecked[id] > 0.08:
+			_wrecked[id] = 0.0
+			var pose := ShipPhysics.pose_of(s, render_time)
+			var along := randf_range(-ShipShape.HALF_LENGTH, ShipShape.HALF_LENGTH)
+			var side := 1.0 if randf() < 0.5 else -1.0
+			var at := pose * Vector3(side * 3.2, ShipShape.DECK_Y, along)
+			effects.impact(0, Vector3(at.x, 0.1, at.z))
+			effects.bubbles(Vector3(s.x + randf_range(-4, 4), 0.0, s.z + randf_range(-10, 10)))
+		return
 	if s.sink <= 0.0:
 		_wrecked.erase(id)
 		return
@@ -885,4 +921,9 @@ func nearest_enemy() -> ShipState:
 static func ship_name(s: ShipState) -> String:
 	if s.crew > 0:
 		return ServerSim.CREW_NAMES[s.crew - 1]
-	return ["Skeleton ship", "Spanish galleon", "The Cuervo Negro"][clampi(s.flag, 0, 2)]
+	return ["Skeleton ship", "Spanish galleon", "The Cuervo Negro", "A ghost galleon", "La Golondrina", "The prison hulk"][clampi(s.flag, 0, 5)]
+
+
+## What's painted on an enemy (or ally) ship's transom, by its flag.
+static func ship_name_for(flag: int) -> String:
+	return ["The Rotten Grin", "San Cristobal", "Cuervo Negro", "Nuestra Senora", "La Golondrina", "Penitencia"][clampi(flag, 0, 5)]

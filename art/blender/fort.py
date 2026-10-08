@@ -210,6 +210,29 @@ def door(name, color, bars):
     return kit.join(name, parts)
 
 
+def cage():
+    """Isabel's cage on the prison hulk's deck: iron bars 1.8 wide, 2.3 high and 1.8 deep on a
+    timber floor, with a barred roof; its front (-X) left open for the cell door the game hangs
+    there (hinged at z = -0.7)."""
+    parts = [kit.box("cage_floor", (0, 0.05, 0), (1.9, 0.1, 1.9), "5a3e24", bevel=0.02)]
+    for k in range(7):
+        z = -0.85 + k * 0.283
+        parts.append(kit.tube("bar", [(0.9, 0.1, z), (0.9, 2.3, z)], 0.025, 5, "3a3a42"))
+    for side in (-1, 1):
+        for k in range(7):
+            x = -0.85 + k * 0.283
+            parts.append(kit.tube("bar", [(x, 0.1, side * 0.9), (x, 2.3, side * 0.9)], 0.025, 5, "3a3a42"))
+    for y in (0.1, 1.2, 2.3):
+        for side in (-1, 1):
+            parts.append(kit.box("rail", (0, y, side * 0.9), (1.85, 0.06, 0.06), IRON))
+        parts.append(kit.box("rail", (0.9, y, 0), (0.06, 0.06, 1.85), IRON))
+    for k in range(5):
+        x = -0.8 + k * 0.4
+        parts.append(kit.box("roofbar", (x, 2.32, 0), (0.05, 0.05, 1.85), IRON))
+    parts.append(kit.box("lintel", (-0.9, 2.3, 0), (0.08, 0.08, 1.85), IRON))
+    return kit.join("cage", parts)
+
+
 def bell_gallows():
     """A drowned bell on a gallows (the bell's mouth at y = 3.2): two driftwood posts, a cross
     beam, and a green bronze bell crusted with weed."""
@@ -239,7 +262,7 @@ def bomb():
 def main(names):
     builders = {
         "fort": lambda: [fort()],
-        "fort_parts": lambda: [gate(), gate(True), door("cell_door", IRON, True), door("vault_door", "4a4a52", False), bell_gallows(), bomb()],
+        "fort_parts": lambda: [gate(), gate(True), door("cell_door", IRON, True), door("vault_door", "4a4a52", False), bell_gallows(), bomb(), cage()],
     }
     for name in names or builders:
         kit.reset()

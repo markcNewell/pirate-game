@@ -13,6 +13,7 @@ const WHO := {
 	"gideon": {"shirt": Color("c8302a"), "skin": Color("e8b48a")},
 	"martha": {"shirt": Color("7a9a6a"), "skin": Color("e8b48a")},
 	"ocaso": {"shirt": Color("e8e4d8"), "skin": Color("d8c8b0")},
+	"cuervo": {"shirt": Color("efe8da"), "skin": Color("dcae86")},
 }
 const WATCH_RANGE := 12.0
 

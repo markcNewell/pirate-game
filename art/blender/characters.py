@@ -1704,6 +1704,40 @@ def ocaso():
     return parts
 
 
+def cuervo():
+    """Alonso de Cuervo, the Raven Admiral: a black morion with a tall black plume, a pointed black
+    beard and curled moustache, a black coat with gold facings and a red sash under a cloak of
+    raven feathers, and a rapier in his fist."""
+    hair = "1a1416"
+    plume = kit.tube("plume", [(0, 2.0, 0.02), (0, 2.2, 0.1), (0, 2.27, 0.28), (0, 2.14, 0.44)], [0.045, 0.085, 0.075, 0.02], 8, "141418")
+    beard = kit.tube("beard", [(0, 1.565, surface_z(0, 1.565) - 0.012), (0, 1.5, surface_z(0, 1.53) - 0.035), (0, 1.43, surface_z(0, 1.53) - 0.025)], [0.05, 0.035, 0.006], 8, hair)
+    head_bits = morion("1e1e24", sweep=0.22, comb_h=0.16) + [plume, beard] + curly_moustache(hair) + hair_back(hair, 0.02) + face(hair, mouth=True, gruff=0.9)
+    parts = head(head_bits)
+    parts += coat("1a1a20", trim=GOLD) + trousers("1e1e24") + boots() + sash("8a1a18")
+    import bmesh
+    cloak = kit.loft("cloak", [(0.5, 0.3, 0.26, 0, 0.06), (0.9, 0.28, 0.22, 0, 0.05), (1.25, 0.26, 0.19, 0, 0.03), (1.45, 0.22, 0.16, 0, 0.01)], "141418", sides=24, power=2.2, cap_bottom=False, cap_top=False)
+    bm = bmesh.new()
+    bm.from_mesh(cloak.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if kit.G(f.calc_center_median())[2] < 0.02], context="FACES")
+    bm.to_mesh(cloak.data)
+    bm.free()
+    ragged(cloak, 0.08, seed=33)
+    sol = cloak.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.012
+    kit.apply_all(cloak)
+    kit.paint_where(cloak, "2a2a3a", lambda x, y, z: int(y * 14) % 3 == 0)
+    rig.set_weights(cloak, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
+    parts.append(cloak)
+    g = Vector(rig.grip_point("r"))
+    blade = kit.tube("rapier", [tuple(g + Vector((0, 0.0, -0.05))), tuple(g + Vector((0, -0.12, -0.6))), tuple(g + Vector((0, -0.2, -1.0)))], [0.012, 0.009, 0.003], 5, "d8dde2")
+    cup = kit.lathe("rapier_cup", [(0.0, 0.0), (0.07, 0.02), (0.08, 0.06)], 10, GOLD, caps=False, centre=tuple(g + Vector((0, 0.0, -0.06))), axis="z")
+    quillon = kit.tube("quillon", [tuple(g + Vector((-0.1, 0.0, -0.08))), tuple(g + Vector((0.1, 0.0, -0.08)))], 0.01, 5, GOLD)
+    for p in (blade, cup, quillon):
+        rig.set_weights(p, rig.rigid("hand_r"))
+        parts.append(p)
+    return parts
+
+
 def npcs():
     arm = rig.build_armature("rig")
     base = [torso()]
@@ -1715,7 +1749,7 @@ def npcs():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha), ("ocaso", ocaso)):
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha), ("ocaso", ocaso), ("cuervo", cuervo)):
         ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)
