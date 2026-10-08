@@ -308,7 +308,7 @@ func _island(spec: Dictionary) -> void:
 		var tavern := Node3D.new()
 		tavern.position = Outpost.tavern_point(Vector3(3.5, 1.5, 0)) - root.position
 		root.add_child(tavern)
-		Audio.loop_at(tavern, "shanty", -8.0, 45.0)
+		Audio.music_at(tavern, Music.TAVERN, -10.0, 45.0)
 		var lighthouse := Lighthouse.new()
 		lighthouse.position = Outpost.lighthouse_lamp() - root.position
 		root.add_child(lighthouse)

@@ -1,7 +1,8 @@
 extends Node
 ## Every sound in the game goes through here (the "Audio" autoload). Sounds are the synthesised
-## WAVs in art/sounds (made by tools/make_sounds.py). Three buses under Master: Effects,
-## Ambience and Music, so each can be turned up or down. A headless server or bot plays nothing.
+## WAVs in art/sounds (made by tools/make_sounds.py) and the music in art/music (Music says which
+## track fits). Three buses under Master: Effects, Ambience and Music, so each can be turned up or
+## down. A headless server or bot plays nothing.
 
 const VOICES := 24
 const UI_VOICES := 4
@@ -16,8 +17,15 @@ var _ui: Array[AudioStreamPlayer] = []
 var _next_ui := 0
 var _loops := {}
 var _loop_target := {}
-var _music: AudioStreamPlayer
-var _music_target := -80.0
+## The score: two players so one track can fade into the next; `_on` is the one playing now.
+var _score: Array[AudioStreamPlayer] = []
+var _score_target: Array[float] = [-80.0, -80.0]
+var _on := 0
+var _mood := Music.Mood.NONE
+var _track := ""
+## Calm moods rest between tracks: when the next one starts (seconds, engine time), or -1.
+var _rest_until := -1.0
+var _sting: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -52,11 +60,15 @@ func _ready() -> void:
 		p.play()
 		_loops[name] = p
 		_loop_target[name] = -80.0
-	_music = AudioStreamPlayer.new()
-	_music.stream = stream("shanty", true)
-	_music.bus = "Music"
-	_music.volume_db = -80.0
-	add_child(_music)
+	for i in 2:
+		var p := AudioStreamPlayer.new()
+		p.bus = "Music"
+		p.volume_db = -80.0
+		add_child(p)
+		_score.append(p)
+	_sting = AudioStreamPlayer.new()
+	_sting.bus = "Music"
+	add_child(_sting)
 
 
 func _exit_tree() -> void:
@@ -119,13 +131,74 @@ func set_ambience(name: String, volume_db: float) -> void:
 	_loop_target[name] = volume_db
 
 
-## Fade the sea shanty in (title screen) or out.
+## A track from art/music, loaded once (looping if `loop`).
+func music_stream(name: String, loop := false) -> AudioStream:
+	var key := "music:%s:%s" % [name, loop]
+	if not _streams.has(key):
+		var s: AudioStream = load("res://art/music/%s.ogg" % name)
+		if loop:
+			s = s.duplicate()
+			s.loop = true
+		_streams[key] = s
+	return _streams[key]
+
+
+## The title screen's music on, or the score off.
 func music(on: bool) -> void:
+	set_mood(Music.Mood.TITLE if on else Music.Mood.NONE)
+
+
+## What the score should be playing now (Music.Mood): a change fades the old track out and the
+## new mood's in.
+func set_mood(mood: int) -> void:
+	if not enabled or mood == _mood:
+		return
+	_mood = mood
+	_rest_until = -1.0
+	_score_target[_on] = -80.0
+	print("[music] %s" % Music.Mood.keys()[mood].to_lower())
+	if mood == Music.Mood.NONE:
+		return
+	_start_track(Music.next_track(mood, _track))
+
+
+func _start_track(name: String) -> void:
+	if name == "":
+		return
+	_on = 1 - _on
+	var p := _score[_on]
+	p.stream = music_stream(name)
+	p.volume_db = -30.0
+	p.play()
+	_track = name
+	_score_target[_on] = -4.0 if _mood in [Music.Mood.BATTLE, Music.Mood.BOSS] else -8.0
+
+
+## A short tune over the score (a level gained), which ducks while it plays.
+func sting(name: String) -> void:
 	if not enabled:
 		return
-	_music_target = -6.0 if on else -80.0
-	if on and not _music.playing:
-		_music.play()
+	_sting.stream = music_stream(name)
+	_sting.volume_db = -2.0
+	_sting.play()
+
+
+## A looping track from art/music that belongs to something in the world (the tavern's band).
+func music_at(parent: Node3D, name: String, volume_db: float, reach: float) -> AudioStreamPlayer3D:
+	var p := AudioStreamPlayer3D.new()
+	parent.add_child(p)
+	if not enabled:
+		return p
+	p.stream = music_stream(name, true)
+	p.bus = "Music"
+	p.volume_db = volume_db
+	p.max_distance = reach
+	p.unit_size = reach * 0.25
+	if p.is_inside_tree():
+		p.play()
+	else:
+		p.autoplay = true
+	return p
 
 
 func _process(delta: float) -> void:
@@ -134,9 +207,22 @@ func _process(delta: float) -> void:
 	for name: String in _loops:
 		var p: AudioStreamPlayer = _loops[name]
 		p.volume_db = move_toward(p.volume_db, _loop_target[name], delta * 30.0)
-	_music.volume_db = move_toward(_music.volume_db, _music_target, delta * 25.0)
-	if _music.playing and _music.volume_db <= -79.0 and _music_target <= -79.0:
-		_music.stop()
+	var duck := -12.0 if _sting.playing else 0.0
+	for i in 2:
+		var p := _score[i]
+		# Fade in over a couple of seconds, out a little slower.
+		var rate := 14.0 if _score_target[i] > p.volume_db else 10.0
+		p.volume_db = move_toward(p.volume_db, _score_target[i] + (duck if i == _on else 0.0), delta * rate)
+		if p.playing and p.volume_db <= -79.0 and _score_target[i] <= -79.0:
+			p.stop()
+	# The track has ended: the next one, after a rest for the calm moods.
+	if _mood != Music.Mood.NONE and not _score[_on].playing:
+		var now := Time.get_ticks_msec() / 1000.0
+		if _rest_until < 0.0:
+			_rest_until = now + float(Music.REST.get(_mood, 0.0))
+		elif now >= _rest_until:
+			_rest_until = -1.0
+			_start_track(Music.next_track(_mood, _track))
 
 
 ## A 3D loop that belongs to something in the world (a camp fire, the tavern's music).

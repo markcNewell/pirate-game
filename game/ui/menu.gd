@@ -104,6 +104,14 @@ func _ready() -> void:
 	_button(buttons, "Host & play", _on_host)
 	_button(buttons, "Quit", func() -> void: get_tree().quit())
 
+	# The music's licence asks for credit where people see it (CREDITS.md has every track).
+	var credit := Label.new()
+	credit.text = "Music by Kevin MacLeod (incompetech.com), CC BY 4.0"
+	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	credit.add_theme_font_size_override("font_size", 13)
+	credit.add_theme_color_override("font_color", Color(Hud.INK, 0.65))
+	box.add_child(credit)
+
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

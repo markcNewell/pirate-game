@@ -60,6 +60,9 @@ var my_armour := 0
 var owned: Array = []
 ## How each crew's ship looks (Shipwright): crew -> [sails, hull, flag, figurehead, trophies].
 var ship_looks := {}
+## The score: when the music is next looked at, and when each danger was last near.
+var _music_wait := 0.0
+var _danger_since := {}
 ## Is Fuerte del Cuervo our crew's port (the story done, the dead not holding it)?
 var fort_port := false
 ## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
@@ -414,6 +417,7 @@ func client_on_event(kind: String, data: Array) -> void:
 		"level":
 			if hud:
 				hud.level_up(int(data[0]), str(data[1]))
+			Audio.sting(Music.STING)
 		"talk":
 			if hud:
 				hud.show_talk(data)
@@ -635,6 +639,7 @@ func _process(delta: float) -> void:
 	# The HUD's wind arrow shows the wind where our ship is, swirling if she is in the storm.
 	view_wind = Storm.wind(Vector2(view_ship.x, view_ship.z), render_time, view_wind).normalized()
 	_ship_sounds(delta)
+	_update_music(delta)
 	if ship_view == null:
 		return
 
@@ -686,6 +691,46 @@ func _process(delta: float) -> void:
 
 
 ## The world transform of a ship's frame (our own ship's if that one is gone).
+## The score: what is near you picks the music (Music.pick), looked at twice a second.
+func _update_music(delta: float) -> void:
+	_music_wait -= delta
+	if _music_wait > 0.0 or local_player == null:
+		return
+	_music_wait = 0.5
+	var me := local_player.world_position()
+	var state := {"now": render_time, "since": _danger_since}
+	# A skeleton ship near ours (not La Golondrina, who is on our side, nor the hulk we creep onto).
+	for id in view_ships:
+		var s: ShipState = view_ships[id]
+		if s.kind == ShipState.Kind.SKELETON and s.flag not in [4, 5] and not s.is_sinking() \
+				and Vector2(s.x - view_ship.x, s.z - view_ship.z).length() < Music.SHIP_NEAR:
+			state["battle"] = true
+	# The dead close by, or one of the story's bosses (or the Colossus) within sight.
+	for sid in view_skeletons:
+		var sk: Skeleton = view_skeletons[sid]
+		if not sk.alive():
+			continue
+		var at := sk.pos if sk.frame < 0 else frame_transform(sk.frame) * sk.pos
+		var boss := sk.sergeant or sk.bomber or sk.sniper or sk.linnet or sk.admiral or sk.doctor or sk.ash
+		if boss and at.distance_to(me) < Music.BOSS_NEAR:
+			state["boss"] = true
+		elif at.distance_to(me) < Music.DEAD_NEAR:
+			state["dead"] = true
+	for oid in view_objects:
+		var o: StoryObject = view_objects[oid]
+		if o.kind == StoryObject.Kind.COLOSSUS and not (o.state & StoryAct5.KNEEL) \
+				and Vector2(o.pos.x - me.x, o.pos.z - me.z).length() < Music.COLOSSUS_NEAR:
+			state["boss"] = true
+	for pair: Array in [[Music.Mood.BOSS, "boss"], [Music.Mood.BATTLE, "battle"], [Music.Mood.DEAD, "dead"]]:
+		if state.get(pair[1], false):
+			_danger_since[pair[0]] = render_time
+	state["storm"] = Storm.amount(Vector2(me.x, me.z), render_time)
+	state["night"] = StoryRun.is_night(render_time)
+	var port := Outpost.spec()
+	state["port"] = Vector2(me.x - port.x, me.z - port.z).length() < float(port.radius) + Music.PORT_NEAR
+	Audio.set_mood(Music.pick(state))
+
+
 func frame_transform(ship_id: int) -> Transform3D:
 	var v: ShipView = ship_views.get(ship_id, ship_view)
 	return v.global_transform if v else Transform3D.IDENTITY
