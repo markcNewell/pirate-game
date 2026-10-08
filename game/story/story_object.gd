@@ -16,7 +16,9 @@ extends RefCounted
 ## Doctor himself.
 ## Act IV: CAGE Isabel's cage on the prison hulk (1 shut, 0 open), GLANTERN a lantern of the deep
 ## (hits left), CARVING a carving of the pilot's riddle.
-enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE, ISABEL, WRECK, BELL, SEARCH, GATE, GUN, CELL, VAULT, BOMB, LAMP, BATTERY, OCASO, CAGE, GLANTERN, CARVING }
+## Act V: BRAZIER one of Ocaso's braziers (1 burning, 0 doused), BEACON an island's beacon (0 unlit,
+## 1 burning), COLOSSUS the Bone Colossus (bits 0-3 its broken joints, 16 fallen).
+enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE, ISABEL, WRECK, BELL, SEARCH, GATE, GUN, CELL, VAULT, BOMB, LAMP, BATTERY, OCASO, CAGE, GLANTERN, CARVING, BRAZIER, BEACON, COLOSSUS }
 
 var id := 0
 var kind := Kind.FIRE

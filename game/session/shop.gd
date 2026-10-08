@@ -6,8 +6,9 @@ extends RefCounted
 
 enum Kind { OUTFIT, DYE }
 
-## The pirate outfits (Avatar looks 0-8) and the shirt dyes. Each: [kind, which, name, price];
-## a price of 0 is a gift from the story, never sold (Silas's cap, from Penny's Hoard).
+## The pirate outfits (Avatar looks 0-9) and the shirt dyes. Each: [kind, which, name, price];
+## a price of 0 is a gift from the story, never sold (Silas's cap, from Penny's Hoard; the raven
+## cloak, from the story's end).
 const ITEMS := [
 	[Kind.OUTFIT, 0, "Tricorn and waistcoat", 400],
 	[Kind.OUTFIT, 1, "Bandana and eyepatch", 450],
@@ -18,6 +19,7 @@ const ITEMS := [
 	[Kind.OUTFIT, 6, "Cavalier's feathered hat", 1000],
 	[Kind.OUTFIT, 7, "The bruiser", 600],
 	[Kind.OUTFIT, 8, "Silas's cabin-boy cap", 0],
+	[Kind.OUTFIT, 9, "The Admiral's raven cloak", 0],
 	[Kind.DYE, 0, "Crimson", 250],
 	[Kind.DYE, 1, "Navy", 250],
 	[Kind.DYE, 2, "Emerald", 250],

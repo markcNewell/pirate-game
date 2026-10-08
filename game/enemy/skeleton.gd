@@ -71,6 +71,11 @@ var lunge_at := -1.0
 var lunge_dir := Vector3.ZERO
 var lunge_left := 0.0
 var lunge_target := -1
+## Act V: the ashen dead (burned black, burst into green fire when they fall), Doctor Ocaso (who
+## jumps between his braziers; shield_up while any burns) and the Ash Admiral (admiral and ash).
+var ashen := false
+var doctor := false
+var ash := false
 var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
@@ -114,6 +119,12 @@ func to_array() -> Array:
 
 ## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
 func look_code() -> int:
+	if ash:
+		return 14
+	if doctor:
+		return 13
+	if ashen:
+		return 12
 	if jailer:
 		return 11
 	if admiral:
@@ -172,6 +183,10 @@ static func from_array(a: Array) -> Skeleton:
 	s.guard = look == 9
 	s.admiral = look == 10
 	s.jailer = look == 11
+	s.ashen = look == 12
+	s.doctor = look == 13
+	s.ash = look == 14
+	s.admiral = s.admiral or s.ash
 	s.holding = int(a[10]) if a.size() > 10 else -1
 	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s

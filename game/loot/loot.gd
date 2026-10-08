@@ -4,7 +4,7 @@ extends RefCounted
 ## skeleton captain's skull (bounties) or a crate of cargo. The server owns every item;
 ## snapshots carry all but the buried ones.
 
-enum Kind { CHEST, BARREL, SKULL, CRATE, COCONUT, PLANKS, OIL, CANNON, BRONZE, BRINE, BARRICADE, CHART }
+enum Kind { CHEST, BARREL, SKULL, CRATE, COCONUT, PLANKS, OIL, CANNON, BRONZE, BRINE, BARRICADE, CHART, HEART, LANTERN }
 ## HELD: in a skeleton's arms (`carrier` is the skeleton's id).
 enum State { BURIED, GROUND, FLOATING, CARRIED, ON_SHIP, HELD }
 
@@ -66,6 +66,10 @@ func label() -> String:
 			return "barricade"
 		Kind.CHART:
 			return "pilot's chart"
+		Kind.HEART:
+			return "Heart of Ash"
+		Kind.LANTERN:
+			return "Wren's lantern"
 	return "supply barrel"
 
 

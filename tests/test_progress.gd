@@ -171,4 +171,4 @@ func test_martha_sells_looks_not_power() -> void:
 	check(not r.profile.owned.has("outfit8"), "Martha won't sell Silas's cap")
 	check_eq(r.profile.gold, 99999, "nor take gold for it")
 	for i in Shop.ITEMS.size():
-		check(Shop.ITEMS[i][3] > 0 or Shop.key(i) == "outfit8", "%s has a price" % Shop.ITEMS[i][2])
+		check(Shop.ITEMS[i][3] > 0 or Shop.key(i) in ["outfit8", "outfit9"], "%s has a price" % Shop.ITEMS[i][2])

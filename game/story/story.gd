@@ -9,6 +9,7 @@ enum Step {
 	RESCUE, FERRY, DIVE, CONVOY, BELLS, ASK, SEARCH, BREACH, USE,
 	SIEGE_SEA, SIEGE_BEACH, SNIPER, DOCTOR,
 	HULK, GHOST, LANTERNS, GAMBIT, RISEN, CRIPPLE, ADMIRAL,
+	ASHEN, OCASO, BEACONS, ASH_FLAGSHIP, COLOSSUS, ASH_DUEL, HEART,
 }
 
 ## Who you can talk to. `where` names the Outpost function giving where they stand.
@@ -461,6 +462,102 @@ const CHAPTERS: Array[Dictionary] = [
 			]},
 		],
 	},
+	# --- Act V: The Heart of Ash, and the epilogue (docs/specs/2026-10-08-m12-the-heart-of-ash.md). ---
+	{
+		"id": "e1", "act": 5, "title": "What the Admiral Knew", "giver": "wren", "xp": 900, "gold": 250,
+		"intro": [
+			"Mother Wren", "The Admiral kept a journal. Every captain does. It went down with the Cuervo Negro, in the heart of the Reef.",
+			"Mother Wren", "Dive for it. Whatever he knew about the Heart, we need to know it too.",
+		],
+		"steps": [
+			{"kind": Step.DIVE, "at": Vector3(805.0, 0.0, 650.0), "hint": "Dive on the Cuervo Negro's wreck in the heart of the Black Reef (hold E over her)", "title": "The Admiral's journal", "text":
+				"I have served the Doctor for thirty years thinking he served the King. He does not. He serves the stone.\n\n" +
+				"He says it speaks. He says it remembers every soul the sea has ever drowned, and wants them all to walk again: every sailor, every fisherman, every child.\n\n" +
+				"I brought it back to the Isles for gold and glory. God forgive me, I think it brought me."},
+			{"kind": Step.TALK, "who": "wren", "lines": [
+				"Mother Wren", "Every soul the sea ever drowned. My sister. Your grandfathers. All of them.",
+				"Mother Wren", "Then it goes back. Back to the Maw it came from. But first, the Doctor. He's on Isla Ceniza, and Isabel knows the way in.",
+			]},
+		],
+	},
+	{
+		"id": "e2", "act": 5, "title": "Isla Ceniza", "giver": "isabel", "xp": 1100, "gold": 350,
+		"intro": [
+			"Isabel Montero", "Isla Ceniza. I was a prisoner there for a week. Ash falls all day, and the dead are burned black and full of fire.",
+			"Isabel Montero", "His workshop is in the hill. He keeps three braziers burning round it; while they burn, nothing touches him. Bring buckets.",
+		],
+		"steps": [
+			{"kind": Step.ASHEN, "waves": 2, "size": 4},
+			{"kind": Step.OCASO, "boss": "Doctor Ocaso", "lines": [
+				"Doctor Ocaso", "Ha! Ha ha! You fools. You think the Heart is here? It went home. Home to the Maw.",
+				"Doctor Ocaso", "And the dead are answering. All of them. Listen...",
+				"Isabel Montero", "He's gone. Laughing. ...I can hear it too. Bells, under the sea.",
+			]},
+		],
+	},
+	{
+		"id": "e3", "act": 5, "title": "Every Hand", "giver": "quill", "xp": 1000, "gold": 300,
+		"intro": [
+			"Abel Quill", "One last push, and it needs everyone. Three jobs, one for each company, and I have written them down because I am that sort of man.",
+			"Abel Quill", "First: saltshot for every ship. Three crates on the pier, to the battery, where the crews are loading.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "saltshot_crates", "where": "pier", "count": 3, "to": "battery", "lines": [
+				"Abel Quill", "Second: the beacons. Cutlass Cay, Parrot Rock and Gull Isle. Light them and every crew in the Isles will come.",
+			]},
+			{"kind": Step.BEACONS, "lines": [
+				"Mother Wren", "Third: my lantern. Carry it to the edge of the Black Reef. Its light will show us where the Heart lies.",
+			]},
+			{"kind": Step.GATHER, "item": "wren_lantern", "where": "wren", "count": 1, "to": "reef_edge", "lines": [
+				"Mother Wren", "There. Look where the light bends: the Maw. It's down there, and it's waking.",
+				"Isabel Montero", "My sailors from the fort are ready, and La Golondrina with them. Tomorrow night we end it.",
+			]},
+		],
+	},
+	{
+		"id": "e4", "act": 5, "title": "The Ash Admiral", "giver": "isabel", "xp": 1300, "gold": 400,
+		"intro": [
+			"Isabel Montero", "Lookouts say the Heart has raised him. Cuervo. Burned black, a crown of green fire, and the whole drowned fleet at his back.",
+			"Isabel Montero", "Break the fleet at the Maw before it sails on Merrow. Every ship you sink is one less at our door.",
+		],
+		"steps": [
+			{"kind": Step.RISEN, "galleons": 4},
+			{"kind": Step.ASH_FLAGSHIP, "lines": [
+				"Isabel Montero", "His flagship's going down! But look, in the Maw. Something's coming up. Something big.",
+			]},
+		],
+	},
+	{
+		"id": "e5", "act": 5, "title": "The Bone Colossus", "giver": "wren", "xp": 2000, "gold": 800, "shared": "end", "reward": "Heartbreaker", "gift": "outfit9",
+		"intro": [
+			"Mother Wren", "Every bone of the drowned fleet, pulled together into one. It's standing up out of the Maw.",
+			"Mother Wren", "Every crew in the Isles, to the Reef! Break its joints with your guns. When it falls, someone has to carry the Heart back into the Maw. It will burn. Carry it anyway.",
+		],
+		"steps": [
+			{"kind": Step.COLOSSUS},
+			{"kind": Step.ASH_DUEL, "guards": 3, "boss": "The Ash Admiral"},
+			{"kind": Step.HEART, "lines": [
+				"Mother Wren", "The green light's going out. All of it, everywhere.",
+				"Isabel Montero", "Every skeleton on the sea just fell to dust. It's over. It's actually over.",
+				"Mother Wren", "Here. His cloak, fished off the rock. You've earned the right to wear a raven.",
+			]},
+		],
+	},
+	{
+		"id": "e6", "act": 5, "title": "Quiet Waters", "giver": "martha", "xp": 500, "gold": 200, "night": true,
+		"intro": [
+			"Big Martha", "Drinks are on the house tonight. Don't get used to it.",
+			"Big Martha", "Go and find your friends, love. They've all been asking after you.",
+		],
+		"steps": [
+			{"kind": Step.ASK, "who": ["isabel", "silas", "quill", "wren"], "hint": "Talk to Isabel, Silas, Quill and Wren at the party", "lines": {
+				"isabel": ["Isabel Montero", "The fort is mine now, by Merrow's say-so. Come and trade there; my sailors would like to meet the people who saved them."],
+				"silas": ["Silas Penny", "I've counted it twice. Not the gold. The crews. Every one of them came. ...Then I counted the gold."],
+				"quill": ["Abel Quill", "Twelve crates of lead, one Colossus, zero losses. The ledger has never balanced so beautifully."],
+				"wren": ["Mother Wren", "The Heart wasn't the only thing the sea keeps. Skeletons will still turn up, here and there. The sea remembers. But tonight, it sleeps."],
+			}},
+		],
+	},
 	# --- Tales: side stories, each opening after the chapter in "after". ---
 	{
 		"id": "t1", "act": 0, "title": "Coconut Thieves", "giver": "jonah", "xp": 250, "gold": 50, "tale": "Captain Coco", "after": "p1",
@@ -774,12 +871,14 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 		Step.FERRY:
 			return "Bring Isabel safely to Port Merrow"
 		Step.DIVE:
-			return "Dive at the San Telmo's wreck off Gull Isle (hold E over it)"
+			return step.get("hint", "Dive at the San Telmo's wreck off Gull Isle (hold E over it)")
 		Step.CONVOY:
 			return "Take the convoy's gold to %s (%d chests left)" % [person_name(step.to), lit] if lit > 0 else "Take the convoy's gold to %s" % person_name(step.to)
 		Step.BELLS:
 			return "Shoot down the drowned bells (%d left)" % lit if lit > 0 else "Shoot down the drowned bells"
 		Step.ASK:
+			if step.has("hint"):
+				return "%s (%d left)" % [step.hint, lit] if lit > 0 else step.hint
 			return "Ask Jonah, Moll and Silas what they saw (%d left)" % lit if lit > 0 else "Ask about Merrow"
 		Step.SEARCH:
 			return "Search the crates on Port Merrow's pier"
@@ -821,6 +920,20 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 			return "Cripple the Cuervo Negro (%d more holes)" % lit if lit > 0 else "Cripple the Cuervo Negro"
 		Step.ADMIRAL:
 			return "Board the Cuervo Negro and beat the Raven Admiral (strike from the side or behind)"
+		Step.ASHEN:
+			return "Land on Isla Ceniza and beat the ashen dead (%d up)" % standing if standing > 0 else "Land on Isla Ceniza"
+		Step.OCASO:
+			return "Douse Ocaso's braziers (%d burning), then beat him" % lit if lit > 0 else "Beat Doctor Ocaso"
+		Step.BEACONS:
+			return "Light the beacons on Cutlass Cay, Parrot Rock and Gull Isle (%d left)" % lit if lit > 0 else "Light the beacons"
+		Step.ASH_FLAGSHIP:
+			return "Sink the Ash Admiral's flagship at the Maw"
+		Step.COLOSSUS:
+			return "Break the Bone Colossus's glowing joints with cannon (%d left)" % lit if lit > 0 else "Break the Bone Colossus"
+		Step.ASH_DUEL:
+			return "Land on the Anvil and beat the Ash Admiral (strike from the side or behind)"
+		Step.HEART:
+			return "Carry the Heart of Ash to the Maw's edge and throw it in (it burns)"
 		Step.GATHER:
 			var what: String = {"planks": "a bundle of planks from each wreck", "tea": "floating tea crates (%d left)" % lit,
 				"hueso": "Señor Hueso's crate (on the pier)", "fine_tea": "the fine tea from Hueso's kitchen (%d left)" % lit,
@@ -828,8 +941,10 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 				"saltshot": "salt, a piece of drowned bell and the Black Reef's brine (%d left)" % lit,
 				"barricade": "barricades from the tavern door (%d left)" % lit,
 				"hoard": "Hollowbell's hoard from Cutlass Cay's old camp (%d left)" % lit,
-				"chart": "the pilot's chart, dug from his grave on Isla Calavera"}[step.item]
-			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's battery", "pier": "the pier"}.get(str(step.to), "")
+				"chart": "the pilot's chart, dug from his grave on Isla Calavera",
+				"saltshot_crates": "the saltshot from the pier (%d left)" % lit,
+				"wren_lantern": "Wren's lantern"}[step.item]
+			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's battery", "pier": "the pier", "reef_edge": "the edge of the Black Reef (the West Stack)"}.get(str(step.to), "")
 			if to == "":
 				to = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)
 			return "Bring %s to %s" % [what, to]

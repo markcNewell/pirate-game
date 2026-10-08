@@ -76,6 +76,7 @@ const PERSIST := [
 	StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.CAMP, StoryObject.Kind.GATE,
 	StoryObject.Kind.GUN, StoryObject.Kind.CELL, StoryObject.Kind.VAULT, StoryObject.Kind.BELL,
 	StoryObject.Kind.LAMP, StoryObject.Kind.BATTERY, StoryObject.Kind.CAGE, StoryObject.Kind.ISABEL,
+	StoryObject.Kind.COLOSSUS,
 ]
 ## Night (time of day, 0 midnight .. 1): dusk when the sun sets, dawn when it rises.
 const DUSK := 0.78
@@ -88,13 +89,15 @@ var _next_object := 1
 var _fuses := {}
 ## Fort guns' next shot: object id -> server time.
 var _gun_ready := {}
-## Act IV's steps live in their own file.
+## Act IV's and Act V's steps live in their own files.
 var act4: StoryAct4
+var act5: StoryAct5
 
 
 func _init(server: ServerSim) -> void:
 	sim = server
 	act4 = StoryAct4.new(self)
+	act5 = StoryAct5.new(self)
 
 
 static func is_night(server_time: float) -> bool:
@@ -166,6 +169,17 @@ func talk(id: int, r: Dictionary, who: String) -> void:
 		return
 	_say(id, ch.intro)
 	start(r.crew, i)
+
+
+## Has `who` a chapter for this crew that someone aboard hasn't done (Martha's party)?
+func fresh_offer(crew: int, who: String) -> bool:
+	var i := Story.offered_by(who, done_lists(crew))
+	if i < 0:
+		return false
+	for done: Array in done_lists(crew):
+		if not done.has(Story.CHAPTERS[i].id):
+			return true
+	return false
 
 
 ## Start chapter `index` for a crew at step `first` (tests start part-way through).
@@ -278,6 +292,9 @@ func _enter_step(crew: int) -> void:
 		Story.Step.HULK, Story.Step.GHOST, Story.Step.LANTERNS, Story.Step.GAMBIT, Story.Step.RISEN, \
 				Story.Step.CRIPPLE, Story.Step.ADMIRAL:
 			act4.enter(crew, step)
+		Story.Step.ASHEN, Story.Step.OCASO, Story.Step.BEACONS, Story.Step.ASH_FLAGSHIP, Story.Step.COLOSSUS, \
+				Story.Step.ASH_DUEL, Story.Step.HEART:
+			act5.enter(crew, step)
 
 
 func _enter_read(crew: int, step: Dictionary) -> void:
@@ -676,9 +693,22 @@ func _enter_gather(crew: int, step: Dictionary) -> void:
 				m.items.append(crate.id)
 		"pier":
 			m.islands = [Islands.outpost_index()]
-			var crate := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, Outpost.cargo_spot(0), 0)
-			crate.variant = Missions.HUESO
-			m.items.append(crate.id)
+			if step.item == "saltshot_crates":
+				# Act V: Quill's saltshot, for the crews loading at the battery.
+				for n in int(step.count):
+					var salt := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, Outpost.cargo_spot(n), 0)
+					salt.variant = Missions.SALT
+					m.items.append(salt.id)
+			else:
+				var crate := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, Outpost.cargo_spot(0), 0)
+				crate.variant = Missions.HUESO
+				m.items.append(crate.id)
+		"wren":
+			# Act V: Wren's own lantern, set down by her door.
+			m.islands = [Islands.outpost_index(), 7]
+			var at := Outpost.mystic_spot() + Vector3(0.8, 0.05, 0.6)
+			at.y = Islands.ground_at(Islands.outpost_index(), at.x, at.z) + 0.05
+			m.items.append(sim._new_item(Loot.Kind.LANTERN, Loot.State.GROUND, at, 0).id)
 		"tavern":
 			m.islands = [Islands.outpost_index()]
 			var kind: int = {"oil": Loot.Kind.OIL, "barricade": Loot.Kind.BARRICADE}[step.item]
@@ -740,6 +770,8 @@ static func give_spot(to: String) -> Vector3:
 	match to:
 		"lamp":
 			return Outpost.gallery_spot()
+		"reef_edge":
+			return StoryAct5.reef_edge()
 		"battery":
 			return Outpost.battery_centre()
 		"pier":
@@ -749,6 +781,8 @@ static func give_spot(to: String) -> Vector3:
 
 ## E with a chapter's coconut, planks or crate, at whoever (or wherever) wants it.
 func give(id: int, r: Dictionary) -> void:
+	if act5.throw_heart(id, r):
+		return
 	var m := _mission_of(r.crew)
 	if m.is_empty() or r.carry < 0 or not m.items.has(r.carry) or r.mode != LocalPlayer.Mode.WORLD:
 		return
@@ -1443,6 +1477,8 @@ func _finish(crew: int) -> void:
 	sim._tell_crew(crew, "Chapter done: %s" % ch.title)
 	if str(ch.get("shared", "")) == "reef":
 		act4.share_battle(crew)
+	elif str(ch.get("shared", "")) == "end":
+		act5.share_end(crew)
 	elif ch.get("shared", false):
 		# The call to arms: everyone who came to Merrow's aid shares in it.
 		var merrow := Outpost.spec()
@@ -1546,7 +1582,7 @@ func scoop(r: Dictionary) -> void:
 ## E at a green fire (or bonfire) with a full bucket: it hisses out, or down a little.
 func douse(r: Dictionary, object_id: int) -> void:
 	var o: StoryObject = objects.get(object_id)
-	if o == null or o.kind not in [StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.LAMP] or o.state <= 0 or not r.bucket:
+	if o == null or o.kind not in [StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.LAMP, StoryObject.Kind.BRAZIER] or o.state <= 0 or not r.bucket:
 		return
 	var reach := DOUSE_REACH + (2.0 if o.kind == StoryObject.Kind.BONFIRE else 0.0)
 	if r.mode != LocalPlayer.Mode.WORLD or r.pos.distance_to(o.pos) > reach + 1.0:
@@ -1560,6 +1596,9 @@ func douse(r: Dictionary, object_id: int) -> void:
 	if m.is_empty():
 		return
 	print("[server] %s doused a green fire" % r.name)
+	if o.kind == StoryObject.Kind.BRAZIER:
+		act5.douse_brazier(o)
+		return
 	if o.kind == StoryObject.Kind.LAMP:
 		sim._tell_crew(o.crew, "The green fire in the lamp hisses out. Now the oil.")
 		_next_step(o.crew)
@@ -1707,6 +1746,7 @@ func splash(world: Vector3) -> void:
 ## Things that go on by themselves: fuses, the dead rising, bells, guns, bombs, dawn.
 func tick(dt: float) -> void:
 	act4.tick(dt)
+	act5.tick(dt)
 	for id in _fuses.keys():
 		if _fuses.has(id) and sim.time >= _fuses[id] and objects.has(id):
 			_explode(objects[id])
@@ -1854,9 +1894,11 @@ func on_skeleton_fell(sk: Skeleton) -> void:
 	var m := _mission_of(sk.story_crew)
 	if m.is_empty():
 		return
-	if (sk.sergeant or sk.bomber or sk.gideon or sk.sniper or sk.jailer or sk.admiral) and m.captain == sk.id:
+	if (sk.sergeant or sk.bomber or sk.gideon or sk.sniper or sk.jailer or sk.admiral or sk.doctor) and m.captain == sk.id:
 		var step := _step(m)
-		if sk.admiral:
+		if sk.ash:
+			act5.on_ash_admiral_fell(m, sk)
+		elif sk.admiral:
 			act4.on_admiral_fell(m)
 		print("[server] %s has fallen" % step.boss)
 		Net.send_message(0, "%s gives up!" % step.boss if sk.gideon else "%s has fallen!" % step.boss)
@@ -1971,7 +2013,7 @@ func on_ship_sunk(ship_id: int, at: Vector3) -> void:
 		if m.is_empty():
 			continue
 		var step := _step(m)
-		if act4.on_ship_sunk(c, m, step, ship_id):
+		if act4.on_ship_sunk(c, m, step, ship_id) or act5.on_ship_sunk(c, m, step, ship_id):
 			continue
 		if int(step.kind) == Story.Step.FERRY and ship_id == c and m.step >= 2 and str(Story.CHAPTERS[m.chapter].steps[m.step - 1].get("object", "")) == "hulk":
 			# Isabel lost again on the way home from the hulk: back to the fog for her.
@@ -2173,6 +2215,13 @@ func counts(m: Dictionary) -> Array:
 			return [m.ships.size() + int(step.galleons) - int(m.wave) if m.wave > 0 else 0, standing(m)]
 		Story.Step.CRIPPLE:
 			return [m.left, 0]
+		Story.Step.OCASO:
+			return [act5.lit_braziers(m).size(), standing(m)]
+		Story.Step.BEACONS:
+			return [act5.beacons_left(m), 0]
+		Story.Step.COLOSSUS:
+			var giant := act5.colossus(m)
+			return [4 - StoryAct5._broken(giant) if giant else 4, 0]
 	return [lit(m), standing(m)]
 
 

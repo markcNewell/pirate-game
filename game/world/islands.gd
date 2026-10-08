@@ -21,6 +21,8 @@ const LAYOUT: Array[Dictionary] = [
 	{"name": "the West Stack", "x": 605.0, "z": 564.0, "radius": 10.0, "seed": 71, "hill": false, "outpost": false, "stack": true, "story_only": true},
 	{"name": "the North Stack", "x": 816.0, "z": 465.0, "radius": 10.0, "seed": 73, "hill": false, "outpost": false, "stack": true, "story_only": true},
 	{"name": "the South Stack", "x": 842.0, "z": 763.0, "radius": 10.0, "seed": 79, "hill": false, "outpost": false, "stack": true, "story_only": true},
+	# Act V: the flat black rock beside the Maw where the Bone Colossus falls.
+	{"name": "the Anvil", "x": 715.0, "z": 655.0, "radius": 13.0, "seed": 83, "hill": false, "outpost": false, "stack": true, "anvil": true, "story_only": true},
 ]
 
 ## Ships stop this far outside the waterline (their draught reaches out under the beach).

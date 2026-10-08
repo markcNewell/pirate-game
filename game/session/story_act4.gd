@@ -580,20 +580,20 @@ func step_admiral(sk: Skeleton, dt: float) -> bool:
 		sk.lunge_left -= travel
 		for id in sim.players:
 			var r: Dictionary = sim.players[id]
-			if r.dead_until < 0.0 and r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == sk.frame and r.pos.distance_to(sk.pos) < 1.2 and id == sk.lunge_target:
+			if r.dead_until < 0.0 and _same_frame(r, sk) and sim._pos_in_frame(r, sk.frame).distance_to(sk.pos) < 1.2 and id == sk.lunge_target:
 				sim._hurt_player(id, LUNGE_DAMAGE, "the Raven Admiral's rapier")
 				sk.lunge_left = 0.0
 		if sk.lunge_left <= 0.0:
 			sk.lunge_at = -1.0
-			sk.next_lunge = sim.time + LUNGE_EVERY
+			sk.next_lunge = sim.time + (StoryAct5.ASH_LUNGE_EVERY if sk.ash else LUNGE_EVERY)
 		return true
 	if sim.time < sk.next_lunge:
 		return false
 	for id in sim.players:
 		var r: Dictionary = sim.players[id]
-		if r.dead_until >= 0.0 or r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != sk.frame:
+		if r.dead_until >= 0.0 or not _same_frame(r, sk):
 			continue
-		var off: Vector3 = r.pos - sk.pos
+		var off: Vector3 = sim._pos_in_frame(r, sk.frame) - sk.pos
 		if off.length() < LUNGE_RANGE:
 			sk.lunge_dir = Vector3(off.x, 0, off.z).normalized()
 			sk.lunge_left = LUNGE_DASH
@@ -604,6 +604,13 @@ func step_admiral(sk: Skeleton, dt: float) -> bool:
 			Net.send_event("lunge", [sk.id])
 			return true
 	return false
+
+
+## Is this pirate where the Admiral stands: on his deck, or (the Ash Admiral) ashore?
+static func _same_frame(r: Dictionary, sk: Skeleton) -> bool:
+	if sk.frame >= 0:
+		return r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == sk.frame
+	return r.mode == LocalPlayer.Mode.WORLD
 
 
 ## Does the Admiral parry a blade struck from `from` (his frame)?

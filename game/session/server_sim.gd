@@ -83,6 +83,7 @@ var stats := {
 	"galleons": 0, "blocked": 0, "given": 0, "broken": 0, "bells": 0, "gates": 0, "guns_silenced": 0,
 	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
+	"blinks": 0, "braziers": 0, "beacons": 0, "slams": 0, "throws": 0, "joint_hits": 0, "crumbled": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -620,6 +621,10 @@ func _step_projectiles() -> void:
 	for p in projectiles:
 		var age: float = time - p.t0
 		var pos := Ballistics.position(p.p0, p.v0, age)
+		if story.act5.projectile_hit(pos):
+			# The Bone Colossus's glowing joints (Act V).
+			Net.send_event("impact", [p.id, 2, pos.x, pos.y, pos.z, -1, time])
+			continue
 		if not _projectile_hits(p, pos, age, poses):
 			if age < Ballistics.LIFETIME:
 				p.prev = pos
@@ -883,12 +888,14 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			_eat(r)
 		"talk":
 			if arg >= 0 and arg < Story.PEOPLE_IDS.size():
-				if Story.PEOPLE_IDS[arg] == "martha":
+				if Story.PEOPLE_IDS[arg] == "martha" and not story.fresh_offer(r.crew, "martha"):
 					_open_shop(id, r)
 				else:
 					story.talk(id, r, Story.PEOPLE_IDS[arg])
 		"climb_light":
 			_climb_lighthouse(id, r, arg)
+		"light":
+			story.act5.light_beacon(id, r, arg)
 		"buy":
 			_buy(id, r, arg)
 		"wear":
@@ -941,6 +948,8 @@ func _take_station(id: int, r: Dictionary, station: int) -> void:
 func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
 	if r.mode != LocalPlayer.Mode.WORLD or (absi(side) != 1 and side != ShipShape.STERN_ROPE):
 		return
+	if r.carry >= 0 and items.has(r.carry) and items[r.carry].kind == Loot.Kind.HEART:
+		return  # the Heart is too heavy, and too hot, to climb with
 	var order: Array = ships.keys()
 	if ships.has(wanted):
 		order.erase(wanted)
@@ -1710,8 +1719,10 @@ func spawn_galleon(crew: int, distance: float, flag := 1, at := Vector3.INF) -> 
 		Vector3(-1.5, ShipShape.DECK_Y, -4.6), Vector3(1.8, ShipShape.DECK_Y, -0.2), Vector3(0, ShipShape.QUARTER_Y, 8.0),
 		Vector3(1.5, ShipShape.DECK_Y, -4.0), Vector3(-1.8, ShipShape.DECK_Y, 0.5),
 	]
-	for i in (StoryRun.GALLEON_CREW if flag == 1 else SHIP_SKELETONS):
-		_new_skeleton(id, spots[i % spots.size()]).spanish = flag == 1
+	for i in (StoryRun.GALLEON_CREW if flag in [1, 6] else SHIP_SKELETONS):
+		var dead := _new_skeleton(id, spots[i % spots.size()])
+		dead.spanish = flag in [1, 6]
+		dead.ashen = flag == 6
 	stats.galleons += 1
 	print("[server] a Spanish galleon %d sails at (%.0f, %.0f)" % [id, spot.x, spot.y])
 	Net.send_event("alarm", [])
@@ -1976,6 +1987,11 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 		elif target > 0:
 			var sk: Skeleton = skeletons[target]
 			var from := eye if sk.frame < 0 else ShipPhysics.pose_of(ships[sk.frame], time).affine_inverse() * eye
+			if sk.doctor and sk.shield_up:
+				# Ocaso, while any of his braziers burns: the blow passes through green fire.
+				stats.blocked += 1
+				Net.send_event("shield", [target, 1])
+				continue
 			if sk.admiral and weapon == Weapons.Kind.CUTLASS and StoryAct4.parries(sk, from):
 				# Steel rings on steel: strike him from the side or behind.
 				stats.parried += 1
@@ -2039,6 +2055,9 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 		xp = Progress.XP_BOSS
 	_award(attacker, xp, "felling a skeleton")
 	story.on_skeleton_fell(sk)
+	if sk.ashen or sk.ash or sk.doctor:
+		var at := _skeleton_world(sk)
+		Net.send_event("ash_burst", [at.x, at.y, at.z])
 	if sk.captain:
 		_drop_skull(sk)
 	if sk.home >= 0 and camps.has(sk.home):
