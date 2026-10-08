@@ -13,6 +13,14 @@ const GRIP := Vector3(0.3, -0.33, -0.52)
 const BASES := ["fp_idle", "fp_walk", "fp_idle_blade", "fp_walk_blade"]
 const SWOOSH_TIME := 0.36
 
+## The blade and gun we carry (the armoury): their meshes in the fist.
+func set_loadout(blade_i: int, gun_i: int) -> void:
+	if _cutlass:
+		_cutlass.mesh = Models.mesh(Weapons.blade(blade_i).mesh)
+	if _pistol:
+		_pistol.mesh = Models.mesh(Weapons.gun(gun_i).mesh)
+
+
 ## A cutlass, grip at the origin, blade forward along -Z (art/blender/props.py).
 static func cutlass_mesh() -> ArrayMesh:
 	return Models.mesh("cutlass")

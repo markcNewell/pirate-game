@@ -36,6 +36,7 @@ extends Node
 ##   brazier - Isla Ceniza: fill a bucket in the sea and douse Ocaso's braziers
 ##   beacon  - Every Hand: go ashore and light the island's beacon
 ##   giant   - The Bone Colossus: man a cannon and shoot at its lowest glowing joint
+##   armourer - go ashore at Port Merrow and buy a rapier and a blunderbuss at Martha's counter
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -147,6 +148,8 @@ func _physics_process(delta: float) -> void:
 			_beacon(input)
 		"giant":
 			_giant(input)
+		"armourer":
+			_armourer(input)
 
 
 func _process(_delta: float) -> void:
@@ -1399,3 +1402,27 @@ func _giant(input: PlayerInput) -> void:
 			_say("firing at the Colossus")
 			_phase = "firing"
 		input.fire = true
+
+
+func _armourer(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var at := Outpost.martha_pos()
+	if not _head_to(input, at, 2.2):
+		return
+	var to := at - _player.body.global_position
+	_player.yaw = atan2(-to.x, -to.z)
+	if not _every(1.0):
+		return
+	match _phase:
+		"act":
+			game.send_request("buy", Shop.index_of("blade1"))
+			_say("asked Martha for a rapier")
+			_phase = "rapier"
+		"rapier":
+			game.send_request("buy", Shop.index_of("gun1"))
+			_say("asked Martha for a blunderbuss")
+			_phase = "done"

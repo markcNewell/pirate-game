@@ -1,6 +1,7 @@
 # Milestone 14: The armoury
 
-Status: written 08-10-2026. It answers the story doc's open decision 1 with its default: weapons
+Status: built 09-10-2026, with `tests/smoke/armoury_test.sh` (test hooks `--gold`, `--blade`,
+`--gun`). It answers the story doc's open decision 1 with its default: weapons
 are **fair choices**, never upgrades (docs/specs/2026-10-08-story.md, "Decisions for Mark"). Every
 number below is Claude's default; change anything and the code follows.
 

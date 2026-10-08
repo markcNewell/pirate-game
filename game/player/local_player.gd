@@ -148,7 +148,7 @@ func _physics_process(delta: float) -> void:
 			_move_in_world(delta)
 		_interact(delta)
 		if input.fire and carry < 0 and _attack_ready <= 0.0:
-			_attack_ready = Weapons.CUTLASS_COOLDOWN if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_RELOAD
+			_attack_ready = Weapons.every(weapon, game.my_blade, game.my_gun)
 			weapon_view.attack()
 			Audio.play("swing" if weapon == Weapons.Kind.CUTLASS else "pistol", -3.0 if weapon == Weapons.Kind.CUTLASS else 0.0)
 			game.send_request("attack", weapon, [yaw, pitch])

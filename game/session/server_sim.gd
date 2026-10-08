@@ -128,6 +128,9 @@ func _init(options: Dictionary = {}) -> void:
 	options_level = clampi(int(options.get("rep", 1)), 1, Missions.MAX_LEVEL)
 	profiles = Profiles.new(str(options.get("profiles", "")), int(options.get("xp", 0)))
 	profiles.start_rep = (options_level - 1) * Missions.LEVEL_POINTS
+	profiles.start_gold = int(options.get("gold", 0))
+	profiles.start_blade = int(options.get("blade", 0))
+	profiles.start_gun = int(options.get("gun", 0))
 	story = StoryRun.new(self)
 	world = WorldEvents.new(self)
 	world.enabled = ai_enabled
@@ -1413,7 +1416,7 @@ func _award_crew(crew: int, xp: int, why: String) -> void:
 ## what they own].
 func _send_profile(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate()])
+	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate(), int(p.get("blade", 0)), int(p.get("gun", 0))])
 
 
 ## E at Big Martha's counter: her shop opens.
@@ -1431,7 +1434,7 @@ func _buy(id: int, r: Dictionary, i: int) -> void:
 		return
 	var p: Dictionary = r.profile
 	var key := Shop.key(i)
-	if not p.owned.has(key):
+	if not Shop.has(p, i):
 		var price: int = Shop.ITEMS[i][3]
 		if price <= 0:
 			Net.send_message(id, "Martha: \"That one's not mine to sell, love. Someone has to give it you.\"")
@@ -1454,11 +1457,18 @@ func _wear(id: int, r: Dictionary, i: int) -> void:
 		p.look = -1
 	elif i == -2:
 		p.dye = -1
-	elif i >= 0 and i < Shop.ITEMS.size() and p.owned.has(Shop.key(i)):
-		if Shop.ITEMS[i][0] == Shop.Kind.OUTFIT:
-			p.look = Shop.ITEMS[i][1]
-		else:
-			p.dye = Shop.ITEMS[i][1]
+	elif i >= 0 and i < Shop.ITEMS.size() and Shop.has(p, i):
+		match Shop.ITEMS[i][0]:
+			Shop.Kind.OUTFIT:
+				p.look = Shop.ITEMS[i][1]
+			Shop.Kind.DYE:
+				p.dye = Shop.ITEMS[i][1]
+			Shop.Kind.BLADE:
+				p.blade = Shop.ITEMS[i][1]
+				print("[server] %s carries the %s" % [r.name, Shop.ITEMS[i][2]])
+			Shop.Kind.GUN:
+				p.gun = Shop.ITEMS[i][1]
+				print("[server] %s carries the %s" % [r.name, Shop.ITEMS[i][2]])
 	else:
 		return
 	profiles.changed(r.name)
@@ -1475,7 +1485,7 @@ func _title_of(profile: Dictionary) -> String:
 ## What everyone sees over a pirate's head changed (or they joined): tell everyone.
 func _update_tag(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	tags[id] = [Progress.level(int(p.xp)), _title_of(p), int(p.look), int(p.dye)]
+	tags[id] = [Progress.level(int(p.xp)), _title_of(p), int(p.look), int(p.dye), int(p.get("blade", 0)), int(p.get("gun", 0))]
 	var flat := []
 	for pid in tags:
 		flat.append_array([pid] + tags[pid])
@@ -1948,7 +1958,10 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 	if look.size() != 2 or r.station >= 0 or r.carry >= 0 or time < r.next_attack - ATTACK_SLACK:
 		return
 	var weapon: int = r.weapon
-	r.next_attack = time + (Weapons.CUTLASS_COOLDOWN if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_RELOAD)
+	# The blade and gun this pirate carries (the armoury): fair choices, each with its own feel.
+	var blade := Weapons.blade(int(r.profile.get("blade", 0)))
+	var gun := Weapons.gun(int(r.profile.get("gun", 0)))
+	r.next_attack = time + Weapons.every(weapon, int(r.profile.get("blade", 0)), int(r.profile.get("gun", 0)))
 	var basis := Basis(Vector3.UP, float(look[0])) * Basis(Vector3.RIGHT, float(look[1]))
 	var dir := basis * Vector3.FORWARD
 	var eye := _world_pos(r) + Vector3.UP * Weapons.EYE_HEIGHT
@@ -1982,14 +1995,16 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 		ids.append(LANTERN_TARGET + int(g[0]))
 		feet.append(g[1] + Vector3(0, 2.6, 0))
 	Net.send_event("attack", [id, weapon])
-	var damage := Weapons.CUTLASS_DAMAGE if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_DAMAGE
+	var damage: int = blade.damage if weapon == Weapons.Kind.CUTLASS else gun.damage
 	var struck: Array[int] = []
 	if weapon == Weapons.Kind.CUTLASS:
-		struck = Weapons.cutlass_hits(eye, dir, feet)
+		struck = Weapons.cutlass_hits(eye, dir, feet, float(blade.reach), float(blade.half_arc))
 	else:
-		var i := Weapons.pistol_hit(eye, dir, feet)
-		if i >= 0:
-			struck.append(i)
+		# A ball, or a blunderbuss's spray of shot: every pellet that finds someone counts.
+		for d in Weapons.pellet_dirs(dir, int(gun.pellets), float(gun.spread)):
+			var i := Weapons.pistol_hit(eye, d, feet, float(gun.range))
+			if i >= 0:
+				struck.append(i)
 	for i in struck:
 		var target: int = ids[i]
 		if target >= LANTERN_TARGET:

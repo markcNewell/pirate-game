@@ -11,6 +11,10 @@ var dir := ""
 ## XP and standing every new profile starts with (test hooks).
 var start_xp := 0
 var start_rep := 0
+## Test hooks (--gold, --blade, --gun): what a new pirate starts with.
+var start_gold := 0
+var start_blade := 0
+var start_gun := 0
 var _profiles := {}  # key -> profile Dictionary
 var _dirty := {}  # key -> true
 var _save_at := -1.0
@@ -35,6 +39,7 @@ static func blank(player_name: String, token: String, xp := 0) -> Dictionary:
 	return {
 		"name": player_name, "token": token, "xp": xp, "gold": 0, "rep": [0, 0, 0],
 		"titles": [], "title": "", "chapters": [], "deeds": {}, "owned": [], "look": -1, "dye": -1,
+		"blade": 0, "gun": 0,
 	}
 
 
@@ -53,6 +58,9 @@ func get_or_make(player_name: String, token: String) -> Dictionary:
 	if p.is_empty():
 		p = blank(player_name, token, start_xp)
 		p.rep = [start_rep, start_rep, start_rep]
+		p.gold = start_gold
+		p.blade = start_blade
+		p.gun = start_gun
 		_profiles[key] = p
 		changed(player_name)
 	elif str(p.token) == "" and token != "":

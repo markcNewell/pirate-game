@@ -50,6 +50,9 @@ var tags := {}
 var my_index := 0
 var my_outfit := -1
 var my_dye := -1
+## The blade and gun we carry (Weapons.BLADES, Weapons.GUNS).
+var my_blade := 0
+var my_gun := 0
 var owned: Array = []
 ## The crew's mission (see _decode_mission; empty with none), as last heard. `voyage` is the
 ## next X still to dig on a treasure voyage ({island, x, z} or empty).
@@ -319,12 +322,13 @@ func client_on_roster(new_roster: Dictionary) -> void:
 func _make_avatar(id: int, index: int) -> void:
 	if avatars.has(id):
 		avatars[id].queue_free()
-	var t: Array = tags.get(id, [1, "", -1, -1])
+	var t: Array = tags.get(id, [1, "", -1, -1, 0, 0])
 	var avatar := Avatar.new(roster[id], index, t[2], t[3])
 	avatar.visible = false
 	add_child(avatar)
 	avatars[id] = avatar
 	avatar.set_tag(t[0], t[1])
+	avatar.set_loadout(t[4], t[5])
 
 
 func client_on_message(text: String) -> void:
@@ -349,6 +353,11 @@ func client_on_event(kind: String, data: Array) -> void:
 			my_outfit = int(data[7])
 			my_dye = int(data[8])
 			owned = data[9]
+			if data.size() > 11 and (int(data[10]) != my_blade or int(data[11]) != my_gun):
+				my_blade = int(data[10])
+				my_gun = int(data[11])
+				if local_player and local_player.weapon_view:
+					local_player.weapon_view.set_loadout(my_blade, my_gun)
 			if local_player and local_player.weapon_view:
 				local_player.weapon_view.set_sleeve(Shop.shirt_of(my_dye, my_index), Avatar.skin_for(my_index))
 		if world:
@@ -362,8 +371,8 @@ func client_on_event(kind: String, data: Array) -> void:
 	match kind:
 		"tags":
 			tags.clear()
-			for i in range(0, data.size() - 4, 5):
-				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2]), int(data[i + 3]), int(data[i + 4])]
+			for i in range(0, data.size() - 6, 7):
+				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2]), int(data[i + 3]), int(data[i + 4]), int(data[i + 5]), int(data[i + 6])]
 			for id in avatars.keys():
 				if not tags.has(id):
 					continue
@@ -373,6 +382,7 @@ func client_on_event(kind: String, data: Array) -> void:
 					# Dressed differently from Martha's: dress the figure again.
 					_make_avatar(id, a.index)
 				avatars[id].set_tag(t[0], t[1])
+				avatars[id].set_loadout(t[4], t[5])
 		"level":
 			if hud:
 				hud.level_up(int(data[0]), str(data[1]))

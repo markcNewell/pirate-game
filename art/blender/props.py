@@ -176,6 +176,72 @@ def cutlass():
     return kit.join("cutlass", parts)
 
 
+def rapier():
+    """A rapier held at the grip (origin), blade forward along -Z: a long, thin, straight blade, a
+    brass cup hilt with a swept bar, cross quillons, a wire-wrapped grip and a round pommel."""
+    parts = [kit.tube("blade", [(0.0, 0.0, -0.06), (0.0, 0.0, -0.6), (0.0, 0.0, -1.0)], [0.011, 0.008, 0.002], 4, STEEL)]
+    parts[0].scale = (0.45, 1.0, 1.0)
+    kit.transform_apply(parts[0])
+    parts.append(kit.lathe("cup", [(0.0, 0.0), (0.045, 0.004), (0.058, 0.03), (0.06, 0.04)], 18, BRASS, caps=False, centre=(0, 0, -0.1), axis="z"))
+    parts.append(kit.tube("quillons", [(-0.11, 0.0, -0.07), (0.0, 0.0, -0.065), (0.11, 0.0, -0.07)], 0.006, 6, BRASS))
+    bar = [(0.0, -0.05 - 0.015 * math.sin(t / 8 * math.pi), -0.07 + 0.14 * t / 8) for t in range(9)]
+    bar[-1] = (0.0, -0.01, 0.075)
+    parts.append(kit.tube("bar", bar, 0.005, 6, BRASS))
+    parts.append(kit.lathe("grip", [(0.0, -0.06), (0.015, -0.058), (0.016, 0.0), (0.015, 0.05), (0.0, 0.052)], 12, "3a3a42", axis="z"))
+    parts.append(kit.ellipsoid("pommel", (0, 0, 0.07), (0.022, 0.022, 0.022), BRASS, rings=8, sectors=12))
+    return kit.join("rapier", parts)
+
+
+def boarding_axe():
+    """A boarding axe held at the grip (origin), its haft forward along -Z: a short ash haft, a
+    broad bearded head at the end with its edge down, and a back spike."""
+    parts = [kit.tube("haft", [(0.0, 0.0, 0.08), (0.0, 0.0, -0.3), (0.0, 0.0, -0.5)], [0.019, 0.017, 0.018], 8, WOOD_DARK)]
+    head = kit.prism("head", [(-0.03, 0.03), (0.04, 0.03), (0.06, -0.03), (0.09, -0.16), (0.0, -0.13), (-0.03, -0.04)], 0.012, STEEL, centre=(0, 0.0, -0.47), plane="zy", bevel=0.003)
+    parts.append(head)
+    parts.append(kit.noink(kit.prism("edge", [(0.088, -0.16), (0.06, -0.03), (0.07, -0.03), (0.098, -0.15)], 0.013, "e8ecf0", centre=(0, 0.0, -0.47), plane="zy"), 0.2))
+    parts.append(kit.tube("spike", [(0.0, 0.03, -0.47), (0.0, 0.12, -0.46)], [0.012, 0.002], 5, STEEL_DARK))
+    for z in (-0.02, 0.04):
+        parts.append(kit.lathe("wrap", [(0.0, z - 0.012), (0.021, z - 0.01), (0.021, z + 0.01), (0.0, z + 0.012)], 10, LEATHER, axis="z"))
+    return kit.join("boarding_axe", parts)
+
+
+def blunderbuss():
+    """A blunderbuss held at the butt (origin), barrel forward along -Z, flaring to a brass bell."""
+    parts = []
+    by = 0.06
+    barrel = kit.lathe("barrel", [(0.0, -0.06), (0.02, -0.06), (0.02, -0.36), (0.032, -0.45), (0.05, -0.5), (0.05, -0.52), (0.0, -0.52)], 12, BRASS, centre=(0, by, 0), axis="z")
+    parts.append(barrel)
+    parts.append(kit.noink(kit.lathe("bore", [(0.0, -0.521), (0.04, -0.521), (0.04, -0.515), (0.0, -0.515)], 12, "121214", centre=(0, by, 0), axis="z"), 0.2))
+    stock = kit.tube("stock", [(0.0, by - 0.024, -0.34), (0.0, by - 0.028, -0.18), (0.0, by - 0.03, -0.05), (0.0, 0.01, 0.0), (0.0, -0.05, 0.05), (0.0, -0.1, 0.09)], [0.014, 0.018, 0.024, 0.028, 0.032, 0.036], 10, WOOD_DARK)
+    stock.scale = (0.8, 1.0, 1.0)
+    kit.transform_apply(stock)
+    parts.append(stock)
+    parts.append(kit.box("lockplate", (0.019, by - 0.01, -0.04), (0.006, 0.03, 0.08), "56565e", bevel=0.003))
+    parts.append(kit.tube("cock", [(0.022, by - 0.005, -0.005), (0.024, by + 0.022, -0.01), (0.022, by + 0.035, -0.026)], [0.006, 0.006, 0.005], 6, "56565e"))
+    guard = [(0.0, by - 0.03, -0.09), (0.0, by - 0.075, -0.075), (0.0, by - 0.082, -0.038), (0.0, by - 0.064, -0.006), (0.0, by - 0.036, 0.004)]
+    parts.append(kit.tube("guard", guard, 0.004, 6, BRASS))
+    return kit.join("blunderbuss", parts)
+
+
+def musket():
+    """A long musket held at the grip (origin), barrel forward along -Z: a long steel barrel, a full
+    wooden stock to the muzzle, brass bands, and a sling."""
+    parts = []
+    by = 0.05
+    parts.append(kit.lathe("barrel", [(0.0, 0.0), (0.016, 0.0), (0.013, -1.05), (0.0, -1.05)], 8, "3a3a42", centre=(0, by, 0), axis="z", smooth=False))
+    fore = kit.tube("forestock", [(0.0, by - 0.018, -0.02), (0.0, by - 0.018, -0.9)], [0.022, 0.018], 8, WOOD_DARK)
+    parts.append(fore)
+    butt = kit.tube("butt", [(0.0, by - 0.02, 0.0), (0.0, 0.0, 0.08), (0.0, -0.04, 0.3), (0.0, -0.07, 0.42)], [0.024, 0.026, 0.04, 0.05], 10, WOOD_DARK)
+    butt.scale = (0.7, 1.0, 1.0)
+    kit.transform_apply(butt)
+    parts.append(butt)
+    for z in (-0.3, -0.6, -0.88):
+        parts.append(kit.lathe("band", [(0.0, z - 0.008), (0.026, z - 0.008), (0.026, z + 0.008), (0.0, z + 0.008)], 10, BRASS, centre=(0, by - 0.01, 0), axis="z"))
+    parts.append(kit.tube("sling", [(0.0, by - 0.04, -0.6), (0.0, -0.09, -0.2), (0.0, -0.08, 0.25)], 0.006, 4, LEATHER, caps=False))
+    parts.append(kit.box("lockplate", (0.018, by - 0.01, -0.04), (0.006, 0.03, 0.08), "56565e", bevel=0.003))
+    return kit.join("musket", parts)
+
+
 def flintlock():
     """A flintlock pistol held at the butt (origin, in the fist), barrel forward along -Z."""
     parts = []
@@ -866,6 +932,10 @@ def main(names):
         "supply_barrel": supply_barrel,
         "cutlass": cutlass,
         "flintlock": flintlock,
+        "rapier": rapier,
+        "boarding_axe": boarding_axe,
+        "blunderbuss": blunderbuss,
+        "musket": musket,
     }
     for name in names or builders:
         kit.reset()

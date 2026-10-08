@@ -221,6 +221,12 @@ func _in_hand(bone: String, held: Node3D, side: float) -> Node3D:
 	return holder
 
 
+## The blade and gun this pirate carries (Weapons.BLADES, Weapons.GUNS), shown in the hand.
+func set_loadout(blade_i: int, gun_i: int) -> void:
+	(_cutlass.get_child(0) as MeshInstance3D).mesh = Models.mesh(Weapons.blade(blade_i).mesh)
+	(_pistol.get_child(0) as MeshInstance3D).mesh = Models.mesh(Weapons.gun(gun_i).mesh)
+
+
 func set_bucket(full: bool) -> void:
 	_bucket.visible = full
 	_tree.set("parameters/bucket/blend_amount", 1.0 if full and not _carrying else 0.0)

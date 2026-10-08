@@ -518,7 +518,7 @@ func _process(delta: float) -> void:
 		close_board()
 	_card.queue_redraw()
 	if _shop.visible:
-		if "%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.owned] != _shop_seen:
+		if "%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.owned] != _shop_seen:
 			_fill_shop()
 		if game.local_player.frame_position().distance_to(Outpost.martha_pos()) > Shop.REACH + 3.0 and game.local_player.mode == LocalPlayer.Mode.WORLD:
 			close_shop()
@@ -653,21 +653,21 @@ func close_shop() -> void:
 
 
 func _fill_shop() -> void:
-	_shop_seen = "%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.owned]
+	_shop_seen = "%d|%d|%d|%d|%d|%s" % [game.purse, game.my_outfit, game.my_dye, game.my_blade, game.my_gun, game.owned]
 	for child in _shop_box.get_children():
 		child.queue_free()
 	var title := _card_label("Big Martha's back room", 34, Color("5a3e22"))
 	title.add_theme_font_override("font", display_font())
 	_shop_box.add_child(title)
-	_shop_box.add_child(_card_label("Looks only: nothing here makes you stronger.   You have %d gold." % game.purse, 17, Color("2a1a10")))
+	_shop_box.add_child(_card_label("Looks and arms: nothing here makes you stronger.   You have %d gold." % game.purse, 17, Color("2a1a10")))
 	# Outfits and dyes side by side, so the counter fits on the screen.
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 36)
 	_shop_box.add_child(columns)
-	for kind: int in [Shop.Kind.OUTFIT, Shop.Kind.DYE]:
+	for kind: int in [Shop.Kind.OUTFIT, Shop.Kind.DYE, Shop.Kind.BLADE]:
 		var column := VBoxContainer.new()
 		columns.add_child(column)
-		column.add_child(_card_label("Outfits" if kind == Shop.Kind.OUTFIT else "Shirt dyes", 22, Color("8a2a1a")))
+		column.add_child(_card_label(["Outfits", "Shirt dyes", "Arms (fair swaps, not upgrades)"][kind], 22, Color("8a2a1a")))
 		var grid := GridContainer.new()
 		grid.columns = 3
 		grid.add_theme_constant_override("h_separation", 12)
@@ -675,20 +675,24 @@ func _fill_shop() -> void:
 		column.add_child(grid)
 		for i in Shop.ITEMS.size():
 			var item: Array = Shop.ITEMS[i]
-			if item[0] != kind:
+			# The arms column holds both hands: blades, then guns.
+			if item[0] != kind and not (kind == Shop.Kind.BLADE and item[0] == Shop.Kind.GUN):
 				continue
 			var name := _card_label(item[2], 17, Color("2a1a10"))
 			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			name.custom_minimum_size = Vector2(240 if kind == Shop.Kind.OUTFIT else 110, 0)
+			name.custom_minimum_size = Vector2([240, 110, 170][kind], 0)
 			if kind == Shop.Kind.DYE:
 				name.add_theme_color_override("font_color", Shop.DYES[item[1]].darkened(0.35))
 			grid.add_child(name)
-			var own := game.owned.has(Shop.key(i))
-			var wearing: bool = (game.my_outfit if kind == Shop.Kind.OUTFIT else game.my_dye) == item[1]
+			var own := Shop.has({"owned": game.owned}, i)
+			var arms: bool = item[0] in [Shop.Kind.BLADE, Shop.Kind.GUN]
+			var current: int = [game.my_outfit, game.my_dye, game.my_blade, game.my_gun][item[0]]
+			var wearing: bool = current == item[1]
 			var gift: bool = item[3] <= 0
-			grid.add_child(_card_label("wearing" if wearing else ("owned" if own else ("a gift" if gift else "%d gold" % item[3])), 16, Color("5a3e22")))
+			var now := ("carried" if arms else "wearing") if wearing else ("owned" if own else ("a gift" if gift else "%d gold" % item[3]))
+			grid.add_child(_card_label(now, 16, Color("5a3e22")))
 			var button := Button.new()
-			button.text = "Wear" if own else ("-" if gift else "Buy")
+			button.text = ("Carry" if arms else "Wear") if own else ("-" if gift else "Buy")
 			button.disabled = wearing or (not own and (gift or game.purse < item[3]))
 			button.custom_minimum_size = Vector2(80, 0)
 			button.pressed.connect(func() -> void:
@@ -1353,7 +1357,7 @@ class Health:
 		Hud.panel(self, Rect2(Vector2(-14, -6), size + Vector2(28, 10)))
 		var bar := Rect2(Vector2(0, 22), Vector2(size.x, 14))
 		Hud.bar(self, bar, lp.hp / 100.0, Color("e04a3a") if lp.hp < 35 else Color("63c25a"))
-		var names := ["1 cutlass", "2 pistol"]
+		var names := ["1 " + str(Weapons.blade(hud.game.my_blade).name).to_lower(), "2 " + str(Weapons.gun(hud.game.my_gun).name).to_lower().replace("flintlock ", "")]
 		for i in 2:
 			var col := Toon.color("stripe") if lp.weapon == i else Color(PAPER, 0.6)
 			draw_string(font, Vector2(i * size.x * 0.5, 14), names[i], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.5, 18, col)

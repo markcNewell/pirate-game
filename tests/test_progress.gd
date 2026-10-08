@@ -135,7 +135,7 @@ func test_level_up_titles_the_pirate() -> void:
 	sim._award(1, Progress.xp_for(5), "a test")
 	check_eq(Progress.level(sim.players[1].profile.xp), 5)
 	check_eq(sim.players[1].profile.title, "Powder Monkey")
-	check_eq(sim.tags[1], [5, "Powder Monkey", -1, -1], "everyone sees it")
+	check_eq(sim.tags[1], [5, "Powder Monkey", -1, -1, 0, 0], "everyone sees it")
 	check_eq(sim.stats.levels, 1)
 
 
@@ -171,4 +171,4 @@ func test_martha_sells_looks_not_power() -> void:
 	check(not r.profile.owned.has("outfit8"), "Martha won't sell Silas's cap")
 	check_eq(r.profile.gold, 99999, "nor take gold for it")
 	for i in Shop.ITEMS.size():
-		check(Shop.ITEMS[i][3] > 0 or Shop.key(i) in ["outfit8", "outfit9"], "%s has a price" % Shop.ITEMS[i][2])
+		check(Shop.ITEMS[i][3] > 0 or Shop.key(i) in ["outfit8", "outfit9", "blade0", "gun0"], "%s has a price" % Shop.ITEMS[i][2])
