@@ -881,6 +881,11 @@ func _lights(input: PlayerInput) -> void:
 	if _phase == "act":
 		_say("read the journal")
 		_phase = "fire"
+	# The dead that climb out of the fires: see them off before going on.
+	var close := _nearest_skeleton(-1, p)
+	if close and close.pos.distance_to(p) < 3.5:
+		_fight(input, close, p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+		return
 	var fire := _story_object(StoryObject.Kind.FIRE, true)
 	if fire == null:
 		fire = _story_object(StoryObject.Kind.BONFIRE, true)

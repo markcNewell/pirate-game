@@ -25,6 +25,12 @@ var reload_scale := 1.0
 var fleeing := false
 ## Scales the deliberate aiming error (0 = perfect aim, for tests).
 var error_scale := 1.0
+## A patrol (world events): sail round these points in turn, leaving crews alone unless one
+## comes within `aggro_range` (0: never fight, as a convoy runs for port), then hunt it.
+var waypoints: Array[Vector2] = []
+var aggro_range := -1.0
+var hostile := false
+var _waypoint := 0
 var _patch_timer := 0.0
 
 
@@ -46,7 +52,21 @@ func think(
 	var pos := Vector2(me.x, me.z)
 	var desired := me.yaw
 	var sail := 0.5
-	if fleeing and target != null and not target.is_sinking():
+	if not waypoints.is_empty() and not hostile:
+		if target != null and aggro_range > 0.0 and pos.distance_to(Vector2(target.x, target.z)) < aggro_range:
+			hostile = true
+		else:
+			# On her rounds: the next point, then the one after.
+			var to := waypoints[_waypoint % waypoints.size()]
+			if pos.distance_to(to) < 40.0:
+				_waypoint += 1
+				to = waypoints[_waypoint % waypoints.size()]
+			desired = bearing(pos, to)
+			sail = 0.75
+			target = null
+	if target == null:
+		pass
+	elif fleeing and target != null and not target.is_sinking():
 		desired = bearing(Vector2(target.x, target.z), pos)
 		sail = 0.75
 	elif target != null and not target.is_sinking():

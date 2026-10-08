@@ -66,6 +66,8 @@ var profiles: Profiles
 var tags := {}
 ## The story's chapters as they run (StoryRun), and what they put in the world.
 var story: StoryRun
+## World events for every crew (WorldEvents).
+var world: WorldEvents
 ## The crew whose cannonball last struck each ship (for the XP when it sinks).
 var _last_hit_by := {}
 ## When each pirate last earned XP for knocking down each other pirate: "a:b" -> time.
@@ -84,6 +86,7 @@ var stats := {
 	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
 	"blinks": 0, "braziers": 0, "beacons": 0, "slams": 0, "throws": 0, "joint_hits": 0, "crumbled": 0,
+	"world_events": 0, "world_won": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -126,6 +129,8 @@ func _init(options: Dictionary = {}) -> void:
 	profiles = Profiles.new(str(options.get("profiles", "")), int(options.get("xp", 0)))
 	profiles.start_rep = (options_level - 1) * Missions.LEVEL_POINTS
 	story = StoryRun.new(self)
+	world = WorldEvents.new(self)
+	world.enabled = ai_enabled
 	_ensure_crew(CREW)
 	# Test hook: where the crew's ship starts (before any chapter, which may place things by it).
 	if options.has("start-near"):
@@ -155,6 +160,11 @@ func _init(options: Dictionary = {}) -> void:
 					items[id].ship = CREW
 					items[id].pos = Vector3(-1.2 + 1.0 * k, ShipShape.DECK_Y, -2.2)
 					k += 1
+	if options.has("event"):
+		# Test hook: a world event at once (green_fire, patrol, convoy, raid).
+		var which: int = {"green_fire": WorldEvents.Kind.GREEN_FIRE, "patrol": WorldEvents.Kind.PATROL, "convoy": WorldEvents.Kind.CONVOY, "raid": WorldEvents.Kind.RAID}.get(str(options.event), WorldEvents.Kind.NONE)
+		if which != WorldEvents.Kind.NONE:
+			world.start(which, Vector3(crew_ship().x, 0, crew_ship().z))
 	if options.has("test-boarding"):
 		_spawn_passive_skeleton_ship()
 	if options.has("test-chest"):
@@ -239,6 +249,7 @@ func tick(dt: float) -> void:
 	time += dt
 	profiles.tick(time)
 	story.tick(dt)
+	world.tick(dt)
 	var wind := Game.wind_dir(time)
 	_maybe_spawn_skeleton()
 	_maybe_respawn_crews()
@@ -518,6 +529,7 @@ func _handle_sinking() -> void:
 			_evacuated[id] = true
 			_evacuate(id)
 			story.on_ship_sunk(id, Vector3(s.x, 0.0, s.z))
+			world.on_ship_sunk(id, Vector3(s.x, 0.0, s.z))
 			if _last_hit_by.has(id) and crews.has(_last_hit_by[id]):
 				var xp := Progress.XP_PLAYER_SHIP if crews.has(id) else (Progress.XP_GALLEON if s.flag == 1 else Progress.XP_SKELETON_SHIP)
 				_award_crew(_last_hit_by[id], xp, "sinking a ship")

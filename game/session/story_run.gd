@@ -171,6 +171,19 @@ func talk(id: int, r: Dictionary, who: String) -> void:
 	start(r.crew, i)
 
 
+## A story thing that belongs to no crew (a world event's green fire): anyone may douse it.
+func add_world_object(kind: int, pos: Vector3, yaw: float) -> StoryObject:
+	var o := StoryObject.new()
+	o.id = _next_object
+	_next_object += 1
+	o.kind = kind
+	o.pos = pos
+	o.yaw = yaw
+	o.crew = 0
+	objects[o.id] = o
+	return o
+
+
 ## Has `who` a chapter for this crew that someone aboard hasn't done (Martha's party)?
 func fresh_offer(crew: int, who: String) -> bool:
 	var i := Story.offered_by(who, done_lists(crew))

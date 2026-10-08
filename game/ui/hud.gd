@@ -71,6 +71,7 @@ var _ghost: Label
 var _veil: ColorRect
 ## Linnet's lantern in your eyes: the screen goes white and slowly clears.
 var _blind: ColorRect
+var _world_line: Label
 var _ring: HoldRing
 var _help: PanelContainer
 var _help_hint: Label
@@ -256,6 +257,18 @@ func _ready() -> void:
 	_level.offset_top = 80
 	_level.offset_bottom = 124
 	root.add_child(_level)
+
+	# The world event under way, if any: one line at the top right, under the purse.
+	_world_line = _label(18)
+	_world_line.add_theme_color_override("font_color", Color("9cff8a"))
+	_world_line.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_world_line.offset_left = -520
+	_world_line.offset_right = -24
+	_world_line.offset_top = 150
+	_world_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_world_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_world_line.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	root.add_child(_world_line)
 
 	_level_banner = _label(44)
 	_level_banner.add_theme_font_override("font", display_font())
@@ -754,6 +767,11 @@ func _parchment_card() -> PanelContainer:
 
 func flash_damage() -> void:
 	_hurt.color.a = 0.35
+
+
+## A world event began ([name, what, x, z]) or ended ([]).
+func set_world_event(data: Array) -> void:
+	_world_line.text = "" if data.is_empty() else "World event: %s\n%s" % [data[0], data[1]]
 
 
 func blind() -> void:

@@ -430,6 +430,9 @@ func client_on_event(kind: String, data: Array) -> void:
 				var o: Node3D = _object_views[int(data[0])]
 				o.set_state(int(data[1]))
 				Audio.play_at("clang", o.global_position + Vector3.UP * 3.5, 0.0, 1.9 if int(data[1]) > 0 else 1.2)
+		"world_event":
+			if hud:
+				hud.set_world_event(data)
 		"blink":
 			# Ocaso vanishes in green fire and appears by another brazier.
 			for k in 2:
