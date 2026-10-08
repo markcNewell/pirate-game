@@ -633,9 +633,20 @@ func _seller(input: PlayerInput) -> void:
 			if _player.mode == LocalPlayer.Mode.WORLD:
 				_say("overboard with the chest, heading for the merchant")
 				_phase = "to_merchant"
+				_waypoints.clear()
+				if _selling == Loot.Kind.SKULL:
+					# Wren is round the far side of the pier from the anchorage: swim round its end
+					# rather than into its posts.
+					var c := Outpost._centre()
+					var tip: float = Outpost.spec().radius + Outpost.PIER_END + 6.0
+					_waypoints = [c + Vector3(tip, 0, 5.0), c + Vector3(tip, 0, -5.0)]
 				return
 			_go_overboard(input)
 		"to_merchant":
+			if not _waypoints.is_empty() and _player.carry >= 0:
+				if _head_to(input, _waypoints[0], 2.5):
+					_waypoints.pop_front()
+				return
 			if _player.carry < 0:
 				_say("sold the %s, gold %d" % ["skull" if _selling == Loot.Kind.SKULL else "chest", game.purse])
 				var c := Outpost._centre()

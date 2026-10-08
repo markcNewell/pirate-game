@@ -1173,14 +1173,17 @@ func _jump_to_chapter() -> void:
 		return
 	var islands: Array = m.get("islands", [])
 	var at := Vector3.INF
+	var look := Vector2(Reef.CENTRE)
 	if not islands.is_empty() and int(islands[0]) != Islands.outpost_index():
 		at = _anchorage(int(islands[0]))
+		look = _island_xz(str(islands[0]))
 	elif islands.is_empty() and int(Story.CHAPTERS[m.chapter].act) >= 4:
 		at = Vector3(Reef.CENTRE.x - 210.0, 0.0, Reef.CENTRE.y)
 	if at == Vector3.INF:
 		return
 	crew_ship().x = at.x
 	crew_ship().z = at.z
+	crew_ship().yaw = Captain.bearing(Vector2(at.x, at.z), look)
 	print("[server] play-test: the ship starts at (%.0f, %.0f) for chapter %s" % [at.x, at.z, Story.CHAPTERS[m.chapter].id])
 
 

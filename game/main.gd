@@ -20,6 +20,7 @@ extends Node
 ##   --whale                  a whale surfaces ahead straight away, for screenshots
 ##   --model-sheet NAME       render a contact sheet of a Blender model (see tools/model_sheet.sh)
 ##   --no-save                server: keep pirate profiles in memory only (tests)
+##   --play-test CHAPTER      host or server: start at that chapter as the title screen's Play-test does
 ##   --profiles DIR           server: where pirate profiles are kept (default user://profiles)
 ##   --xp N                   server: every new pirate starts with N XP
 ##   --chapter ID             server: the first crew starts on story chapter ID (e.g. p1), at
@@ -36,6 +37,10 @@ func _ready() -> void:
 	PlayerInput.register_actions()
 	Settings.load_saved()
 	_args = _parse(OS.get_cmdline_user_args())
+	if _args.has("play-test"):
+		# The title screen's play-test from the command line: --play-test CHAPTER (flags given
+		# as well win).
+		_args.merge(PlayTest.options_for(str(_args["play-test"]), int(_args.get("gold", 0)), str(_args.get("event", ""))), false)
 	Net.options = _args
 	if _args.has("time"):
 		Daylight.override = float(_args.time)
