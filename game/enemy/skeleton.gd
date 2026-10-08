@@ -49,8 +49,13 @@ var digging := false
 ## it aside until server time `shield_down_until`.
 var sergeant := false
 var shield_up := false
-## Not a skeleton at all: a crab (the tales), small, quick and running from you.
+## Not a skeleton at all: a crab (the tales), small, quick and running from you; or Fat Gideon
+## the smuggler, a living man who runs and gives up when beaten.
 var crab := false
+var gideon := false
+## El Polvorín, the fort's gunner: throws bombs.
+var bomber := false
+var next_bomb := 0.0
 var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
@@ -64,6 +69,15 @@ func make_sergeant() -> void:
 	hp = 300
 	damage = 35
 	swing_cooldown = 2.0
+
+
+## Make this skeleton El Polvorín: huge, slow, and lobbing bombs.
+func make_bomber() -> void:
+	bomber = true
+	spanish = true
+	hp = 350
+	damage = 30
+	swing_cooldown = 2.2
 
 
 ## Make this skeleton a bounty's captain.
@@ -85,6 +99,10 @@ func to_array() -> Array:
 
 ## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
 func look_code() -> int:
+	if bomber:
+		return 6
+	if gideon:
+		return 5
 	if crab:
 		return 4
 	if sergeant:
@@ -122,6 +140,8 @@ static func from_array(a: Array) -> Skeleton:
 	s.digger = look == 2
 	s.sergeant = look == 3
 	s.crab = look == 4
+	s.gideon = look == 5
+	s.bomber = look == 6
 	s.holding = int(a[10]) if a.size() > 10 else -1
 	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s

@@ -4,7 +4,10 @@ extends RefCounted
 ## chapters as data. Each chapter is a list of steps of a few kinds; ServerSim runs them, the
 ## HUD describes them. Pure data and rules, the same on every machine.
 
-enum Step { TALK, READ, DOUSE, BOUNTY, DIG_RACE, SALT, KEGS, SINK, VIGIL, BONFIRE, BOSS, CHASE, GATHER }
+enum Step {
+	TALK, READ, DOUSE, BOUNTY, DIG_RACE, SALT, KEGS, SINK, VIGIL, BONFIRE, BOSS, CHASE, GATHER,
+	RESCUE, FERRY, DIVE, CONVOY, BELLS, ASK, SEARCH, BREACH, USE,
+}
 
 ## Who you can talk to. `where` names the Outpost function giving where they stand.
 const PEOPLE := {
@@ -13,9 +16,10 @@ const PEOPLE := {
 	"silas": {"name": "Silas Penny", "what": "the Gilded Hand"},
 	"quill": {"name": "Abel Quill", "what": "the Merrow Traders"},
 	"jonah": {"name": "Jonah Salt", "what": "a castaway trader, visiting"},
+	"isabel": {"name": "Isabel Montero", "what": "a Spanish deserter, at the tavern"},
 }
 ## The order the people are numbered in over the network.
-const PEOPLE_IDS: Array[String] = ["moll", "wren", "silas", "quill", "jonah"]
+const PEOPLE_IDS: Array[String] = ["moll", "wren", "silas", "quill", "jonah", "isabel"]
 const TALK_REACH := 3.2
 ## What each says when they have no chapter for you.
 const CHATTER := {
@@ -24,6 +28,7 @@ const CHATTER := {
 	"silas": ["Silas Penny", "Gold's gold, friend. Bring me chests and I'll give you coin for them."],
 	"quill": ["Abel Quill", "Cargo on time, crates kept dry, and the ledger balances. That's all I ask."],
 	"jonah": ["Jonah Salt", "Captain Coco says hello. He doesn't say much else. He's a coconut."],
+	"isabel": ["Isabel Montero", "Martha's rum is terrible. I am drinking it anyway. Come back when you are ready to hurt the Admiral."],
 }
 ## What a giver says when their chapter wants the night.
 const WAIT_FOR_DUSK := "Not in daylight. Come back to me when the sun is down."
@@ -164,6 +169,108 @@ const CHAPTERS: Array[Dictionary] = [
 			]},
 		],
 	},
+	# --- Act II: The Raven's Due (pirate level 5) ---
+	{
+		"id": "b1", "act": 2, "title": "A Deserter at Dawn", "giver": "moll", "xp": 500, "gold": 200,
+		"intro": [
+			"Moll Tinder", "A rowing boat, adrift off Cutlass Cay. Someone in it, waving. And a skeleton ship coming up behind.",
+			"Moll Tinder", "Whoever it is, the dead want them badly. Get there first and bring them here.",
+		],
+		"steps": [
+			{"kind": Step.RESCUE, "at": Vector3(120.0, 0.0, -330.0)},
+			{"kind": Step.FERRY, "lines": [
+				"Isabel Montero", "Teniente Isabel Montero, marines of the San Telmo. Or I was, until this morning.",
+				"Isabel Montero", "Thank you. I will be at the tavern, drinking whatever they have. Come and find me: you will want to hear what I know.",
+			]},
+		],
+	},
+	{
+		"id": "b2", "act": 2, "title": "The Admiral's Story", "giver": "isabel", "xp": 500, "gold": 150,
+		"intro": [
+			"Isabel Montero", "Thirty years ago the Silver Fleet anchored on the Black Reef to pull something out of the sea. A stone heart, burning green.",
+			"Isabel Montero", "That night a hurricane came out of nowhere and sank all twelve ships. One boy lived, clinging to the Heart's chest. Alonso de Cuervo.",
+			"Isabel Montero", "He came back an Admiral, with the King's alchemist, Doctor Ocaso. The Doctor feeds the Heart gold, and the dead get up and obey.",
+			"Isabel Montero", "My captain refused to dig up graves. Cuervo shot him, and the Doctor raised him. I ran.",
+			"Isabel Montero", "His logbook went down with the San Telmo, off Gull Isle's arch. It has the fort's soundings in it. I need it.",
+		],
+		"steps": [
+			{"kind": Step.DIVE, "at": Vector3(-282.0, 0.0, 167.0), "title": "The San Telmo's log", "text":
+				"Capitán Rodrigo Vela, San Telmo.\n\nThe Admiral keeps his gold at Fuerte del Cuervo, and his Heart aboard the Cuervo Negro, never ashore.\n\nThe fort's gate faces west. The powder is kept outside it, which is madness; I have said so.\n\nTonight he has ordered me to dig. I will not. God keep my crew."},
+			{"kind": Step.TALK, "who": "isabel", "lines": [
+				"Isabel Montero", "Rodrigo. Stubborn to the end.",
+				"Isabel Montero", "The gold goes to the fort. If you want to hurt Cuervo, stop the gold first. Silas will help with that, I think.",
+			]},
+		],
+	},
+	{
+		"id": "b3", "act": 2, "title": "Starve the Fire", "giver": "silas", "xp": 600, "gold": 0,
+		"intro": [
+			"Silas Penny", "A convoy, Isabel says. A treasure galleon and two escorts, carrying every coin they've dug up to the fort.",
+			"Silas Penny", "Take it. Board her, or sink her and fish the chests out. Bring the gold to me and I'll pay you its worth and then some.",
+		],
+		"steps": [
+			{"kind": Step.CONVOY, "chests": 3, "to": "silas", "lines": [
+				"Silas Penny", "Look at that. Spanish gold, in my strongbox, where it can't feed anything.",
+				"Silas Penny", "Mother Wren's been asking after you. Something about bells.",
+			]},
+		],
+	},
+	{
+		"id": "b4", "act": 2, "title": "The Drowned Bells", "giver": "wren", "xp": 550, "gold": 150,
+		"intro": [
+			"Mother Wren", "Do you hear them? Bells. Green bronze, hung where the dead can hear.",
+			"Mother Wren", "Three of them: Parrot Rock, Gull Isle, Cutlass Cay. Every ring raises more. Shoot them down.",
+		],
+		"steps": [
+			{"kind": Step.BELLS, "islands": [1, 2, 0], "rise_every": 20.0, "rise": 2, "max_up": 6, "lines": [
+				"Mother Wren", "Quiet. Thank you. Quill has a worry too, I think. Something about his ledger.",
+			]},
+		],
+	},
+	{
+		"id": "b5", "act": 2, "title": "Spies in Merrow", "giver": "quill", "xp": 550, "gold": 200,
+		"intro": [
+			"Abel Quill", "Salt is going missing from my pier. Not a lot. Exactly one crate a night. The ledger does not lie.",
+			"Abel Quill", "Somebody in Merrow is selling to the Spanish. Ask about. Jonah, Moll and Silas see everything that moves.",
+		],
+		"steps": [
+			{"kind": Step.ASK, "who": ["jonah", "moll", "silas"], "lines": {
+				"jonah": ["Jonah Salt", "A man rowed out from the pier at midnight with a crate. Fat fellow. Captain Coco didn't like the look of him."],
+				"moll": ["Moll Tinder", "Lights on Gull Isle's south cove last night. Not green. A lantern, and a rowing boat."],
+				"silas": ["Silas Penny", "Fat Gideon's been spending Spanish silver in the tavern. Silver with a bird on it."],
+			}},
+			{"kind": Step.SEARCH, "crates": 3, "title": "A raven coin", "text":
+				"Under the salt, wrapped in oilcloth: a silver coin stamped with a raven, and a note in a bad hand.\n\n'Gideon. One crate a night to the south cove of Gull Isle. They pay in silver.'"},
+			{"kind": Step.BOSS, "island": 2, "boss": "Fat Gideon", "where": "cove", "guards": 3, "lines": [
+				"Fat Gideon", "All right! All right! I give up! They paid well, and they never tried to eat me. Mostly.",
+				"Fat Gideon", "The fort. Fuerte del Cuervo. That's where the salt goes, for the walls. The dead don't like to cross salt.",
+			]},
+			{"kind": Step.TALK, "who": "quill", "lines": [
+				"Abel Quill", "Gideon. I should have known. He always paid his bar tab in cash.",
+				"Abel Quill", "Isabel will want to hear about the fort. I believe she has plans.",
+			]},
+		],
+	},
+	{
+		"id": "b6", "act": 2, "title": "Fuerte del Cuervo", "giver": "isabel", "xp": 1000, "gold": 300, "reward": "Fort-Breaker",
+		"intro": [
+			"Isabel Montero", "The fort. Walls on a rock, two guns on the towers, a gate facing west, and the powder kept outside it. Rodrigo was right: madness.",
+			"Isabel Montero", "Blow the gate with their own powder. Inside, the gunner El Polvorín. He throws bombs. Keep moving.",
+			"Isabel Montero", "There are living men in the cells, sailors who said no to Cuervo. Let them out. And the vault... take it all.",
+		],
+		"steps": [
+			{"kind": Step.BREACH},
+			{"kind": Step.BOSS, "island": -1, "boss": "El Polvorín", "where": "fort", "guards": 5},
+			{"kind": Step.USE, "object": "cells", "lines": [
+				"Spanish sailor", "Teniente Montero sent you? God bless her. We'll take the boats. Tell her we're with her.",
+			]},
+			{"kind": Step.USE, "object": "vault"},
+			{"kind": Step.TALK, "who": "isabel", "lines": [
+				"Isabel Montero", "My men are free, and the Admiral's gold is in Silas's strongbox. You have done more in a night than Spain did in a year.",
+				"Isabel Montero", "But the vault told me something worse. The Heart is not at the fort. It is aboard the Cuervo Negro, and the fleet rises the night the storm sits on the Black Reef.",
+			]},
+		],
+	},
 	# --- Tales: side stories, each opening after the chapter in "after". ---
 	{
 		"id": "t1", "act": 0, "title": "Coconut Thieves", "giver": "jonah", "xp": 250, "gold": 50, "tale": "Captain Coco", "after": "p1",
@@ -265,6 +372,8 @@ static func person_pos(who: String) -> Vector3:
 			return Outpost.agent_pos()
 		"jonah":
 			return Outpost.jonah_pos()
+		"isabel":
+			return Outpost.isabel_pos()
 	return Vector3.ZERO
 
 
@@ -367,6 +476,24 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 			return "Fell the dead of the camp (%d left)" % standing
 		Step.BOSS:
 			return "Beat %s" % step.boss
+		Step.RESCUE:
+			return "Reach the drifting boat off Cutlass Cay and take its passenger aboard"
+		Step.FERRY:
+			return "Bring Isabel safely to Port Merrow"
+		Step.DIVE:
+			return "Dive at the San Telmo's wreck off Gull Isle (hold E over it)"
+		Step.CONVOY:
+			return "Take the convoy's gold to %s (%d chests left)" % [person_name(step.to), lit] if lit > 0 else "Take the convoy's gold to %s" % person_name(step.to)
+		Step.BELLS:
+			return "Shoot down the drowned bells (%d left)" % lit if lit > 0 else "Shoot down the drowned bells"
+		Step.ASK:
+			return "Ask Jonah, Moll and Silas what they saw (%d left)" % lit if lit > 0 else "Ask about Merrow"
+		Step.SEARCH:
+			return "Search the crates on Port Merrow's pier"
+		Step.BREACH:
+			return "Blow open the fort's gate (its powder is outside)"
+		Step.USE:
+			return "Free the prisoners in the cells" if step.object == "cells" else "Open the vault"
 		Step.CHASE:
 			return "Catch the crab with Captain Coco on %s and bring him to %s" % [Islands.LAYOUT[step.island].name, person_name(step.to)]
 		Step.GATHER:

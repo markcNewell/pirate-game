@@ -46,6 +46,11 @@ static func ground(spec: Dictionary, x: float, z: float) -> float:
 	if spec.hill:
 		var d := Vector2(x + 0.25 * radius, z - 0.3 * radius).length() / (0.4 * radius)
 		y = maxf(y, 0.25 * radius * (1.0 - d * d) - 1.0)
+	if spec.get("fort", false):
+		# A flat top for the fort, falling away in a steep rocky slope to the beach.
+		var rr := Vector2(x, z).length()
+		var top := Fort.PLATEAU_Y if rr < Fort.PLATEAU_R else lerpf(Fort.PLATEAU_Y, beach, clampf((rr - Fort.PLATEAU_R) / 5.0, 0.0, 1.0))
+		y = maxf(beach, top)
 	return y
 
 
@@ -69,10 +74,13 @@ static func build(spec: Dictionary) -> Dictionary:
 	_rocks(decor, solid, spec, rng)
 	_bushes(decor, spec, rng)
 	var fire: Variant = null
-	if not spec.get("outpost", false):
+	if not spec.get("outpost", false) and not spec.get("fort", false):
 		fire = _camp(decor, solid, spec, rng)
 		if spec.radius > 24.0:
 			_wreck(decor, solid, spec, rng)
+	if spec.get("fort", false):
+		for b: Array in Fort.boxes():
+			solid.box(b[0], b[1], Color.BLACK, Basis(Vector3.UP, -float(b[2])))
 	match spec.get("landmark", ""):
 		"arch":
 			_arch(decor, solid, spec, rng)
@@ -142,8 +150,10 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 
 
 ## Is island-local (x, z) on one of the story's sites, which grow no palms or bushes: the dig
-## camp and the powder store on Cutlass Cay, the old graveyard on Gull Isle?
+## camp and the powder store on Cutlass Cay, the old graveyard on Gull Isle, the fort's top?
 static func story_site(spec: Dictionary, x: float, z: float) -> bool:
+	if spec.get("fort", false):
+		return Vector2(x, z).length() < Fort.WALL_R + 3.0
 	var island := Islands.LAYOUT.find(spec)
 	if island < 0:
 		return false

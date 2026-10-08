@@ -11,6 +11,8 @@ const LAYOUT: Array[Dictionary] = [
 	{"name": "Parrot Rock", "x": 360.0, "z": -150.0, "radius": 26.0, "seed": 23, "hill": false, "outpost": false, "landmark": "stacks"},
 	{"name": "Gull Isle", "x": -300.0, "z": 140.0, "radius": 22.0, "seed": 37, "hill": false, "outpost": false, "landmark": "arch"},
 	{"name": "Port Merrow", "x": -380.0, "z": -300.0, "radius": 30.0, "seed": 41, "hill": false, "outpost": true},
+	# The Admiral's fort (story Act II): a flat-topped rock with Fuerte del Cuervo on it (Fort).
+	{"name": "Fuerte del Cuervo", "x": 330.0, "z": 380.0, "radius": 34.0, "seed": 53, "hill": false, "outpost": false, "fort": true},
 ]
 
 ## Ships stop this far outside the waterline (their draught reaches out under the beach).
@@ -66,7 +68,7 @@ static func trader_spot(index: int) -> Vector3:
 static func mission_islands() -> Array[int]:
 	var out: Array[int] = []
 	for i in LAYOUT.size():
-		if not LAYOUT[i].outpost:
+		if not LAYOUT[i].outpost and not LAYOUT[i].get("fort", false):
 			out.append(i)
 	return out
 

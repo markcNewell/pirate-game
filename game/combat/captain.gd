@@ -21,6 +21,8 @@ var rng := RandomNumberGenerator.new()
 ## A Spanish galleon bails this many times as fast and reloads this much faster.
 var bail_scale := 1.0
 var reload_scale := 1.0
+## A treasure galleon runs from the crews instead of fighting, at three quarters of the sail.
+var fleeing := false
 ## Scales the deliberate aiming error (0 = perfect aim, for tests).
 var error_scale := 1.0
 var _patch_timer := 0.0
@@ -44,7 +46,10 @@ func think(
 	var pos := Vector2(me.x, me.z)
 	var desired := me.yaw
 	var sail := 0.5
-	if target != null and not target.is_sinking():
+	if fleeing and target != null and not target.is_sinking():
+		desired = bearing(Vector2(target.x, target.z), pos)
+		sail = 0.75
+	elif target != null and not target.is_sinking():
 		var dist := pos.distance_to(Vector2(target.x, target.z))
 		var to_target := bearing(pos, Vector2(target.x, target.z))
 		if dist > APPROACH_RANGE:
@@ -76,6 +81,8 @@ func think(
 
 	if target == null or target.is_sinking():
 		return []
+	if fleeing:
+		return []  # a treasure galleon runs; her escorts do the shooting
 	return _guns(me, target, t)
 
 

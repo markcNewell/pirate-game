@@ -106,6 +106,12 @@ static func jonah_pos() -> Vector3:
 	return _centre() + Vector3(x, IslandMesh.ground(s, x, z), z)
 
 
+## Where Isabel Montero waits once she is ashore (world): outside the tavern door.
+static func isabel_pos() -> Vector3:
+	var p := tavern_point(Vector3(3.2, 0, -1.6))
+	return Vector3(p.x, IslandMesh.ground(spec(), p.x - spec().x, p.z - spec().z), p.z)
+
+
 ## Where Moll the keeper stands (world): at the foot of her lighthouse, on its seaward side.
 static func keeper_pos() -> Vector3:
 	var s := spec()

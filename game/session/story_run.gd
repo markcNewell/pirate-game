@@ -34,6 +34,25 @@ const GALLEON_CREW := 5
 const CRAB_FEAR := 9.0
 const CRAB_SPEED := 5.5
 const GIVE_REACH := 3.5
+const GIDEON_SPEED := 4.8
+## Act II: how near you must be to help Isabel from her boat, and how near Port Merrow counts
+## as arrived; diving; the fort's guns and El Polvorín's bombs.
+const RESCUE_REACH := 7.0
+const ARRIVE_MERROW := 60.0
+const DIVE_REACH := 5.0
+const DIVE_TIME := 5.0
+const GUN_RANGE := 260.0
+const GUN_RELOAD := 7.0
+const GUN_ERROR := 0.025
+const BOMB_RANGE := 25.0
+const BOMB_EVERY := 5.0
+const BOMB_FUSE := 2.2
+const USE_REACH := 3.0
+## Objects that stay put from step to step until the chapter ends.
+const PERSIST := [
+	StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.CAMP, StoryObject.Kind.GATE,
+	StoryObject.Kind.GUN, StoryObject.Kind.CELL, StoryObject.Kind.VAULT, StoryObject.Kind.BELL,
+]
 ## Night (time of day, 0 midnight .. 1): dusk when the sun sets, dawn when it rises.
 const DUSK := 0.78
 const DAWN := 0.24
@@ -43,6 +62,8 @@ var objects := {}  # object id -> StoryObject
 var _next_object := 1
 ## Kegs whose fuse is burning: object id -> server time it goes off.
 var _fuses := {}
+## Fort guns' next shot: object id -> server time.
+var _gun_ready := {}
 
 
 func _init(server: ServerSim) -> void:
@@ -93,6 +114,14 @@ func talk(id: int, r: Dictionary, who: String) -> void:
 			_say(id, step.lines)
 			_next_step(r.crew)
 			return
+		if int(step.kind) == Story.Step.ASK and step.who.has(who):
+			_say(id, step.lines[who])
+			if not m.asked.has(who):
+				m.asked.append(who)
+				print("[server] %s asked %s" % [r.name, who])
+			if m.asked.size() >= step.who.size():
+				_next_step(r.crew)
+			return
 	var i := Story.offered_by(who, done_lists(r.crew))
 	if i < 0:
 		_say(id, Story.CHATTER[who])
@@ -120,7 +149,7 @@ func start(crew: int, index: int, first := 0) -> void:
 		"items": [], "total": 0, "handled": 0, "own": 0, "deadline": -1.0, "captain": -1,
 		"name": ch.id, "islands": [], "objects": [], "raised": [], "thieves": [], "skull": -1,
 		"spot": Vector3.ZERO, "saved": 0, "next_rise": 0.0, "ship": -1, "captains": [], "left": 0,
-		"need": 0, "given": 0,
+		"need": 0, "given": 0, "asked": [], "right": -1,
 	}
 	sim.crews[crew].offers = []
 	sim.stats.chapters_started += 1
@@ -179,6 +208,30 @@ func _enter_step(crew: int) -> void:
 			_enter_chase(crew, step)
 		Story.Step.GATHER:
 			_enter_gather(crew, step)
+		Story.Step.RESCUE:
+			_enter_rescue(crew, step)
+		Story.Step.FERRY:
+			m.islands = [Islands.outpost_index()]
+			sim._tell_crew(crew, "Isabel is aboard. Get her to Port Merrow!")
+		Story.Step.DIVE:
+			m.islands = [_nearest_island(step.at)]
+			_add_object(crew, StoryObject.Kind.WRECK, step.at, 0.6)
+		Story.Step.CONVOY:
+			_enter_convoy(crew, step)
+		Story.Step.BELLS:
+			_enter_bells(crew, step)
+		Story.Step.ASK:
+			m.islands = [Islands.outpost_index()]
+			m.asked = []
+		Story.Step.SEARCH:
+			m.islands = [Islands.outpost_index()]
+			m.right = sim._rng.randi_range(0, int(step.crates) - 1)
+			for n in int(step.crates):
+				_add_object(crew, StoryObject.Kind.SEARCH, Outpost.cargo_spot(n), 0.1 * n)
+		Story.Step.BREACH:
+			_enter_breach(crew)
+		Story.Step.USE:
+			m.islands = [Fort.index()]
 
 
 func _enter_read(crew: int, step: Dictionary) -> void:
@@ -387,9 +440,17 @@ static func camp_spot(island: int) -> Vector3:
 	return Vector3(x, Islands.ground_at(island, x, z), z)
 
 
-## Sargento Calavera by the dead bonfire, two guards with him.
+## Sargento Calavera by the dead bonfire, two guards with him; or, by `where`, Fat Gideon at
+## his cove or El Polvorín on the fort's gun platform.
 func _enter_boss(crew: int, step: Dictionary) -> void:
 	var m: Dictionary = sim.crews[crew].mission
+	match str(step.get("where", "camp")):
+		"cove":
+			_enter_gideon(crew, step)
+			return
+		"fort":
+			_enter_polvorin(crew, step)
+			return
 	var island: int = step.island
 	m.islands = [island]
 	if m.spot == Vector3.ZERO:
@@ -536,9 +597,10 @@ func step_crab(sk: Skeleton, dt: float, floor_at: Callable) -> void:
 		var away := Vector3(sk.pos.x - near.x, 0, sk.pos.z - near.z).normalized()
 		# Zigzag, the way crabs do.
 		away = away.rotated(Vector3.UP, 0.7 * sin(sim.time * 2.3 + sk.id))
-		if sk.walk_to(sk.pos + away * 3.0, dt, floor_at, CRAB_SPEED) > 2.9:
+		var speed := GIDEON_SPEED if sk.gideon else CRAB_SPEED
+		if sk.walk_to(sk.pos + away * 3.0, dt, floor_at, speed) > 2.9:
 			# Cornered against the sea: dart sideways along the beach.
-			sk.walk_to(sk.pos + away.rotated(Vector3.UP, PI / 2.0) * 3.0, dt, floor_at, CRAB_SPEED)
+			sk.walk_to(sk.pos + away.rotated(Vector3.UP, PI / 2.0) * 3.0, dt, floor_at, speed)
 	elif sk.walk_to(sk.boat, dt, floor_at, 1.5) < 0.5:
 		var island := maxi(0, Islands.island_at(sk.pos.x, sk.pos.z, 4.0))
 		var s := Islands.dig_spot(island, sim._rng)
@@ -572,6 +634,321 @@ func add_board_diggers(crew: int, m: Dictionary) -> void:
 		sk.boat = landings[island]
 		sk.story_crew = crew
 		m.thieves.append(sk.id)
+
+
+## Isabel adrift in a rowing boat, and a skeleton ship bearing down on her.
+func _enter_rescue(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	var at: Vector3 = step.at
+	m.islands = [_nearest_island(at)]
+	_add_object(crew, StoryObject.Kind.BOAT, at, 0.4)
+	_add_object(crew, StoryObject.Kind.ISABEL, at + Vector3(0, 0.3, 0), 0.4)
+	m.ship = sim.spawn_galleon(crew, 0.0, 0, at + Vector3(160.0, 0, 90.0))
+	sim._tell_crew(crew, "A boat adrift off Cutlass Cay, and a skeleton ship closing on it!")
+
+
+## E from the water beside the boat, or from your deck alongside it: Isabel climbs aboard.
+func rescue(r: Dictionary) -> void:
+	var m := _mission_of(r.crew)
+	if m.is_empty() or int(_step(m).kind) != Story.Step.RESCUE:
+		return
+	var boat := _first_object(m, StoryObject.Kind.BOAT)
+	var isabel := _first_object(m, StoryObject.Kind.ISABEL)
+	if boat == null or isabel == null:
+		return
+	var w := sim._world_pos(r)
+	var ship: ShipState = sim.ships.get(r.crew)
+	var near := Vector2(w.x - boat.pos.x, w.z - boat.pos.z).length() < RESCUE_REACH
+	if r.mode == LocalPlayer.Mode.ON_SHIP and ship:
+		near = near or Vector2(ship.x - boat.pos.x, ship.z - boat.pos.z).length() < RESCUE_REACH + 8.0
+	if not near or ship == null or ship.is_sinking():
+		return
+	isabel.ship = r.crew
+	isabel.pos = PASSENGER_SPOT
+	isabel.yaw = 0.0
+	objects.erase(boat.id)
+	m.objects.erase(boat.id)
+	print("[server] %s helped Isabel aboard" % r.name)
+	sim._tell_crew(r.crew, "%s helps a Spanish officer aboard. She is soaked, and furious." % r.name)
+	_next_step(r.crew)
+
+
+## Where a passenger stands on the main deck (ship frame), out of the way of the guns.
+const PASSENGER_SPOT := Vector3(0.0, ShipShape.DECK_Y, 3.5)
+
+
+func _first_object(m: Dictionary, kind: int) -> StoryObject:
+	for oid: int in m.get("objects", []):
+		if objects.has(oid) and objects[oid].kind == kind:
+			return objects[oid]
+	return null
+
+
+## A Spanish treasure galleon running for the fort with three chests on deck, two escorts.
+func _enter_convoy(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	m.items = []
+	m.saved = 0
+	var id := sim.spawn_galleon(crew, 240.0, 1)
+	sim.captains[id].fleeing = true
+	m.ship = id
+	var g: ShipState = sim.ships[id]
+	m.islands = [_nearest_island(Vector3(g.x, 0, g.z))]
+	for n in int(step.chests):
+		var gold := sim._rng.randi_range(250, 450)
+		var chest := sim._new_item(Loot.Kind.CHEST, Loot.State.ON_SHIP, Vector3(-1.0 + 1.0 * n, ShipShape.DECK_Y, -2.5 + 0.8 * (n % 2)), gold)
+		chest.ship = id
+		m.items.append(chest.id)
+	for side: float in [-1.0, 1.0]:
+		sim.spawn_galleon(crew, 0.0, 1, Vector3(g.x + 40.0 * side, 0, g.z + 30.0))
+	sim._tell_crew(crew, "The treasure galleon and her escorts are under sail. After them!")
+
+
+## A drowned bell hung on a gallows on each island.
+func _enter_bells(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	m.islands = step.islands.duplicate()
+	m.next_rise = sim.time + 4.0
+	for island: int in step.islands:
+		var at := _dry_spot(island)
+		_add_object(crew, StoryObject.Kind.BELL, at + Vector3(0, BELL_HEIGHT, 0), sim._rng.randf() * TAU)
+	sim._tell_crew(crew, "Bells toll on three islands. Shoot them down!")
+
+
+const BELL_HEIGHT := 3.2
+
+
+## Bells still hanging: [object id, position] for ServerSim's attacks.
+func bells() -> Array:
+	var out := []
+	for id in objects:
+		var o: StoryObject = objects[id]
+		if o.kind == StoryObject.Kind.BELL and o.state == 1:
+			out.append([o.id, o.pos])
+	return out
+
+
+## A bell struck: it falls, and the step ends once none hang.
+func strike_bell(object_id: int) -> void:
+	var o: StoryObject = objects.get(object_id)
+	if o == null or o.kind != StoryObject.Kind.BELL or o.state != 1:
+		return
+	o.state = 0
+	sim.stats.bells += 1
+	Net.send_event("bell", [o.id, o.pos.x, o.pos.y, o.pos.z])
+	print("[server] a drowned bell was shot down")
+	var m := _mission_of(o.crew)
+	if m.is_empty() or int(_step(m).kind) != Story.Step.BELLS:
+		return
+	for oid: int in m.objects:
+		if objects.has(oid) and objects[oid].kind == StoryObject.Kind.BELL and objects[oid].state == 1:
+			sim._tell_crew(o.crew, "A bell falls silent.")
+			return
+	print("[server] crew %d silenced the drowned bells" % o.crew)
+	for id in sim._crew_members(o.crew):
+		_say(id, _step(m).get("lines", []))
+	_next_step(o.crew)
+
+
+## E held over the San Telmo's wreck while swimming: down you go; DIVE_TIME of it finds the
+## logbook.
+func dive(id: int, r: Dictionary) -> void:
+	var m := _mission_of(r.crew)
+	if m.is_empty() or r.mode != LocalPlayer.Mode.WORLD:
+		return
+	var step := _step(m)
+	if int(step.kind) != Story.Step.DIVE:
+		return
+	var at: Vector3 = step.at
+	if Vector2(r.pos.x - at.x, r.pos.z - at.z).length() > DIVE_REACH + 1.0:
+		return
+	if r.pos.y > Waves.height(r.pos.x, r.pos.z, sim.time) - 0.2:
+		return  # not in the water
+	var gap: float = sim.time - float(r.get("last_dive", -1.0)) if float(r.get("last_dive", -1.0)) >= 0.0 else 0.2
+	r.last_dive = sim.time
+	if gap > 0.6:
+		r.dive = 0.0
+	r.dive = float(r.get("dive", 0.0)) + clampf(gap, 0.0, 0.35)
+	if r.dive < DIVE_TIME:
+		return
+	r.dive = 0.0
+	sim.stats.dives += 1
+	print("[server] %s dived to the San Telmo and found the logbook" % r.name)
+	for pid in sim._crew_members(r.crew):
+		Net.send_event_to(pid, "journal", [step.title, step.text])
+	_next_step(r.crew)
+
+
+## E at a crate on the pier: salt, salt, and in one of them the raven coin.
+func search(id: int, r: Dictionary, object_id: int) -> void:
+	var o: StoryObject = objects.get(object_id)
+	var m := _mission_of(r.crew)
+	if o == null or o.kind != StoryObject.Kind.SEARCH or o.crew != r.crew or m.is_empty():
+		return
+	if r.pos.distance_to(o.pos) > USE_REACH + 1.0 or o.state == 0:
+		return
+	o.state = 0
+	var step := _step(m)
+	var n: int = m.objects.find(o.id)
+	if n != m.right:
+		_say(id, [r.name, "Salt. Just salt. Quill will be pleased it's all there."])
+		return
+	print("[server] %s found the raven coin" % r.name)
+	for pid in sim._crew_members(r.crew):
+		Net.send_event_to(pid, "journal", [step.title, step.text])
+	_next_step(r.crew)
+
+
+## Fat Gideon on Gull Isle's south cove with his Spanish friends.
+func _enter_gideon(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	var island: int = step.island
+	m.islands = [island]
+	var at := landing_spot(island, Vector2(0, 1))
+	_add_object(crew, StoryObject.Kind.BOAT, at + Vector3(0, -0.3, 3.0), 0.0)
+	var g := sim._new_skeleton(-1, at)
+	g.gideon = true
+	g.hp = 80
+	g.story_crew = crew
+	g.boat = at
+	m.captain = g.id
+	for n in int(step.guards):
+		_spanish_at(crew, island, at + Vector3(-2.0 + 2.0 * n, 0, -2.5))
+	sim._tell_crew(crew, "Fat Gideon is at the south cove of Gull Isle, with company.")
+
+
+## El Polvorín on the fort's gun platform, the garrison round the courtyard.
+func _enter_polvorin(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	var fort := Fort.index()
+	m.islands = [fort]
+	var boss := _spanish_at(crew, fort, Fort.platform_pos())
+	boss.make_bomber()
+	boss.pos.y = Fort.platform_pos().y
+	boss.next_bomb = sim.time + 3.0
+	m.captain = boss.id
+	for n in int(step.guards):
+		var a := TAU * n / float(step.guards) + 0.3
+		_spanish_at(crew, fort, Fort.centre() + Vector3(cos(a), 0, sin(a)) * 6.5)
+	sim._tell_crew(crew, "El Polvorín roars from his platform, a lit bomb in each fist!")
+
+
+## The fort shut tight: its gate, its powder outside it, two tower guns, cells and vault.
+func _enter_breach(crew: int) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	m.islands = [Fort.index()]
+	_add_object(crew, StoryObject.Kind.GATE, Fort.gate_pos(), Fort.FACING)
+	for side: int in [-1, 1]:
+		var gun := _add_object(crew, StoryObject.Kind.GUN, Fort.gun_pos(side), Fort.FACING + Fort.TOWER_SPREAD * side)
+		gun.state = 2
+		_gun_ready[gun.id] = sim.time + 4.0 + 2.0 * side
+		var k := Fort.world(0.0, Fort.WALL_R + 2.2) + Vector3(cos(Fort.FACING + PI / 2.0), 0, sin(Fort.FACING + PI / 2.0)) * 1.1 * side
+		_add_object(crew, StoryObject.Kind.KEG, k, sim._rng.randf() * TAU)
+	_add_object(crew, StoryObject.Kind.CELL, Fort.door_pos(Fort.CELLS), Fort.FACING + float(Fort.CELLS[0]))
+	_add_object(crew, StoryObject.Kind.VAULT, Fort.door_pos(Fort.VAULT), Fort.FACING + float(Fort.VAULT[0]))
+	sim._tell_crew(crew, "Fuerte del Cuervo's guns are run out. Its gate faces west.")
+
+
+## Is any fort gate blown (for footing through the gap)?
+func fort_gate_open() -> bool:
+	for id in objects:
+		var o: StoryObject = objects[id]
+		if o.kind == StoryObject.Kind.GATE and o.state == 0:
+			return true
+	return false
+
+
+## E at the fort's cell or vault door, in its turn.
+func use(id: int, r: Dictionary, object_id: int) -> void:
+	var o: StoryObject = objects.get(object_id)
+	var m := _mission_of(r.crew)
+	if o == null or m.is_empty() or o.crew != r.crew or o.state != 1:
+		return
+	var step := _step(m)
+	if int(step.kind) != Story.Step.USE or r.pos.distance_to(o.pos) > USE_REACH + 1.0:
+		return
+	var want := StoryObject.Kind.CELL if step.object == "cells" else StoryObject.Kind.VAULT
+	if o.kind != want:
+		return
+	o.state = 0
+	Net.send_event("opened", [o.id])
+	if o.kind == StoryObject.Kind.VAULT:
+		# The Admiral's gold: chests stacked inside, for whoever carries them out.
+		var inside := Fort.building_pos(Fort.VAULT)
+		for n in 4:
+			var at := inside + Vector3(-0.8 + 0.55 * n, 0.05, 0.2 * (n % 2))
+			sim._new_item(Loot.Kind.CHEST, Loot.State.GROUND, (at + o.pos) * 0.5, sim._rng.randi_range(300, 520))
+		print("[server] %s opened the vault" % r.name)
+		sim._tell_crew(r.crew, "The vault swings open: chests of Spanish gold!")
+	else:
+		print("[server] %s freed the prisoners" % r.name)
+	for pid in sim._crew_members(r.crew):
+		_say(pid, step.get("lines", []))
+	_next_step(r.crew)
+
+
+## A gun on a fort tower takes a hit (a blast at its foot or a cannonball): two silence it.
+func hit_gun(o: StoryObject) -> void:
+	if o.state <= 0:
+		return
+	o.state -= 1
+	Net.send_event("gun_hit", [o.id, o.state])
+	if o.state == 0:
+		print("[server] a fort gun was silenced")
+		sim.stats.guns_silenced += 1
+		sim._tell_crew(o.crew, "A tower gun falls silent!")
+
+
+## The fort's working guns fire at the nearest crew ship in range.
+func _fort_guns() -> void:
+	for id in objects.keys():
+		var o: StoryObject = objects[id]
+		if o.kind != StoryObject.Kind.GUN or o.state <= 0 or sim.time < float(_gun_ready.get(o.id, 0.0)):
+			continue
+		var best: ShipState = null
+		var best_d := GUN_RANGE
+		for c in sim.crews:
+			var s: ShipState = sim.ships.get(c)
+			if s and not s.is_sinking():
+				var d := Vector2(s.x - o.pos.x, s.z - o.pos.z).length()
+				if d < best_d:
+					best = s
+					best_d = d
+		if best == null:
+			continue
+		_gun_ready[o.id] = sim.time + GUN_RELOAD + sim._rng.randf()
+		var lead := ShipPhysics.velocity_of(best) * (best_d / Ballistics.MUZZLE_SPEED)
+		var aim := Vector3(best.x, 0.8, best.z) + lead
+		sim.fire_from(o.pos + Vector3(0, 0.6, 0), aim, GUN_ERROR)
+
+
+## El Polvorín lobs a bomb at the nearest pirate within reach every few seconds.
+func _bombers() -> void:
+	for c in sim.crews:
+		var m := _mission_of(c)
+		if m.is_empty() or m.captain < 0 or not sim.skeletons.has(m.captain):
+			continue
+		var b: Skeleton = sim.skeletons[m.captain]
+		if not b.bomber or not b.alive() or sim.time < b.next_bomb:
+			continue
+		var target := Vector3.INF
+		var best := BOMB_RANGE
+		for id in sim.players:
+			var r: Dictionary = sim.players[id]
+			if r.mode == LocalPlayer.Mode.WORLD and r.dead_until < 0.0 and r.pos.distance_to(b.pos) < best:
+				target = r.pos
+				best = r.pos.distance_to(b.pos)
+		if target == Vector3.INF:
+			continue
+		b.next_bomb = sim.time + BOMB_EVERY
+		var off := Vector2(sim._rng.randf_range(-1.5, 1.5), sim._rng.randf_range(-1.5, 1.5))
+		var at := target + Vector3(off.x, 0, off.y)
+		var island := Islands.island_at(at.x, at.z)
+		at.y = Islands.ground_at(island, at.x, at.z) if island >= 0 else at.y
+		var bomb := _add_object(c, StoryObject.Kind.BOMB, at, 0.0)
+		bomb.state = 2
+		_fuses[bomb.id] = sim.time + BOMB_FUSE
+		Net.send_event("bomb", [bomb.id, b.pos.x, b.pos.y + 2.0, b.pos.z])
 
 
 ## The last dry ground on a line from an island's centre out along `out`, well up the beach
@@ -661,7 +1038,7 @@ func _clear_step(m: Dictionary) -> void:
 	# everything else goes.
 	var kept := []
 	for oid: int in m.objects:
-		if objects.has(oid) and objects[oid].kind in [StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.CAMP]:
+		if objects.has(oid) and objects[oid].kind in PERSIST:
 			kept.append(oid)
 		else:
 			objects.erase(oid)
@@ -794,7 +1171,7 @@ func open_graves(m: Dictionary) -> int:
 ## A keg struck by a blade, a shot or a blast: it goes off after its fuse.
 func strike_keg(object_id: int, fuse := FUSE) -> void:
 	var o: StoryObject = objects.get(object_id)
-	if o == null or o.kind != StoryObject.Kind.KEG or o.state != 1:
+	if o == null or o.kind not in [StoryObject.Kind.KEG, StoryObject.Kind.BOMB] or o.state != 1:
 		return
 	o.state = 2
 	_fuses[o.id] = sim.time + fuse
@@ -827,9 +1204,16 @@ func _explode(o: StoryObject) -> void:
 		if sk.alive() and sk.frame < 0 and sk.pos.distance_to(o.pos) < BLAST_REACH:
 			sim._hurt_skeleton(sid, int(BLAST_DAMAGE * 1.5), "a powder keg")
 	for key in objects.keys():
+		if not objects.has(key):
+			continue  # gone while this blast moved the story on
 		var k: StoryObject = objects[key]
 		if k.kind == StoryObject.Kind.KEG and k.state == 1 and k.pos.distance_to(o.pos) < CHAIN_REACH:
 			strike_keg(k.id, CHAIN_FUSE)
+		elif k.kind == StoryObject.Kind.GATE and k.state == 1 and k.pos.distance_to(o.pos) < BLAST_REACH + 1.0:
+			blow_gate(k)
+		elif k.kind == StoryObject.Kind.GUN and Vector2(k.pos.x - o.pos.x, k.pos.z - o.pos.z).length() < BLAST_REACH:
+			hit_gun(k)
+			hit_gun(k)
 	# The store is gone once its last keg is.
 	var m := _mission_of(o.crew)
 	if not m.is_empty() and int(_step(m).kind) == Story.Step.KEGS:
@@ -843,11 +1227,45 @@ func _explode(o: StoryObject) -> void:
 
 # --- happenings ---------------------------------------------------------------------------
 
-## Things that go on by themselves: fuses, the dead rising from graves and the bonfire, dawn.
+## The fort's gate blown in: the step that wanted it is done.
+func blow_gate(o: StoryObject) -> void:
+	if o.state != 1:
+		return
+	o.state = 0
+	sim.stats.gates += 1
+	print("[server] the fort's gate was blown")
+	Net.send_event("gate", [o.id])
+	sim._tell_crew(o.crew, "The gate of Fuerte del Cuervo is down! In!")
+	var m := _mission_of(o.crew)
+	if not m.is_empty() and int(_step(m).kind) == Story.Step.BREACH:
+		_next_step(o.crew)
+
+
+## A cannonball lands: it can set off kegs, blow the gate or knock a tower gun about.
+func splash(world: Vector3) -> void:
+	for key in objects.keys():
+		if not objects.has(key):
+			continue
+		var o: StoryObject = objects[key]
+		match o.kind:
+			StoryObject.Kind.KEG:
+				if o.state == 1 and o.pos.distance_to(world) < 2.5:
+					strike_keg(o.id, CHAIN_FUSE)
+			StoryObject.Kind.GATE:
+				if o.state == 1 and o.pos.distance_to(world) < 3.0:
+					blow_gate(o)
+			StoryObject.Kind.GUN:
+				if o.state > 0 and o.pos.distance_to(world) < 4.0:
+					hit_gun(o)
+
+
+## Things that go on by themselves: fuses, the dead rising, bells, guns, bombs, dawn.
 func tick(_dt: float) -> void:
 	for id in _fuses.keys():
-		if sim.time >= _fuses[id] and objects.has(id):
+		if _fuses.has(id) and sim.time >= _fuses[id] and objects.has(id):
 			_explode(objects[id])
+	_fort_guns()
+	_bombers()
 	for c in sim.crews.keys():
 		var m := _mission_of(c)
 		if m.is_empty():
@@ -859,6 +1277,16 @@ func tick(_dt: float) -> void:
 					_rise_from(c, m, StoryObject.Kind.GRAVE, step, 1)
 			Story.Step.BONFIRE:
 				_rise_from(c, m, StoryObject.Kind.BONFIRE, step, int(step.rise))
+			Story.Step.BELLS:
+				_rise_from(c, m, StoryObject.Kind.BELL, step, int(step.rise))
+			Story.Step.FERRY:
+				var ship: ShipState = sim.ships.get(c)
+				var spec := Outpost.spec()
+				if ship and Vector2(ship.x - spec.x, ship.z - spec.z).length() < float(spec.radius) + ARRIVE_MERROW:
+					print("[server] crew %d brought Isabel to Port Merrow" % c)
+					for id in sim._crew_members(c):
+						_say(id, step.get("lines", []))
+					_next_step(c)
 			Story.Step.GATHER:
 				if m.deadline > 0.0 and sim.time > m.deadline:
 					print("[server] crew %d ran out of time" % c)
@@ -890,7 +1318,7 @@ func _rise_from(crew: int, m: Dictionary, kind: int, step: Dictionary, count: in
 	var sources: Array[StoryObject] = []
 	for oid: int in m.objects:
 		var o: StoryObject = objects.get(oid)
-		if o and o.kind == kind and (o.state == 1 if kind == StoryObject.Kind.GRAVE else o.state > 0):
+		if o and o.kind == kind and (o.state == 1 if kind in [StoryObject.Kind.GRAVE, StoryObject.Kind.BELL] else o.state > 0):
 			sources.append(o)
 	if sources.is_empty() or standing(m) >= int(step.max_up):
 		return
@@ -958,11 +1386,15 @@ func on_skeleton_fell(sk: Skeleton) -> void:
 	var m := _mission_of(sk.story_crew)
 	if m.is_empty():
 		return
-	if sk.sergeant and m.captain == sk.id:
-		print("[server] %s has fallen" % _step(m).boss)
-		Net.send_message(0, "%s has fallen!" % _step(m).boss)
+	if (sk.sergeant or sk.bomber or sk.gideon) and m.captain == sk.id:
+		var step := _step(m)
+		print("[server] %s has fallen" % step.boss)
+		Net.send_message(0, "%s gives up!" % step.boss if sk.gideon else "%s has fallen!" % step.boss)
 		m.spot = sk.pos
 		m.captain = -1
+		for id in sim._crew_members(sk.story_crew):
+			if sim.players[id].pos.distance_to(sk.pos) < 15.0:
+				_say(id, step.get("lines", []))
 		_next_step(sk.story_crew)
 		return
 	_check_dead_step(sk.story_crew)
@@ -1011,7 +1443,7 @@ func on_item_done(crew: int, item: Loot, by_crew: int, handed_in: bool) -> void:
 			print("[server] crew %d lost the skull of %s" % [crew, step.captain])
 			_clear_step(m)
 			_enter_step(crew)
-		Story.Step.DIG_RACE:
+		Story.Step.DIG_RACE, Story.Step.CONVOY:
 			if handed_in and by_crew == crew:
 				m.saved += 1
 			var left := 0
@@ -1058,9 +1490,28 @@ func _say_near(crew: int, who: String, lines: Array) -> void:
 
 ## A ship went down: the chapter's galleon leaves its letter bobbing where she sank.
 func on_ship_sunk(ship_id: int, at: Vector3) -> void:
+	# Anything on her deck floats free.
+	for id in sim.items.keys():
+		var it: Loot = sim.items[id]
+		if it.state == Loot.State.ON_SHIP and it.ship == ship_id and not sim.crews.has(ship_id):
+			sim._set_floating(it, at + Vector3(sim._rng.randf_range(-4, 4), 0, sim._rng.randf_range(-4, 4)))
 	for c in sim.crews:
 		var m := _mission_of(c)
-		if m.is_empty() or m.ship != ship_id:
+		if m.is_empty():
+			continue
+		var step := _step(m)
+		if int(step.kind) == Story.Step.FERRY and ship_id == c:
+			print("[server] crew %d lost Isabel with their ship" % c)
+			sim._tell_crew(c, "The ship is lost, and Isabel with it! Moll sees another boat adrift...")
+			_clear_step(m)
+			for oid: int in m.objects.duplicate():
+				if objects.has(oid) and objects[oid].kind == StoryObject.Kind.ISABEL:
+					objects.erase(oid)
+					m.objects.erase(oid)
+			m.step -= 1
+			_enter_step(c)
+			continue
+		if m.ship != ship_id or int(step.kind) != Story.Step.SINK:
 			continue
 		print("[server] crew %d sank the Spanish galleon" % c)
 		m.ship = -1
@@ -1167,6 +1618,24 @@ func targets(m: Dictionary) -> Array:
 			if out.is_empty():
 				var at := give_spot(str(step.to))
 				out.append_array([_nearest_island(at), at.x, at.z, 0])
+		Story.Step.RESCUE, Story.Step.DIVE:
+			var at: Vector3 = step.at
+			out.append_array([_nearest_island(at), at.x, at.z, 0])
+		Story.Step.FERRY, Story.Step.ASK, Story.Step.SEARCH:
+			var spec := Outpost.spec()
+			out.append_array([Islands.outpost_index(), spec.x, spec.z, 0])
+		Story.Step.CONVOY:
+			var s: ShipState = sim.ships.get(m.ship)
+			if s:
+				out.append_array([_nearest_island(Vector3(s.x, 0, s.z)), s.x, s.z, 0])
+		Story.Step.BELLS:
+			for oid: int in m.objects:
+				var o: StoryObject = objects.get(oid)
+				if o and o.kind == StoryObject.Kind.BELL:
+					out.append_array([_nearest_island(o.pos), o.pos.x, o.pos.z, 1 if o.state == 0 else 0])
+		Story.Step.BREACH, Story.Step.USE:
+			var c := Fort.centre()
+			out.append_array([Fort.index(), c.x, c.z, 0])
 	return out
 
 
@@ -1186,7 +1655,25 @@ func counts(m: Dictionary) -> Array:
 			return [m.left, standing(m)]
 		Story.Step.CHASE, Story.Step.GATHER:
 			return [m.need - m.given, standing(m)]
+		Story.Step.CONVOY:
+			var left := 0
+			for id: int in m.items:
+				if sim.items.has(id):
+					left += 1
+			return [left, standing(m)]
+		Story.Step.BELLS:
+			return [bells_left(m), standing(m)]
+		Story.Step.ASK:
+			return [_step(m).who.size() - m.asked.size(), 0]
 	return [lit(m), standing(m)]
+
+
+func bells_left(m: Dictionary) -> int:
+	var n := 0
+	for oid: int in m.objects:
+		if objects.has(oid) and objects[oid].kind == StoryObject.Kind.BELL and objects[oid].state == 1:
+			n += 1
+	return n
 
 
 ## The board's story line for a crew: [-1, STORY, act, title, 0, 0, what to do], or [].
