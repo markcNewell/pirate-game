@@ -476,6 +476,38 @@ func client_on_event(kind: String, data: Array) -> void:
 				var v: Node3D = _skeleton_views[int(data[0])]
 				v.lunge()
 				Audio.play_at("swing", v.global_position + Vector3.UP, 2.0, 0.6)
+		"bell":
+			# A drowned bell shot down: a last deep note as it drops into the sea.
+			var at := Vector3(data[1], data[2], data[3])
+			Audio.play_at("bell", at, 2.0, 0.55, 0.0)
+			Audio.play_at("splash", Vector3(at.x, 0.0, at.z), 0.0, 0.7)
+		"gate":
+			if _object_views.has(int(data[0])):
+				var at: Vector3 = _object_views[int(data[0])].global_position
+				Audio.play_at("hull_hit", at, 4.0, 0.6)
+				for k in 8:
+					effects.smoke(at + Vector3(randf_range(-2.0, 2.0), randf_range(0.5, 3.5), randf_range(-1.0, 1.0)))
+		"opened":
+			if _object_views.has(int(data[0])):
+				Audio.play_at("creak", _object_views[int(data[0])].global_position, 0.0, 0.8)
+		"gun_hit":
+			if _object_views.has(int(data[0])):
+				var at: Vector3 = _object_views[int(data[0])].global_position
+				Audio.play_at("clang", at, 2.0, 0.7)
+				var puffs := 6 if int(data[1]) <= 0 else 2
+				for k in puffs:
+					effects.smoke(at + Vector3(randf_range(-1.0, 1.0), randf_range(0.0, 1.5), randf_range(-1.0, 1.0)))
+		"bomb":
+			# El Polvorín's bomb leaves his hand fizzing.
+			Audio.play_at("fire", Vector3(data[1], data[2], data[3]), -4.0, 1.8)
+		"crippled":
+			# The Cuervo Negro's rudder and rigging shot to pieces: smoke and a groan of timber.
+			var s: ShipState = view_ships.get(int(data[0]))
+			if s:
+				var at := Vector3(s.x, 6.0, s.z)
+				Audio.play_at("creak", at, 4.0, 0.5)
+				for k in 10:
+					effects.smoke(at + Vector3(randf_range(-4.0, 4.0), randf_range(0.0, 8.0), randf_range(-8.0, 8.0)))
 		"lantern_hit":
 			if _object_views.has(int(data[0])):
 				var o: Node3D = _object_views[int(data[0])]
