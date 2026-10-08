@@ -1,6 +1,7 @@
 # Milestone 9: The Raven's Due (Act II)
 
-Status: written 08-10-2026, the third build step of the story (docs/specs/2026-10-08-story.md).
+Status: written and built 08-10-2026, the third build step of the story
+(docs/specs/2026-10-08-story.md).
 Every choice below is Claude's default; change anything and the code follows. Where the story doc
 asked for something bigger than one night's work, this says what was built instead.
 

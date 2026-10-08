@@ -8,7 +8,8 @@ with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patchin
 sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. Three trading
 companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
 bounties and cargo runs from a mission board, and the story, [the Ash Fleet](docs/specs/2026-10-08-story.md),
-has begun: the prologue and Act I (eight chapters, up to the Sergeant's camp) are playable. Every pirate earns XP and levels (which never make anyone
+has begun: the prologue, Act I and Act II are playable (fourteen chapters, from the green lights
+on Gull Isle to the storming of Fuerte del Cuervo), with five side tales. Every pirate earns XP and levels (which never make anyone
 stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
 24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
 waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
@@ -16,7 +17,7 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
 [Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
-[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md).
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -105,6 +106,7 @@ machine, see [server/README.md](server/README.md).
 | Missions smoke test (bounty, skull, cargo) | `tests/smoke/missions_test.sh` |
 | Story smoke test (prologue, thieves, saved pirates) | `tests/smoke/story_test.sh` |
 | Act I smoke test (salt, powder kegs, diggers, bonfire) | `tests/smoke/act1_test.sh` |
+| Act II smoke test (a bell, the dive, the fort's gate) | `tests/smoke/act2_test.sh` |
 | Every smoke test at once | `tools/smoke_all.sh` |
 | Rebuild the sounds | `python3 tools/make_sounds.py` |
 | Rebuild the models (needs Blender 5.2) | `tools/build_models.sh` (or `tools/build_models.sh ship` for one script) |
@@ -123,10 +125,11 @@ Useful command-line options (after `--`): `--host`, `--join ADDRESS`, `--port N`
 `--voyage-island N`, `--test-chest`, `--test-boarding`, `--crew N`, `--crews-close`, `--test-steal`,
 `--time T` (pin the time of day: 0 midnight, 0.5 noon, 0.79 sunset), `--storm X,Z` (pin the storm)
 and `--calm` (server: no storm). Missions and story: `--mission treasure|bounty|cargo`, `--rep N`,
-`--chapter ID` (`p1`, `p2`, `a1`..`a6`) with `--chapter-step N` and `--chapter-aboard`, `--xp N`,
+`--chapter ID` (`p1`, `p2`, `a1`..`a6`, `b1`..`b6`, tales `t1`..`t5`) with `--chapter-step N` and
+`--chapter-aboard`, `--xp N`,
 `--no-save`, `--profiles DIR`.
 Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist`, `thief`, `bounty`, `cargo`,
-`courier`, `lights`, `moll`, `salter` and `kegs`.
+`courier`, `lights`, `moll`, `salter`, `kegs`, `bells` and `diver`.
 
 ### How it fits together
 

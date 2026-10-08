@@ -21,7 +21,10 @@ extends Node
 ##             the green fire and fell the dead that climb out
 ##   moll    - swim ashore at Port Merrow and talk to Moll the keeper
 ##   salter  - Salt the Earth with a salt crate on deck: carry it ashore and salt a grave
-##   kegs    - Captain Coco's Warning: go ashore to the powder store and shoot a keg
+##   kegs    - Captain Coco's Warning: go ashore to the powder store and shoot a keg (also the
+##             fort's powder by its gate)
+##   bells   - The Drowned Bells: go ashore and shoot the island's bell down
+##   diver   - The Admiral's Story: swim to the San Telmo's wreck and dive on it
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -111,6 +114,10 @@ func _physics_process(delta: float) -> void:
 			_salter(input)
 		"kegs":
 			_kegs(input)
+		"bells":
+			_bells(input)
+		"diver":
+			_diver(input)
 
 
 func _process(_delta: float) -> void:
@@ -949,3 +956,49 @@ func _kegs(input: PlayerInput) -> void:
 			_say("shooting at a powder keg")
 			_phase = "shoot"
 		input.fire = true
+
+
+func _bells(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var p := _player.body.global_position
+	var best: StoryObject = null
+	for id in game.view_objects:
+		var o: StoryObject = game.view_objects[id]
+		if o.kind == StoryObject.Kind.BELL and o.state == 1 and (best == null or p.distance_to(o.pos) < p.distance_to(best.pos)):
+			best = o
+	if best == null:
+		if _phase != "done":
+			_say("no bells left ringing")
+		_phase = "done"
+		return
+	if not _head_to(input, best.pos, 6.0):
+		return
+	if _player.weapon != Weapons.Kind.PISTOL:
+		input.weapon_key = Weapons.Kind.PISTOL
+		return
+	var to := best.pos - (p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+	_player.yaw = atan2(-to.x, -to.z)
+	_player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+	if _every(1.0):
+		if _phase == "act":
+			_say("shooting at a bell")
+			_phase = "shoot"
+		input.fire = true
+
+
+func _diver(input: PlayerInput) -> void:
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var wreck := _story_object(StoryObject.Kind.WRECK)
+	if wreck == null:
+		if _phase != "done":
+			_say("found the logbook")
+		_phase = "done"
+		return
+	if _head_to(input, wreck.pos, 2.0):
+		input.interact_held = true
