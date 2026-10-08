@@ -170,3 +170,16 @@ func test_the_mission_card_for_every_board_mission() -> void:
 				check(not lines[0][1], "%s: the ghost isn't sunk yet" % where)
 				var ghost: ShipState = sim.ships[int(sim.crews[ServerSim.CREW].mission.ghost)]
 				check(Vector2(m.targets[0].x, m.targets[0].z).distance_to(Vector2(ghost.x, ghost.z)) < 1.0, "%s: the mark is on her" % where)
+
+
+func test_the_board_describes_every_offer() -> void:
+	var rng := RandomNumberGenerator.new()
+	for seed_value in 60:
+		rng.seed = seed_value
+		for stage in 5:
+			for offer: Dictionary in Missions.make_offers([1, 2, 3], Islands.mission_islands(), rng):
+				Missions.add_twists(offer, stage, rng)
+				var a := Missions.offer_to_array(offer)
+				var o := Missions.offer_from_array(a)
+				check(o.text != "" and o.title != "", "stage %d: %s is described" % [stage, o.title])
+				check(not o.text.contains("%"), "no unfilled gaps: %s" % o.text)
