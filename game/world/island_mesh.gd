@@ -17,6 +17,7 @@ const PROP_FILES := {
 	"pebbles_0": "beach", "driftwood_0": "beach",
 	"calavera": "calavera", "tooth_stone": "calavera",
 	"deadtree_0": "ashtrees", "deadtree_1": "ashtrees", "deadtree_2": "ashtrees",
+	"workshop": "ceniza",
 }
 ## Isla Ceniza's ground: ash where other islands have sand, scorched scrub for grass.
 const ASH := {"wet": Color("5e5a56"), "sand": Color("8a8580"), "dry": Color("a29c94"), "grass": Color("5a5650"), "dark": Color("46423e"), "light": Color("6e6a62")}
@@ -88,6 +89,8 @@ static func build(spec: Dictionary) -> Dictionary:
 		_bushes(decor, spec, rng)
 	if spec.get("skull", false):
 		_skull_rock(solid)
+	if spec.get("ash", false):
+		_workshop(solid, spec)
 	var fire: Variant = null
 	if not spec.get("outpost", false) and not spec.get("fort", false) and not spec.get("story_only", false):
 		fire = _camp(decor, solid, spec, rng)
@@ -177,6 +180,9 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 static func story_site(spec: Dictionary, x: float, z: float) -> bool:
 	if spec.get("fort", false):
 		return Vector2(x, z).length() < Fort.WALL_R + 3.0
+	if spec.get("ash", false):
+		# Ocaso's workshop and the ground round it, where his braziers stand.
+		return Vector2(x, z).distance_to(Vector2(StoryAct5.WORKSHOP.x, StoryAct5.WORKSHOP.z)) < 14.0
 	if spec.get("skull", false):
 		# The skull rock and the beach before it, out to the tooth-stones.
 		var f := Calavera.frame().affine_inverse() * Vector3(x, 0, z)
@@ -290,6 +296,16 @@ static func _arch(_b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: Ra
 		var t := PI * k / 8.0
 		var p := top + along * (-cos(t) * span) + Vector3(0, sin(t) * 2.2, 0)
 		_rock_prop(p, rng.randf_range(1.1, 1.4), Basis(Vector3.UP, rng.randf() * TAU), k)
+
+
+## Ocaso's workshop dug into Isla Ceniza's hill, its door toward the island's middle.
+static func _workshop(solid: MeshBuilder, spec: Dictionary) -> void:
+	var at := StoryAct5.WORKSHOP
+	var toward := -Vector2(at.x, at.z).normalized()
+	var turn := Basis(Vector3.UP, atan2(-toward.x, -toward.y))
+	at.y = ground(spec, at.x, at.z) - 0.2
+	_prop("workshop", Transform3D(turn, at))
+	solid.box(at + turn * Vector3(0, 2.2, 1.2), Vector3(3.5, 2.2, 1.2), Color.BLACK, turn)
 
 
 ## Isla Calavera's skull rock and its tooth-stones (Calavera), with the rock's collision.

@@ -33,6 +33,9 @@ extends Node
 ##   lanterns - Lanterns of the Deep: go ashore on a sea stack and shoot its lantern to pieces
 ##   duel    - The battle's end: board the crippled Cuervo Negro and fight the Raven Admiral,
 ##             from behind where his parry can't reach
+##   brazier - Isla Ceniza: fill a bucket in the sea and douse Ocaso's braziers
+##   beacon  - Every Hand: go ashore and light the island's beacon
+##   giant   - The Bone Colossus: man a cannon and shoot at its lowest glowing joint
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -138,6 +141,12 @@ func _physics_process(delta: float) -> void:
 			_lanterns(input)
 		"duel":
 			_duel(input)
+		"brazier":
+			_brazier(input)
+		"beacon":
+			_beacon(input)
+		"giant":
+			_giant(input)
 
 
 func _process(_delta: float) -> void:
@@ -1289,3 +1298,99 @@ func _duel(input: PlayerInput) -> void:
 	if here.distance_to(behind) > 0.8 and here.distance_to(admiral.pos) > 1.2:
 		_go(input, behind)
 	_fight(input, admiral, here + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+
+
+## The nearest story thing of a kind in a state (or any state, -1), in the world; or null.
+func _nearest_object(kind: int, state := -1) -> StoryObject:
+	var p := _player.world_position()
+	var best: StoryObject = null
+	for id in game.view_objects:
+		var o: StoryObject = game.view_objects[id]
+		if o.kind == kind and (state < 0 or o.state == state) and (best == null or p.distance_to(o.pos) < p.distance_to(best.pos)):
+			best = o
+	return best
+
+
+func _brazier(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	var lit := _nearest_object(StoryObject.Kind.BRAZIER, 1)
+	if lit == null:
+		if _phase != "done":
+			_say("no braziers left burning")
+		_phase = "done"
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input, _side_facing(lit.pos))
+		return
+	var p := _player.body.global_position
+	if not _player.bucket:
+		if _player.swimming or Waves.height(p.x, p.z, game.render_time) > p.y + StoryRun.SCOOP_DEPTH:
+			if _every(0.5):
+				game.send_request("scoop", 0)
+			return
+		var spec: Dictionary = Islands.LAYOUT[StoryAct5.ceniza()]
+		var out := Vector3(p.x - spec.x, 0, p.z - spec.z).normalized()
+		_head_to(input, Vector3(spec.x, 0, spec.z) + out * (float(spec.radius) + 4.0), 0.5)
+		return
+	if _phase == "act":
+		_say("bucket full, going for a brazier")
+		_phase = "douse"
+	if _head_to(input, lit.pos, 1.6):
+		_press(input, "douse")
+
+
+func _beacon(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	var unlit := _nearest_object(StoryObject.Kind.BEACON, 0)
+	if unlit == null:
+		if _phase != "done":
+			_say("the beacons are burning")
+		_phase = "done"
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input, _side_facing(unlit.pos))
+		return
+	if _head_to(input, unlit.pos, 1.8):
+		_press(input, "light")
+
+
+func _giant(input: PlayerInput) -> void:
+	var giant := _nearest_object(StoryObject.Kind.COLOSSUS)
+	if giant == null or giant.state & StoryAct5.KNEEL:
+		if _phase != "done" and giant != null:
+			_say("the Colossus has fallen")
+			_phase = "done"
+		return
+	# Its lowest joint still glowing: the knees first, they are easier to hit.
+	var target := Vector3.INF
+	for i: int in [2, 3, 0, 1]:
+		if giant.state & (1 << i) == 0:
+			target = StoryAct5.joint_world(giant, i)
+			break
+	var pose := ShipPhysics.pose_of(game.view_ship, game.render_time)
+	var side := 1 if (pose.affine_inverse() * target).x >= 0.0 else -1
+	if _gun_station < 0 or (_player.station == _gun_station and ShipShape.stations()[_gun_station].side != side):
+		if _player.station >= 0:
+			input.interact = true
+		_gun_station = _free_cannon(side)
+		return
+	if not _man(input, _gun_station):
+		return
+	var gun: int = ShipShape.stations()[_gun_station].gun
+	var muzzle := pose * ShipShape.muzzle(gun, 0.0, 0.1)
+	var sol := Gunnery.solve(muzzle, ShipPhysics.velocity_of(game.view_ship), target, Vector3.ZERO)
+	if not sol.ok:
+		return
+	var angles := Gunnery.to_gun_angles(pose, gun, sol.dir)
+	if not angles.ok:
+		return
+	var st_side: int = ShipShape.stations()[_gun_station].side
+	_player.yaw = -PI / 2.0 * st_side + angles.yaw * st_side
+	_player.pitch = angles.pitch - LocalPlayer.SIGHT_PITCH
+	if _player.cannon_reload() == 0.0 and _every(0.3):
+		if _phase == "act":
+			_say("firing at the Colossus")
+			_phase = "firing"
+		input.fire = true

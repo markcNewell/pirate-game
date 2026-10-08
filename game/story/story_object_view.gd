@@ -21,6 +21,7 @@ var _spark: MeshInstance3D
 var _smoke := 0.0
 var _topple := 0.0
 var _clock := randf() * 10.0
+var _giant: Colossus
 
 
 func _init(what: int, state := 1) -> void:
@@ -121,6 +122,15 @@ func _init(what: int, state := 1) -> void:
 		StoryObject.Kind.CARVING:
 			add_child(Toon.instance(Models.part("calavera", "carving")))
 			_add_glint(Vector3(0, 1.3, 0))
+		StoryObject.Kind.BRAZIER:
+			add_child(Toon.instance(Models.part("ceniza", "brazier")))
+			_add_flame(Vector3(0, 1.15, 0), 1.1, 9.0)
+		StoryObject.Kind.BEACON:
+			add_child(Toon.instance(Models.part("ceniza", "beacon")))
+			_add_flame(Vector3(0, 1.0, 0), 3.4, 30.0, false)
+		StoryObject.Kind.COLOSSUS:
+			_giant = Colossus.new()
+			add_child(_giant)
 		StoryObject.Kind.BOMB:
 			add_child(Toon.instance(Models.part("fort_parts", "bomb")))
 			_spark = MeshInstance3D.new()
@@ -137,9 +147,9 @@ func _init(what: int, state := 1) -> void:
 	set_state(state)
 
 
-func _add_flame(at: Vector3, size: float, reach: float) -> void:
+func _add_flame(at: Vector3, size: float, reach: float, green := true) -> void:
 	_flame = MeshInstance3D.new()
-	_flame.mesh = Models.part("fx", "flame", GREEN)
+	_flame.mesh = Models.part("fx", "flame", GREEN) if green else Models.part("fx", "flame")
 	var glow := StandardMaterial3D.new()
 	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	glow.vertex_color_use_as_albedo = true
@@ -151,7 +161,7 @@ func _add_flame(at: Vector3, size: float, reach: float) -> void:
 	_flame.scale = Vector3.ONE * size
 	add_child(_flame)
 	_light = OmniLight3D.new()
-	_light.light_color = Color("7dff8a")
+	_light.light_color = Color("7dff8a") if green else Color("ffa04a")
 	_light.light_energy = 2.2
 	_light.omni_range = reach
 	_light.position = at + Vector3(0, 0.8, 0)
@@ -198,9 +208,14 @@ func set_state(state: int) -> void:
 	var was := _state
 	_state = state
 	match kind:
-		StoryObject.Kind.FIRE, StoryObject.Kind.LAMP:
+		StoryObject.Kind.FIRE, StoryObject.Kind.LAMP, StoryObject.Kind.BRAZIER:
 			if state == 0:
 				_put_out(was != -99)
+		StoryObject.Kind.BEACON:
+			_flame.visible = state > 0
+			_light.visible = state > 0
+		StoryObject.Kind.COLOSSUS:
+			_giant.set_state(state, was == -99)
 		StoryObject.Kind.BONFIRE:
 			if state <= 0:
 				_put_out(was != -99)
@@ -269,9 +284,20 @@ func douse() -> void:
 	set_state(0)
 
 
+## The Bone Colossus brings down its fist.
+func slam() -> void:
+	if _giant:
+		_giant.slam()
+
+
+func joint_hit(i: int) -> void:
+	if _giant:
+		_giant.joint_hit(i)
+
+
 func _process(delta: float) -> void:
 	_clock += delta
-	if _flame and _flame.visible:
+	if _flame and _flame.visible and _flame.is_inside_tree():
 		# A guttering flicker, in size and light.
 		var f := 1.0 + 0.12 * sin(_clock * 13.0) + 0.08 * sin(_clock * 7.3 + 1.0)
 		_flame.scale = Vector3(_flame_size, _flame_size * f, _flame_size)

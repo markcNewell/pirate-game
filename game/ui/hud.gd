@@ -1188,8 +1188,11 @@ class TreasureMap:
 								if t.island == v.island:
 									_flame(centre + Vector2(t.x - spec.x, t.z - spec.z) * scale, t.done)
 						Story.Step.BREACH, Story.Step.USE, Story.Step.SIEGE_SEA, Story.Step.SIEGE_BEACH, Story.Step.SNIPER, Story.Step.DOCTOR, \
-								Story.Step.HULK, Story.Step.GAMBIT, Story.Step.RISEN, Story.Step.CRIPPLE, Story.Step.ADMIRAL, Story.Step.GHOST:
+								Story.Step.HULK, Story.Step.GAMBIT, Story.Step.RISEN, Story.Step.CRIPPLE, Story.Step.ADMIRAL, Story.Step.GHOST, \
+								Story.Step.ASHEN, Story.Step.OCASO, Story.Step.ASH_FLAGSHIP, Story.Step.COLOSSUS, Story.Step.ASH_DUEL, Story.Step.HEART:
 							_skull(x)
+						Story.Step.BEACONS:
+							_flame(x, false)
 						Story.Step.LANTERNS:
 							_flame(x, false)
 						Story.Step.CHASE, Story.Step.GATHER:

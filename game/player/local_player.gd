@@ -258,7 +258,7 @@ func _interact(delta: float) -> void:
 			Audio.play("splash", -8.0, 1.2)
 		"sell", "drop", "board", "deliver", "eat":
 			game.send_request(target.kind, 0)
-		"talk", "read", "search", "use", "rescue", "climb_light":
+		"talk", "read", "search", "use", "rescue", "climb_light", "light":
 			game.send_request(target.kind, target.id)
 		"give":
 			game.send_request("give", 0)
@@ -392,6 +392,10 @@ func _give_target(held: Loot, here: Vector3) -> Dictionary:
 	if ch.is_empty() or int(m.handled) >= ch.steps.size():
 		return {}
 	var step: Dictionary = ch.steps[m.handled]
+	if int(step.kind) == Story.Step.HEART and held.kind == Loot.Kind.HEART:
+		if here.distance_to(StoryAct5.maw_edge()) < StoryRun.GIVE_REACH + 3.0:
+			return {"kind": "give", "id": 0, "label": "E  throw the Heart into the Maw"}
+		return {}
 	var skull_for := int(step.kind) == Story.Step.BOUNTY and held.kind == Loot.Kind.SKULL and str(step.to) != "wren"
 	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER] and not skull_for:
 		return {}
@@ -442,7 +446,10 @@ func _story_target(here: Vector3) -> Dictionary:
 			StoryObject.Kind.BOTTLE:
 				if Vector2(here.x - o.pos.x, here.z - o.pos.z).length() < StoryRun.READ_REACH:
 					return {"kind": "read", "id": o.id, "label": "E  take the letter from the bottle"}
-			StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.LAMP:
+			StoryObject.Kind.BEACON:
+				if o.state == 0 and d < StoryRun.USE_REACH + 1.0:
+					return {"kind": "light", "id": o.id, "label": "E  light the beacon"}
+			StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.LAMP, StoryObject.Kind.BRAZIER:
 				if o.state <= 0:
 					continue
 				any_fire = true

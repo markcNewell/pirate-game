@@ -11,7 +11,7 @@ const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"),
 const SKINS: Array[Color] = [Color("f2c49b"), Color("c98e62"), Color("8d5a3b"), Color("e8b48a")]
 ## How many looks the pirate model has (look0, look1...: art/blender/characters.py), and how
 ## many of them go round the roster (the rest are only worn once given or bought).
-const LOOKS := 9
+const LOOKS := 10
 const ROSTER_LOOKS := 8
 ## The speeds the walk and run cycles are drawn for (PlayerMotor.WALK and RUN).
 const WALK_SPEED := 4.5

@@ -23,15 +23,15 @@ QUIT=$((RUN_FOR + 6))
 run --server --no-save --calm --no-ai --start-near 2 --chapter p1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/lights.log" 2>&1 &
 run --server --no-save --calm --no-ai --start-near outpost --chapter p1 --chapter-step 2 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/moll.log" 2>&1 &
 run --server --no-save --calm --no-ai --start-near 1 --chapter p2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/bess.log" 2>&1 &
-run --server --profiles "$LOGS/profiles" --calm --no-ai --start-near outpost --test-skull --port "$((PORT + 3))" --quit-after 70 >"$LOGS/keep.log" 2>&1 &
+run --server --profiles "$LOGS/profiles" --calm --no-ai --start-near outpost --test-skull --port "$((PORT + 3))" --quit-after 110 >"$LOGS/keep.log" 2>&1 &
 sleep 2
 run --bot lights --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/lights_bot.log" 2>&1 &
 run --bot moll --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/moll_bot.log" 2>&1 &
 run --bot bounty --port "$((PORT + 2))" --quit-after "$RUN_FOR" >"$LOGS/bess_bot.log" 2>&1 &
-run --bot seller --port "$((PORT + 3))" --quit-after 60 >"$LOGS/keep_bot.log" 2>&1 &
+run --bot seller --port "$((PORT + 3))" --quit-after 100 >"$LOGS/keep_bot.log" 2>&1 &
 # The pirate's second visit, once the first server has written its profile and stopped.
 (
-	sleep 75
+	sleep 115
 	run --server --profiles "$LOGS/profiles" --calm --no-ai --port "$((PORT + 4))" --quit-after 25 >"$LOGS/again.log" 2>&1 &
 	sleep 2
 	run --bot seller --port "$((PORT + 4))" --quit-after 15 >"$LOGS/again_bot.log" 2>&1

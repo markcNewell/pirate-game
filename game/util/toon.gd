@@ -100,6 +100,23 @@ const GHOST := {
 	"lantern": Color("9cff8a"),
 	"gold": Color("6ac87a"),
 }
+## The Ash Admiral's flagship (Act V): charred black, green fire in her seams.
+const ASHSHIP := {
+	"hull": Color("141210"),
+	"hull_dark": Color("0a0908"),
+	"bottom": Color("0a0908"),
+	"stripe": Color("6ac87a"),
+	"deck": Color("2e2a26"),
+	"rail": Color("1e1a18"),
+	"mast": Color("26201c"),
+	"rope": Color("4a4440"),
+	"trim": Color("6ac87a"),
+	"sail": Color("2a2a2a"),
+	"lantern": Color("9cff8a"),
+	"gold": Color("6ac87a"),
+	"flag": Color("6ac87a"),
+	"bone": Color("1a1418"),
+}
 ## Isabel's La Golondrina (Act IV): white sails with Merrow's blue.
 const MERROW := {"sail": Color("f2efe6"), "stripe": Color("3c6fd6"), "flag": Color("2a4a8a")}
 

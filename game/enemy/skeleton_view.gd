@@ -28,6 +28,12 @@ var linnet := false
 var guard := false
 var jailer := false
 var admiral := false
+## Act V: the ashen dead (burned black, green fire in the ribs), Doctor Ocaso as a boss, and the
+## Ash Admiral (the Raven Admiral burned black, a crown of green fire).
+var ashen := false
+var doctor := false
+var ash := false
+var _base_tint := Color.WHITE
 var _glint: MeshInstance3D
 var _lantern: Node3D
 var _lantern_light: OmniLight3D
@@ -45,7 +51,7 @@ func _ready() -> void:
 	var outfit := "look%d" % (look % 3)
 	if linnet:
 		outfit = "look8"
-	elif guard or jailer:
+	elif guard or jailer or ashen:
 		outfit = "look4"
 	elif captain:
 		outfit = "look3"
@@ -57,8 +63,8 @@ func _ready() -> void:
 		outfit = "look5"
 	elif spanish:
 		outfit = "look4"
-	if gideon or admiral:
-		var person := "gideon" if gideon else "cuervo"
+	if gideon or admiral or doctor:
+		var person := "gideon" if gideon else ("ocaso" if doctor else "cuervo")
 		var who: Dictionary = Npc.WHO[person]
 		_model = Models.instance("npcs", {
 			Models.SHIRT: who.shirt, Models.SHIRT_DARK: who.shirt.darkened(0.28),
@@ -89,7 +95,27 @@ func _ready() -> void:
 	# A skeleton never stands quite in step with the next one.
 	_player.seek(randf() * _player.current_animation_length)
 	var skeleton: Skeleton3D = _model.find_children("*", "Skeleton3D", true, false)[0]
-	if gideon or admiral:
+	if ashen or ash:
+		# Burned black, with the Heart's fire in their ribs (or a crown of it, for the Admiral).
+		_base_tint = Color(0.32, 0.3, 0.3)
+		var flame := MeshInstance3D.new()
+		flame.mesh = Models.part("fx", "flame", StoryObjectView.GREEN)
+		var glow := StandardMaterial3D.new()
+		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow.vertex_color_use_as_albedo = true
+		glow.vertex_color_is_srgb = true
+		flame.material_override = glow
+		flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		flame.position = Vector3(0, 2.0 if ash else 1.15, 0.0 if ash else -0.02)
+		flame.scale = Vector3.ONE * (0.55 if ash else 0.4)
+		_model.add_child(flame)
+		var light := OmniLight3D.new()
+		light.light_color = Color("7dff8a")
+		light.light_energy = 1.2
+		light.omni_range = 4.0
+		light.position = flame.position
+		_model.add_child(light)
+	if gideon or admiral or doctor:
 		return  # no glowing eyes or rusty sword for a living man (the Admiral's rapier is his own)
 	var head := BoneAttachment3D.new()
 	head.bone_name = "head"
@@ -233,7 +259,7 @@ func place(pose: Transform3D, walking: bool, fallen: bool, delta: float) -> void
 		_glint_left -= delta
 		_glint.visible = _glint_left > 0.0 and not fallen
 		_glint.scale = Vector3.ONE * (0.6 + 0.6 * absf(sin(_glint_left * 14.0)))
-	_material.set_shader_parameter("tint", Color(1.0, 1.0 - _flash * 0.6, 1.0 - _flash * 0.6))
+	_material.set_shader_parameter("tint", _base_tint * Color(1.0, 1.0 - _flash * 0.6, 1.0 - _flash * 0.6))
 	if fallen:
 		_fall = minf(1.0, _fall + delta * 2.5)
 		_player.pause()

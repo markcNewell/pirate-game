@@ -1,6 +1,7 @@
 # Milestone 12: The Heart of Ash (Act V and the epilogue)
 
-Status: written 08-10-2026, the last build step of the story (docs/specs/2026-10-08-story.md).
+Status: built 09-10-2026, the last build step of the story (docs/specs/2026-10-08-story.md): the
+Anvil and the Maw, the six chapters, their art, three bots and `tests/smoke/act5_test.sh`.
 Every choice below is Claude's default; change anything and the code follows. Where the story doc
 asked for more than one night's work, this says what is built instead.
 
@@ -55,7 +56,8 @@ post-story world (the fort as a second port, the Maw Stirs event) are left for l
 
 - **Act gate**: Act V needs pirate level 18 (the best in the crew).
 - **Ashen dead**: Spanish dead, 80 health, burst into green flame when felled (no harm).
-- **Doctor Ocaso**: 300 health. Every 6 s he vanishes in green fire and appears by another
+- **Doctor Ocaso**: 300 health. He wakes when a pirate comes within 45 m of his workshop. Then
+  every 6 s he vanishes in green fire and appears by another
   burning brazier (or by a doused one when all are out), raising two dead there (no more than six
   standing). While any brazier burns, nothing hurts him. Each brazier takes one bucket.
 - **Beacons**: E at an unlit beacon lights it (no bucket needed; you carry a torch).

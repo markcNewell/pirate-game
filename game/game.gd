@@ -430,6 +430,31 @@ func client_on_event(kind: String, data: Array) -> void:
 				var o: Node3D = _object_views[int(data[0])]
 				o.set_state(int(data[1]))
 				Audio.play_at("clang", o.global_position + Vector3.UP * 3.5, 0.0, 1.9 if int(data[1]) > 0 else 1.2)
+		"blink":
+			# Ocaso vanishes in green fire and appears by another brazier.
+			for k in 2:
+				var at := Vector3(data[k * 3], data[k * 3 + 1], data[k * 3 + 2])
+				for n in 6:
+					effects.smoke(at + Vector3(randf_range(-0.6, 0.6), randf_range(0.2, 1.8), randf_range(-0.6, 0.6)))
+				Audio.play_at("splash", at, -4.0, 0.5)
+		"ash_burst":
+			var burst := Vector3(data[0], data[1], data[2])
+			for n in 5:
+				effects.smoke(burst + Vector3(randf_range(-0.4, 0.4), randf_range(0.3, 1.4), randf_range(-0.4, 0.4)))
+		"slam":
+			if _object_views.has(int(data[0])):
+				_object_views[int(data[0])].slam()
+			var where := Vector3(data[1], 0.0, data[2])
+			effects.impact(0, where)
+			Audio.play_at("cannon", where, 4.0, 0.4)
+		"joint_hit":
+			if _object_views.has(int(data[0])):
+				_object_views[int(data[0])].joint_hit(int(data[1]))
+		"colossus", "crumble":
+			Audio.play("rattle", 6.0, 0.35, 0.0)
+		"beacon":
+			if _object_views.has(int(data[0])):
+				Audio.play_at("fire", _object_views[int(data[0])].global_position, 0.0)
 		"ghost":
 			if view_ships.has(int(data[0])):
 				var g: ShipState = view_ships[int(data[0])]
@@ -631,6 +656,9 @@ func _update_skeletons(delta: float) -> void:
 			v.guard = sk.guard
 			v.jailer = sk.jailer
 			v.admiral = sk.admiral
+			v.ashen = sk.ashen
+			v.doctor = sk.doctor
+			v.ash = sk.ash
 			add_child(v)
 			if sk.linnet and not sk.shield_up:
 				v.drop_lantern()
@@ -921,9 +949,9 @@ func nearest_enemy() -> ShipState:
 static func ship_name(s: ShipState) -> String:
 	if s.crew > 0:
 		return ServerSim.CREW_NAMES[s.crew - 1]
-	return ["Skeleton ship", "Spanish galleon", "The Cuervo Negro", "A ghost galleon", "La Golondrina", "The prison hulk"][clampi(s.flag, 0, 5)]
+	return ["Skeleton ship", "Spanish galleon", "The Cuervo Negro", "A ghost galleon", "La Golondrina", "The prison hulk", "The Ash Admiral's flagship"][clampi(s.flag, 0, 6)]
 
 
 ## What's painted on an enemy (or ally) ship's transom, by its flag.
 static func ship_name_for(flag: int) -> String:
-	return ["The Rotten Grin", "San Cristobal", "Cuervo Negro", "Nuestra Senora", "La Golondrina", "Penitencia"][clampi(flag, 0, 5)]
+	return ["The Rotten Grin", "San Cristobal", "Cuervo Negro", "Nuestra Senora", "La Golondrina", "Penitencia", "Cuervo Negro"][clampi(flag, 0, 6)]

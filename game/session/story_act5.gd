@@ -13,15 +13,18 @@ const OCASO_HEALTH := 300
 const OCASO_JUMP_EVERY := 6.0
 const OCASO_RAISE := 2
 const OCASO_MAX_UP := 6
+## He wakes when a pirate comes this near his workshop.
+const OCASO_WAKE := 45.0
 ## The workshop door on Isla Ceniza's hill, island-local, and the braziers round it.
 const WORKSHOP := Vector3(-8.0, 0.0, 9.0)
 const BRAZIERS: Array[Vector3] = [Vector3(-14.0, 0.0, 2.0), Vector3(-2.0, 0.0, 3.0), Vector3(-6.0, 0.0, -4.0)]
 ## Beacons: on the heights of Cutlass Cay, Parrot Rock and Gull Isle.
 const BEACON_ISLANDS: Array[int] = [0, 1, 2]
-## The Colossus stands in the Maw, knee-deep; its joints (giant-local, at SCALE) take hits.
+## The Colossus stands in the Maw, knee-deep (its feet ROOT_Y below the sea); its joints, from
+## its feet at SCALE times life size, take hits: shoulders 20 m above the sea, knees 3 m.
 const SCALE := 18.0
 const ROOT_Y := -6.0
-const JOINTS: Array[Vector3] = [Vector3(4.0, 20.0, 0.0), Vector3(-4.0, 20.0, 0.0), Vector3(1.8, 3.2, -0.2), Vector3(-1.8, 3.2, -0.2)]
+const JOINTS: Array[Vector3] = [Vector3(4.0, 26.0, 0.0), Vector3(-4.0, 26.0, 0.0), Vector3(1.8, 9.0, -0.3), Vector3(-1.8, 9.0, -0.3)]
 const JOINT_HITS := 8
 const JOINT_REACH := 5.0
 const KNEEL := 16
@@ -251,6 +254,14 @@ func _ocaso_tick(crew: int, m: Dictionary) -> void:
 	if doctor == null or not doctor.alive():
 		return
 	doctor.shield_up = not lit_braziers(m).is_empty()
+	var near := false
+	for id in sim._crew_members(crew):
+		var r: Dictionary = sim.players[id]
+		if r.dead_until < 0.0 and sim._world_pos(r).distance_to(on_ceniza(WORKSHOP)) < OCASO_WAKE:
+			near = true
+	if not near:
+		m.next_shot = maxf(m.next_shot, sim.time + 2.0)  # asleep at his bench until someone comes
+		return
 	if sim.time < m.next_shot:
 		return
 	m.next_shot = sim.time + OCASO_JUMP_EVERY
@@ -267,7 +278,7 @@ func _ocaso_tick(crew: int, m: Dictionary) -> void:
 	doctor.pos = to.pos + Vector3(1.2, 0, 0.6)
 	doctor.pos.y = Islands.ground_at(ceniza(), doctor.pos.x, doctor.pos.z)
 	sim.stats.blinks += 1
-	for n in mini(OCASO_RAISE, OCASO_MAX_UP - story.standing(m) + 1):
+	for n in mini(OCASO_RAISE, maxi(0, OCASO_MAX_UP - story.standing(m))):
 		var a := sim._rng.randf() * TAU
 		var dead := sim._new_skeleton(-1, to.pos + Vector3(cos(a), 0, sin(a)) * 2.5)
 		dead.pos.y = Islands.ground_at(ceniza(), dead.pos.x, dead.pos.z)

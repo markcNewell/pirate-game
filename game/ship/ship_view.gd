@@ -64,7 +64,7 @@ static func warm_up() -> void:
 
 ## A Spanish galleon: sound hull and sails (not a wreck), but crewed by the dead.
 func _spanish() -> bool:
-	return kind == ShipState.Kind.SKELETON and flag in [1, 2, 5]
+	return kind == ShipState.Kind.SKELETON and flag in [1, 2, 5, 6]
 
 
 func _part(name: String) -> ArrayMesh:
@@ -74,7 +74,7 @@ func _part(name: String) -> ArrayMesh:
 func _ready() -> void:
 	var palette: Dictionary = Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew)
 	if _spanish():
-		palette = Toon.FLAGSHIP if flag == 2 else Toon.SPANISH
+		palette = {2: Toon.FLAGSHIP, 6: Toon.ASHSHIP}.get(flag, Toon.SPANISH)
 	elif kind == ShipState.Kind.SKELETON and flag == 3:
 		palette = Toon.GHOST
 	elif kind == ShipState.Kind.SKELETON and flag == 4:

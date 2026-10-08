@@ -167,11 +167,72 @@ def chart_case():
     return kit.join("chart_case", [tube, strap, weed] + caps)
 
 
+def workshop():
+    """Doctor Ocaso's workshop, dug into Isla Ceniza's hill: a front of rough grey stone with an
+    arched door (facing -Z), two round windows of green glass, a crooked chimney and a lean-to
+    roof of scorched planks over a long table of bottles. About 7 m wide."""
+    parts = [kit.box("front", (0, 2.2, 0.6), (7.0, 4.4, 1.2), "6e6a66", bevel=0.12)]
+    kit.jitter(parts[0], 0.06, 81)
+    kit.paint_where(parts[0], "565250", lambda x, y, z: (int(x * 2) + int(y * 2)) % 3 == 0)
+    parts.append(kit.noink(kit.prism("door", [(-0.8, 0.0), (0.8, 0.0), (0.8, 1.8), (0.0, 2.5), (-0.8, 1.8)], 0.1, "141210", centre=(0, 0.0, -0.02), plane="xy"), 0.2))
+    for sx in (-1, 1):
+        parts.append(kit.noink(kit.lathe("window", [(0.0, -0.02), (0.45, -0.02), (0.45, 0.02), (0.0, 0.02)], 12, "6aff8a", axis="z", centre=(sx * 2.3, 2.6, -0.04)), 0.1))
+        parts.append(kit.lathe("window_rim", [(0.45, -0.06), (0.55, -0.06), (0.55, 0.06), (0.45, 0.06)], 12, "3a3634", axis="z", caps=False, centre=(sx * 2.3, 2.6, -0.04)))
+    parts.append(kit.tube("chimney", [(2.4, 4.0, 1.0), (2.5, 5.6, 1.1), (2.3, 6.6, 1.0)], [0.45, 0.4, 0.42], 8, "4a4644"))
+    parts.append(kit.box("lean_to", (-1.8, 2.7, -1.3), (3.4, 0.12, 2.4), "3a2e24", rot=(0.35, 0, 0)))
+    for sx in (-3.3, -0.4):
+        parts.append(kit.tube("post", [(sx, 0.0, -2.3), (sx, 2.35, -2.3)], 0.08, 6, "3a2e24"))
+    parts.append(kit.box("table", (-1.8, 0.9, -1.6), (2.6, 0.12, 0.8), "4a3a2c"))
+    for k in range(7):
+        x = -2.9 + k * 0.36
+        colour = ("6aff8a", "c8302a", "4a8ae0", "e0b04a")[k % 4]
+        parts.append(kit.lathe("bottle", [(0.0, 0.0), (0.07, 0.0), (0.07, 0.18), (0.025, 0.26), (0.0, 0.26)], 8, colour, centre=(x, 0.96, -1.6 + 0.12 * (k % 2))))
+    return kit.join("workshop", parts)
+
+
+def brazier():
+    """A brazier of Ocaso's: an iron basket of coals on three legs (the game lights it green)."""
+    parts = [kit.lathe("basket", [(0.0, 0.85), (0.32, 0.9), (0.45, 1.2), (0.42, 1.25)], 10, IRON, caps=False)]
+    for k in range(3):
+        a = 2 * math.pi * k / 3
+        parts.append(kit.tube("leg", [(math.cos(a) * 0.35, 1.0, math.sin(a) * 0.35), (math.cos(a) * 0.5, 0.0, math.sin(a) * 0.5)], 0.03, 5, IRON))
+    parts.append(kit.ellipsoid("coals", (0, 1.12, 0), (0.36, 0.1, 0.36), "2a2420", rings=4, sectors=10))
+    return kit.join("brazier", parts)
+
+
+def beacon():
+    """A beacon on an island's height: a square stack of logs round a pole, on a ring of stones."""
+    parts = []
+    for k in range(10):
+        a = 2 * math.pi * k / 10
+        parts.append(kit.ellipsoid("stone", (math.cos(a) * 1.5, 0.15, math.sin(a) * 1.5), (0.35, 0.25, 0.3), "8c8478", rings=4, sectors=6))
+    for layer in range(5):
+        y = 0.25 + layer * 0.32
+        along = layer % 2 == 0
+        for sx in (-1, 1):
+            if along:
+                parts.append(kit.tube("log", [(-1.0, y, sx * 0.75), (1.0, y, sx * 0.75)], 0.14, 6, "6a4a2c"))
+            else:
+                parts.append(kit.tube("log", [(sx * 0.75, y, -1.0), (sx * 0.75, y, 1.0)], 0.14, 6, "5a3e24"))
+    parts.append(kit.tube("pole", [(0, 0, 0), (0, 3.4, 0)], 0.08, 6, "4a3a2c"))
+    parts.append(kit.ellipsoid("kindling", (0, 0.9, 0), (0.7, 0.6, 0.7), "a07a4a", rings=4, sectors=8))
+    return kit.join("beacon", parts)
+
+
+def heart():
+    """The Heart of Ash: a fist-sized black stone, faceted, cracked through with green fire."""
+    ob = kit.ellipsoid("heart", (0, 0.2, 0), (0.2, 0.22, 0.18), "1a1a1e", rings=6, sectors=8)
+    kit.jitter(ob, 0.025, 91)
+    kit.paint_where(ob, "8aff9a", lambda x, y, z: abs(x * 3.0 + z * 2.0 - (y - 0.2) * 4.0) < 0.12 or abs(x - z * 2.5) < 0.05)
+    return ob
+
+
 def main(names):
     builders = {
         "calavera": lambda: [calavera(), tooth_stone(), carving()],
         "ashtrees": lambda: [dead_tree("deadtree_%d" % i, h, 60 + i) for i, h in enumerate((6.0, 7.5, 9.0))],
         "reef": lambda: [reef_rock("reef_rock_0", 1.0, 70), reef_rock("reef_rock_1", 1.4, 71), wreck_mast(), great_lantern(), great_lantern(True), chart_case()],
+        "ceniza": lambda: [workshop(), brazier(), beacon(), heart()],
     }
     for name in names or builders:
         kit.reset()

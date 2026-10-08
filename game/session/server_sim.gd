@@ -130,9 +130,11 @@ func _init(options: Dictionary = {}) -> void:
 	# Test hook: where the crew's ship starts (before any chapter, which may place things by it).
 	if options.has("start-near"):
 		var where := str(options["start-near"])
-		if where in ["hulk", "reef"]:
-			# Act IV: alongside the prison hulk in the fog, or at the edge of the Black Reef.
-			var at := StoryRun.HULK_FOG + Vector2(-32.0, 10.0) if where == "hulk" else Reef.CENTRE + Vector2(-210.0, 0.0)
+		if where in ["hulk", "reef", "maw"]:
+			# Act IV and V: alongside the prison hulk in the fog, at the edge of the Black Reef, or
+			# within cannon shot of the Maw (just outside the Reef's heart).
+			var offsets := {"hulk": StoryRun.HULK_FOG + Vector2(-32.0, 10.0), "reef": Reef.CENTRE + Vector2(-210.0, 0.0), "maw": Reef.CENTRE + Vector2(-110.0, 0.0)}
+			var at: Vector2 = offsets[where]
 			crew_ship().x = at.x
 			crew_ship().z = at.y
 			crew_ship().yaw = -PI / 2.0

@@ -20,6 +20,8 @@ uniform float storm_on = 0.0;
 // The Black Reef's storm, which never moves (Reef.amount).
 uniform vec2 reef_centre = vec2(1e6, 1e6);
 uniform float reef_radius = 150.0;
+// The Maw (Act V): a slow whirlpool at the Reef's heart.
+uniform float maw_radius = 34.0;
 
 uniform vec3 deep_color : source_color = vec3(0.078, 0.384, 0.769);
 uniform vec3 mid_color : source_color = vec3(0.137, 0.537, 0.890);
@@ -121,6 +123,15 @@ void fragment() {
 		float ring2 = step(abs(r - edge - 4.0 - 1.2 * sin(sea_time * 0.7 + a * 4.0)), 0.35);
 		float broken = step(0.35, noise(vec2(a * 12.0, r * 0.4 - sea_time * 0.4)));
 		foam = max(foam, max(ring1, ring2 * broken));
+	}
+	// The Maw: dark in the middle, with arms of foam turning slowly round it.
+	vec2 dm = world_pos.xz - reef_centre;
+	float rm = length(dm);
+	if (rm < maw_radius) {
+		float k = 1.0 - rm / maw_radius;
+		col = mix(col, deep_color * 0.3, k * k);
+		float spiral = sin(atan(dm.y, dm.x) * 3.0 + rm * 0.25 - sea_time * 1.2);
+		foam = max(foam, step(0.9, spiral) * step(0.12, k) * step(rm, maw_radius - 3.0));
 	}
 
 	for (int i = 0; i < MAX_SHIPS; i++) {

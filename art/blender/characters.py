@@ -24,9 +24,9 @@ BOOT_DARK = "2a1e18"
 BELT = "4a2c1c"
 GOLD = "ffd23a"
 
-TROUSERS = ["5b4a3a", "34405a", "2c2c3a", "6a6458", "7a6a50", "3a3a48", "4a2a2a", "50483e", "6a5a44"]
-HAIR = ["5a3420", "1e1a1a", "a8a49c", "5e2e16", "c89a58", "3a2418", "2a1a12", "6a4a32", "b06a30"]
-LOOKS = 9
+TROUSERS = ["5b4a3a", "34405a", "2c2c3a", "6a6458", "7a6a50", "3a3a48", "4a2a2a", "50483e", "6a5a44", "1e1e24"]
+HAIR = ["5a3420", "1e1a1a", "a8a49c", "5e2e16", "c89a58", "3a2418", "2a1a12", "6a4a32", "b06a30", "1a1416"]
+LOOKS = 10
 
 
 def smooth_part(ob, levels=1, angle=60):
@@ -708,6 +708,14 @@ def look(index):
         head_bits = cavalier() + hair_back(hair, 0.1) + locks + goatee + curly_moustache(hair) + face(hair, gruff=0.4)
         body_bits = coat("5a1a24", trim="d8c070")
         return head_bits, body_bits, {"rolled": False, "cuff": None, "coat": True}
+    if index == 9:
+        # The Admiral's raven cloak (the story's end; a gift, not for sale): a black broad hat with
+        # a black plume, the feathered cloak over the shoulders, a pointed beard.
+        hat = cavalier("141418", feather="1e1e26")
+        beard = [kit.tube("beard", [(0, 1.565, surface_z(0, 1.565) - 0.012), (0, 1.5, surface_z(0, 1.53) - 0.035), (0, 1.44, surface_z(0, 1.53) - 0.025)], [0.045, 0.03, 0.006], 8, hair)]
+        head_bits = hat + beard + hair_back(hair, 0.05) + face(hair, gruff=0.7)
+        body_bits = raven_cloak()
+        return head_bits, body_bits, {"rolled": False, "cuff": None}
     if index == 8:
         # Silas Penny's old cabin-boy cap (a gift, not for sale): a faded blue cap with a short
         # peak and a red bobble, ginger hair sticking out under it, a red neckerchief.
@@ -1704,18 +1712,11 @@ def ocaso():
     return parts
 
 
-def cuervo():
-    """Alonso de Cuervo, the Raven Admiral: a black morion with a tall black plume, a pointed black
-    beard and curled moustache, a black coat with gold facings and a red sash under a cloak of
-    raven feathers, and a rapier in his fist."""
-    hair = "1a1416"
-    plume = kit.tube("plume", [(0, 2.0, 0.02), (0, 2.2, 0.1), (0, 2.27, 0.28), (0, 2.14, 0.44)], [0.045, 0.085, 0.075, 0.02], 8, "141418")
-    beard = kit.tube("beard", [(0, 1.565, surface_z(0, 1.565) - 0.012), (0, 1.5, surface_z(0, 1.53) - 0.035), (0, 1.43, surface_z(0, 1.53) - 0.025)], [0.05, 0.035, 0.006], 8, hair)
-    head_bits = morion("1e1e24", sweep=0.22, comb_h=0.16) + [plume, beard] + curly_moustache(hair) + hair_back(hair, 0.02) + face(hair, mouth=True, gruff=0.9)
-    parts = head(head_bits)
-    parts += coat("1a1a20", trim=GOLD) + trousers("1e1e24") + boots() + sash("8a1a18")
+def raven_cloak(color="141418"):
+    """A cloak of raven feathers over the shoulders and down the back to the knees, ragged at the
+    hem, its feathers catching the light in bands."""
     import bmesh
-    cloak = kit.loft("cloak", [(0.5, 0.3, 0.26, 0, 0.06), (0.9, 0.28, 0.22, 0, 0.05), (1.25, 0.26, 0.19, 0, 0.03), (1.45, 0.22, 0.16, 0, 0.01)], "141418", sides=24, power=2.2, cap_bottom=False, cap_top=False)
+    cloak = kit.loft("cloak", [(0.5, 0.3, 0.26, 0, 0.06), (0.9, 0.28, 0.22, 0, 0.05), (1.25, 0.26, 0.19, 0, 0.03), (1.45, 0.22, 0.16, 0, 0.01)], color, sides=24, power=2.2, cap_bottom=False, cap_top=False)
     bm = bmesh.new()
     bm.from_mesh(cloak.data)
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if kit.G(f.calc_center_median())[2] < 0.02], context="FACES")
@@ -1727,7 +1728,20 @@ def cuervo():
     kit.apply_all(cloak)
     kit.paint_where(cloak, "2a2a3a", lambda x, y, z: int(y * 14) % 3 == 0)
     rig.set_weights(cloak, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
-    parts.append(cloak)
+    return [cloak]
+
+
+def cuervo():
+    """Alonso de Cuervo, the Raven Admiral: a black morion with a tall black plume, a pointed black
+    beard and curled moustache, a black coat with gold facings and a red sash under a cloak of
+    raven feathers, and a rapier in his fist."""
+    hair = "1a1416"
+    plume = kit.tube("plume", [(0, 2.0, 0.02), (0, 2.2, 0.1), (0, 2.27, 0.28), (0, 2.14, 0.44)], [0.045, 0.085, 0.075, 0.02], 8, "141418")
+    beard = kit.tube("beard", [(0, 1.565, surface_z(0, 1.565) - 0.012), (0, 1.5, surface_z(0, 1.53) - 0.035), (0, 1.43, surface_z(0, 1.53) - 0.025)], [0.05, 0.035, 0.006], 8, hair)
+    head_bits = morion("1e1e24", sweep=0.22, comb_h=0.16) + [plume, beard] + curly_moustache(hair) + hair_back(hair, 0.02) + face(hair, mouth=True, gruff=0.9)
+    parts = head(head_bits)
+    parts += coat("1a1a20", trim=GOLD) + trousers("1e1e24") + boots() + sash("8a1a18")
+    parts += raven_cloak()
     g = Vector(rig.grip_point("r"))
     blade = kit.tube("rapier", [tuple(g + Vector((0, 0.0, -0.05))), tuple(g + Vector((0, -0.12, -0.6))), tuple(g + Vector((0, -0.2, -1.0)))], [0.012, 0.009, 0.003], 5, "d8dde2")
     cup = kit.lathe("rapier_cup", [(0.0, 0.0), (0.07, 0.02), (0.08, 0.06)], 10, GOLD, caps=False, centre=tuple(g + Vector((0, 0.0, -0.06))), axis="z")

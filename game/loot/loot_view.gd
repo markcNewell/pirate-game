@@ -39,6 +39,10 @@ static func mesh_for(kind: int, tier: int, variant := 0) -> ArrayMesh:
 			return Models.part("loot", "barricade")
 		Loot.Kind.CHART:
 			return Models.part("reef", "chart_case")
+		Loot.Kind.HEART:
+			return Models.part("ceniza", "heart")
+		Loot.Kind.LANTERN:
+			return Models.part("story", "hand_lantern")
 	return Models.part("chests", "chest_%d" % tier)
 
 
@@ -62,6 +66,14 @@ func setup(kind: int, value: int, variant := 0) -> LootView:
 			eye.position = Vector3(side * 0.05, 0.15, -0.105)
 			eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(eye)
+	if kind in [Loot.Kind.HEART, Loot.Kind.LANTERN]:
+		# The Heart's green fire; Wren's lantern, lit.
+		var fire := OmniLight3D.new()
+		fire.light_color = Color("7dff8a")
+		fire.light_energy = 2.4 if kind == Loot.Kind.HEART else 1.2
+		fire.omni_range = 6.0
+		fire.position = Vector3(0, 0.25 if kind == Loot.Kind.HEART else -0.2, 0)
+		add_child(fire)
 	if kind == Loot.Kind.CHEST or kind == Loot.Kind.SKULL:
 		# Treasure catches the light now and then, so it stands out on a beach or a deck.
 		_glint = MeshInstance3D.new()

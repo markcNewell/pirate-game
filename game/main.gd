@@ -450,6 +450,44 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = 0.25 if view == "carving" else 0.3
+	elif game and view in ["workshop", "beacon", "anvil"]:
+		# Act V ashore: Ocaso at his workshop among his braziers (e2, --chapter-step 1); a beacon
+		# burning on Cutlass Cay (e3, --chapter-step 1); the Ash Admiral on the Anvil, the fallen
+		# Colossus across it (e5, --chapter-step 1).
+		for sk: Skeleton in game.sim.skeletons.values():
+			sk.cooldown = 1e6
+			sk.next_lunge = 1e9
+		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+		var look_at := Vector3.ZERO
+		var stand := Vector3.ZERO
+		match view:
+			"workshop":
+				look_at = StoryAct5.on_ceniza(StoryAct5.WORKSHOP) + Vector3(0, 2.0, 0)
+				stand = StoryAct5.on_ceniza(StoryAct5.WORKSHOP * 0.15 + Vector3(4.0, 0, -6.0))
+			"beacon":
+				for o: StoryObject in game.sim.story.objects.values():
+					if o.kind == StoryObject.Kind.BEACON and Islands.island_at(o.pos.x, o.pos.z) == 0:
+						o.state = 1
+						look_at = o.pos + Vector3(0, 1.5, 0)
+				stand = look_at + Vector3(7.0, 0, 5.0)
+			"anvil":
+				var giant := game.sim.story._add_object(ServerSim.CREW, StoryObject.Kind.COLOSSUS, StoryAct5.fallen_at(), 0.6)
+				giant.state = 15 | StoryAct5.KNEEL
+				look_at = game.sim.skeletons[m.captain].pos + Vector3(0, 1.2, 0)
+				stand = look_at + Vector3(-6.0, 0, -4.0)
+		var island := maxi(0, Islands.island_at(stand.x, stand.z, 2.0))
+		stand.y = Islands.ground_at(island, stand.x, stand.z)
+		var to := look_at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = atan2(to.y - LocalPlayer.EYE_HEIGHT, Vector2(to.x, to.z).length())
+	elif game and view == "colossus":
+		# The Bone Colossus standing in the Maw (e5), seen from off the Reef.
+		var cam := Camera3D.new()
+		cam.far = 3000.0
+		cam.fov = 55.0
+		game.add_child(cam)
+		cam.make_current()
+		cam.look_at_from_position(Vector3(Reef.CENTRE.x - 95.0, 22.0, Reef.CENTRE.y + 70.0), Vector3(Reef.CENTRE.x, 14.0, Reef.CENTRE.y))
 	elif game and view == "linnet":
 		# The Other Lantern (--chapter t10, best with --time 0.9): Linnet on Gull Isle, a few
 		# steps off, her lantern gathering to flare.
