@@ -2,14 +2,17 @@ class_name WorldEvents
 extends RefCounted
 ## Things that happen on the shared sea for every crew to join (docs/specs/2026-10-08-m13-world-
 ## events.md): green fires on an island at night, a Spanish patrol, a gold convoy, a raid on
-## Port Merrow, a ghost galleon rising in the storm. One at a time, on a clock (but the ghost
-## comes when a crew sails deep into the storm). Run by ServerSim each tick.
+## Port Merrow, a ghost galleon rising in the storm; and for crews further on, the dead
+## re-taking the fort and the Maw stirring (docs/specs/2026-10-08-m18-fort-and-maw.md). One at a
+## time, on a clock (but the ghost comes when a crew sails deep into the storm). Run by ServerSim
+## each tick.
 
-enum Kind { NONE, GREEN_FIRE, PATROL, CONVOY, RAID, GHOST }
+enum Kind { NONE, GREEN_FIRE, PATROL, CONVOY, RAID, GHOST, FORT, MAW }
 
 const NAMES := {
 	Kind.GREEN_FIRE: "Green Fire", Kind.PATROL: "Raven Patrol", Kind.CONVOY: "Gold Convoy",
-	Kind.RAID: "Raid on Merrow", Kind.GHOST: "Ghost Galleon",
+	Kind.RAID: "Raid on Merrow", Kind.GHOST: "Ghost Galleon", Kind.FORT: "Fuerte del Cuervo",
+	Kind.MAW: "The Maw Stirs",
 }
 const FIRST_DELAY := 300.0
 const GAP := 480.0
@@ -30,6 +33,19 @@ const RAID_XP := 300
 const RAID_GOLD := 150
 const GHOST_EVERY := 600.0
 const GHOST_DEPTH := 0.5
+const FORT_WAVES := 2
+const FORT_SIZE := 6
+const FORT_CHESTS := 4
+const FORT_XP := 300
+const MAW_GHOSTS := 2
+## Cannonballs to break one of the lesser colossus's joints (the story's giant takes 8).
+const MAW_JOINT_HITS := 4
+const MAW_REACH := 300.0
+const MAW_XP := 400
+## How long the felled giant kneels before it sinks and the event ends.
+const MAW_FALL := 8.0
+## The gift for felling it: a shirt dye never sold.
+const MAW_DYE := "dye10"
 
 var sim: ServerSim
 var kind := Kind.NONE
@@ -50,6 +66,10 @@ var wave := 0
 var next_rise := 0.0
 var last_ghost := -1e9
 var _near := Vector3.INF
+## The lesser colossus: hits on each joint, when it next attacks, when it sinks once felled.
+var joints: Array[int] = [0, 0, 0, 0]
+var next_shot := 0.0
+var fell_at := -1.0
 
 
 func _init(server: ServerSim) -> void:
@@ -71,16 +91,27 @@ func tick(_dt: float) -> void:
 
 
 ## Which event comes next: green fire only at night, the raid only once someone online has
-## finished the siege (chapter 18).
+## finished the siege (c6), the fort once someone has stormed it (b6) and nobody's chapter is
+## there, the Maw only at night once someone has finished the story (e6).
 func _pick() -> int:
 	var choices: Array[int] = [Kind.PATROL, Kind.CONVOY]
-	if StoryRun.is_night(sim.time):
+	var night := StoryRun.is_night(sim.time)
+	if night:
 		choices.append(Kind.GREEN_FIRE)
-	for id in sim.players:
-		if sim.players[id].profile.chapters.has("c6"):
-			choices.append(Kind.RAID)
-			break
+	if _anyone_done("c6"):
+		choices.append(Kind.RAID)
+	if _anyone_done("b6") and not sim.story.busy_island(Fort.index()):
+		choices.append(Kind.FORT)
+	if night and _anyone_done("e6"):
+		choices.append(Kind.MAW)
 	return choices[sim._rng.randi() % choices.size()]
+
+
+func _anyone_done(chapter: String) -> bool:
+	for id in sim.players:
+		if sim.players[id].profile.chapters.has(chapter):
+			return true
+	return false
 
 
 ## Start an event. `near` (tests): put it by this point (the nearest island or patrol point).
@@ -94,6 +125,7 @@ func start(what: int, near := Vector3.INF) -> void:
 	chests.clear()
 	_paid.clear()
 	wave = 0
+	fell_at = -1.0
 	match what:
 		Kind.GREEN_FIRE:
 			_start_fires()
@@ -103,6 +135,10 @@ func start(what: int, near := Vector3.INF) -> void:
 			_start_convoy()
 		Kind.RAID:
 			_start_raid()
+		Kind.FORT:
+			_start_fort()
+		Kind.MAW:
+			_start_maw()
 	sim.stats.world_events += 1
 	print("[server] world event: %s (%s)" % [NAMES[kind], text])
 	Net.send_message(0, "World event: %s! %s" % [NAMES[kind], text])
@@ -209,6 +245,108 @@ func _raid_wave() -> void:
 	Net.send_event("risen", [place.x, 1.0, place.z])
 
 
+## The dead hold Fuerte del Cuervo again: its tower guns run out, the courtyard garrisoned.
+func _start_fort() -> void:
+	island = Fort.index()
+	var c := Fort.centre()
+	place = Vector3(c.x, 0, c.z)
+	for side: int in [-1, 1]:
+		var gun := sim.story.add_world_object(StoryObject.Kind.GUN, Fort.gun_pos(side), Fort.FACING + Fort.TOWER_SPREAD * side)
+		gun.state = 2
+		sim.story._gun_ready[gun.id] = sim.time + 4.0 + 2.0 * side
+		objects.append(gun.id)
+	_fort_wave()
+	text = "The dead hold Fuerte del Cuervo again. Its guns are run out and its vault is full."
+
+
+## Six of the Spanish dead in a ring round the courtyard's platform.
+func _fort_wave() -> void:
+	wave += 1
+	print("[server] the fort's garrison: wave %d" % wave)
+	for n in FORT_SIZE:
+		var a := TAU * n / float(FORT_SIZE) + 0.5 * wave
+		var p := Fort.centre() + Vector3(cos(a), 0, sin(a)) * 6.5
+		p.y = Islands.ground_at(island, p.x, p.z)
+		var sk := sim._new_skeleton(-1, p)
+		sk.spanish = true
+		raised.append(sk.id)
+	Net.send_event("risen", [place.x, Fort.PLATEAU_Y, place.z])
+
+
+## The fort taken back: the vault's chests at its door, and pay for everyone there.
+func _fort_won() -> void:
+	var door := Fort.door_pos(Fort.VAULT)
+	for n in FORT_CHESTS:
+		var at := door + Vector3(-0.9 + 0.6 * n, 0.05, 0.3 * (n % 2))
+		at.y = Islands.ground_at(island, at.x, at.z) + 0.05
+		sim._new_item(Loot.Kind.CHEST, Loot.State.GROUND, at, sim._rng.randi_range(300, 520))
+	_reward(FORT_XP, 0, "retaking Fuerte del Cuervo")
+	_end(true, "Fuerte del Cuervo is ours again, and its vault stands open!")
+
+
+## The Black Reef wakes: a lesser colossus in the Maw and ghost galleons at the Reef's edge.
+func _start_maw() -> void:
+	place = Vector3(Reef.CENTRE.x, 0, Reef.CENTRE.y)
+	var giant := sim.story.add_world_object(StoryObject.Kind.COLOSSUS, Vector3(Reef.CENTRE.x, StoryAct5.ROOT_Y, Reef.CENTRE.y), 0.0)
+	giant.state = 0
+	objects.append(giant.id)
+	joints = [0, 0, 0, 0]
+	next_shot = sim.time + StoryAct5.ATTACK_EVERY
+	Net.send_event("colossus", [giant.id])
+	for n in MAW_GHOSTS:
+		var a := TAU * n / float(MAW_GHOSTS) + sim._rng.randf()
+		var edge := Reef.CENTRE + Vector2(cos(a), sin(a)) * Reef.STORM_RADIUS
+		ships.append(sim.story.act4.spawn_ghost_at(Vector3(edge.x, 0, edge.y)))
+	text = "The Black Reef wakes! Ghost galleons rise at its edge, and a giant of bones stands in the Maw."
+
+
+func giant() -> StoryObject:
+	if kind != Kind.MAW or objects.is_empty():
+		return null
+	return sim.story.objects.get(objects[0])
+
+
+## A cannonball in flight at `pos`: does it strike one of the giant's glowing joints?
+func projectile_hit(pos: Vector3) -> bool:
+	var g := giant()
+	if g == null or g.state & StoryAct5.KNEEL:
+		return false
+	for i in StoryAct5.JOINTS.size():
+		if g.state & (1 << i) or pos.distance_to(StoryAct5.joint_world(g, i)) >= StoryAct5.JOINT_REACH:
+			continue
+		joints[i] += 1
+		sim.stats.joint_hits += 1
+		Net.send_event("joint_hit", [g.id, i, joints[i]])
+		if joints[i] >= MAW_JOINT_HITS:
+			g.state |= 1 << i
+			var broken := StoryAct5._broken(g)
+			print("[server] a joint of the lesser colossus breaks (%d of 4)" % broken)
+			Net.send_message(0, "A joint of the giant shatters! (%d of 4)" % broken)
+			if broken == 4:
+				g.state |= StoryAct5.KNEEL
+				fell_at = sim.time
+				Net.send_message(0, "The giant goes down on its knees in the Maw!")
+		return true
+	return false
+
+
+func _run_maw() -> void:
+	var g := giant()
+	if g == null:
+		return
+	if fell_at >= 0.0:
+		if sim.time - fell_at < MAW_FALL:
+			return
+		var edge := StoryAct5.maw_edge()
+		var chest := sim._new_item(Loot.Kind.CHEST, Loot.State.GROUND, edge, sim._rng.randi_range(900, 1300))
+		sim._set_floating(chest, edge)
+		_reward(MAW_XP, 0, "felling the giant in the Maw", MAW_REACH, MAW_DYE)
+		_sail_off()
+		_end(true, "The giant sinks into the Maw, and a great chest comes up in the whirlpool!")
+		return
+	sim.story.act5.giant_attack(g, self)
+
+
 func _standing() -> int:
 	var n := 0
 	for sid in raised:
@@ -229,6 +367,16 @@ func _run() -> void:
 				Net.send_message(0, "The Raven Patrol has seen you! She's coming about!")
 		Kind.CONVOY:
 			_run_convoy()
+		Kind.FORT:
+			if _standing() == 0:
+				if wave < FORT_WAVES:
+					_fort_wave()
+					Net.send_message(0, "More of the dead climb up from the fort's cells!")
+				else:
+					_fort_won()
+					return
+		Kind.MAW:
+			_run_maw()
 		Kind.RAID:
 			if _standing() == 0:
 				if wave < RAID_WAVES:
@@ -308,13 +456,23 @@ func _time_up() -> void:
 					sim.story.objects[oid].state = 0
 			_end(false, "The green fires burn themselves out.")
 		Kind.RAID:
-			for sid in raised:
-				if sim.skeletons.has(sid) and sim.skeletons[sid].alive():
-					sim.skeletons[sid].fell = sim.time
+			_crumble_raised()
 			_end(false, "Dawn comes, and the raiders crumble.")
+		Kind.FORT:
+			_crumble_raised()
+			_end(false, "The garrison holds Fuerte del Cuervo, and its guns fall silent. For now.")
+		Kind.MAW:
+			_sail_off()
+			_end(false, "The giant sinks back into the Maw, and the ghosts go down with it.")
 		_:
 			_sail_off()
 			_end(false, "The %s sails off over the horizon." % ("patrol" if kind == Kind.PATROL else "ghost"))
+
+
+func _crumble_raised() -> void:
+	for sid in raised:
+		if sim.skeletons.has(sid) and sim.skeletons[sid].alive():
+			sim.skeletons[sid].fell = sim.time
 
 
 ## Ships and what is on their decks go over the horizon.
@@ -345,16 +503,19 @@ func _end(won: bool, how: String) -> void:
 	_tell_clients()
 
 
-## Everyone within REACH of the event's place, whichever crew: XP and gold.
-func _reward(xp: int, gold: int, why: String) -> void:
+## Everyone within `reach` of the event's place, whichever crew: XP, gold and maybe a gift.
+func _reward(xp: int, gold: int, why: String, reach := REACH, gift := "") -> void:
 	for id in sim.players:
 		var w := sim._world_pos(sim.players[id])
-		if Vector2(w.x - place.x, w.z - place.z).length() > REACH:
+		if Vector2(w.x - place.x, w.z - place.z).length() > reach:
 			continue
 		var r: Dictionary = sim.players[id]
 		if gold > 0:
 			r.profile.gold = int(r.profile.gold) + gold
-			sim.profiles.changed(r.name)
+		if gift != "" and not r.profile.owned.has(gift):
+			r.profile.owned.append(gift)
+			Net.send_message(id, "A gift: %s." % Shop.ITEMS[Shop.index_of(gift)][2])
+		sim.profiles.changed(r.name)
 		sim._award(id, xp, why)
 		sim._send_profile(id)
 

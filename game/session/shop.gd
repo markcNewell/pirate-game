@@ -8,7 +8,7 @@ enum Kind { OUTFIT, DYE, BLADE, GUN, ARMOUR }
 
 ## The pirate outfits (Avatar looks 0-9) and the shirt dyes. Each: [kind, which, name, price];
 ## a price of 0 is a gift from the story, never sold (Silas's cap, from Penny's Hoard; the raven
-## cloak, from the story's end).
+## cloak, from the story's end; Maw-green, for felling the giant when the Maw stirs).
 const ITEMS := [
 	[Kind.OUTFIT, 0, "Tricorn and waistcoat", 400],
 	[Kind.OUTFIT, 1, "Bandana and eyepatch", 450],
@@ -30,6 +30,7 @@ const ITEMS := [
 	[Kind.DYE, 7, "Teal", 300],
 	[Kind.DYE, 8, "Rust", 250],
 	[Kind.DYE, 9, "Rose", 300],
+	[Kind.DYE, 10, "Maw-green", 0],
 	# The armoury (docs/specs/2026-10-08-m14-the-armoury.md): sidegrades, never upgrades. The
 	# cutlass and pistol (0) are everyone's from the start.
 	[Kind.BLADE, 0, "Cutlass", 0],
@@ -46,6 +47,7 @@ const ITEMS := [
 const DYES: Array[Color] = [
 	Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0"), Color("e8b020"),
 	Color("efe8d8"), Color("2a2a3a"), Color("2a9a9a"), Color("b0582a"), Color("e07aa0"),
+	Color("6fe36a"),
 ]
 const REACH := 3.5
 

@@ -3,7 +3,7 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: sixteen milestones built, the whole story playable.** Up to four crews of four players, each
+**Status: eighteen milestones built, the whole story playable.** Up to four crews of four players, each
 with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patching, bailing and
 sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. Three trading
 companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
@@ -11,7 +11,8 @@ bounties and cargo runs from a mission board, and the story, [the Ash Fleet](doc
 is playable from end to end: the prologue, five acts and the epilogue (thirty-two chapters, from
 the green lights on Gull Isle to the Bone Colossus and the party at the Drowned Rat), with eleven
 side tales, and world events any crew can join (green fires, the Raven Patrol, a gold convoy,
-a raid on Merrow, a ghost galleon in the storm). Gold buys looks and arms at Big Martha's: a
+a raid on Merrow, a ghost galleon in the storm, the dead re-taking the fort, and the Maw stirring
+after the story). Gold buys looks and arms at Big Martha's: a
 rapier, a boarding axe, a blunderbuss or a long musket, each a fair swap for the cutlass or
 pistol rather than an upgrade, and armour that trades one thing for another (a padded coat
 softens blades but not shot, a steel cuirass the other way round). Deeds (J) are long goals that earn titles: douse fifty green
@@ -24,7 +25,7 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
 [Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
-[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md).
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md), [18 the fort and the Maw](docs/specs/2026-10-08-m18-fort-and-maw.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -117,7 +118,7 @@ machine, see [server/README.md](server/README.md).
 | Act III smoke test (the lighthouse, the battery, La Viuda) | `tests/smoke/act3_test.sh` |
 | Act IV smoke test (the hulk's jailer, a lantern of the deep, the Raven Admiral) | `tests/smoke/act4_test.sh` |
 | Act V smoke test (a brazier, a beacon, a joint of the Bone Colossus) | `tests/smoke/act5_test.sh` |
-| World events smoke test (a green fire doused, the Raven Patrol) | `tests/smoke/world_test.sh` |
+| World events smoke test (a green fire doused, the Raven Patrol, the fort's garrison fought, a joint of the Maw's giant broken) | `tests/smoke/world_test.sh` |
 | Armoury smoke test (buying a rapier and a blunderbuss, fighting with them) | `tests/smoke/armoury_test.sh` |
 | Every smoke test at once | `tools/smoke_all.sh` |
 | Rebuild the sounds | `python3 tools/make_sounds.py` |

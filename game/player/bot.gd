@@ -698,12 +698,13 @@ func _fighter(input: PlayerInput) -> void:
 		return
 	var p := _player.body.global_position
 	var sk := _nearest_skeleton(-1, p)
-	if sk and sk.pos.distance_to(p) < 25.0:
+	if sk and sk.pos.distance_to(p) < 25.0 and _in_fort(sk.pos) == _in_fort(p):
 		_fight(input, sk, p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
 		return
 	# Head for the middle of the nearest island to wake its camp.
 	var best := Vector3.ZERO
 	var best_d := INF
+	var fort := false
 	for spec in Islands.LAYOUT:
 		if spec.outpost:
 			continue
@@ -711,7 +712,33 @@ func _fighter(input: PlayerInput) -> void:
 		if c.distance_to(p) < best_d:
 			best = c
 			best_d = c.distance_to(p)
+			fort = spec.get("fort", false)
+	if fort:
+		_head_to(input, _fort_way_in(p), 0.5)
+		return
 	_head_to(input, best, 3.0)
+
+
+## Inside the fort's walls (where a fight with someone outside them goes nowhere)?
+func _in_fort(p: Vector3) -> bool:
+	var c := Fort.centre()
+	return Vector2(p.x - c.x, p.z - c.z).length() < Fort.WALL_R
+
+
+## The way into Fuerte del Cuervo from `p`: round the outside of its wall to the gate's side,
+## onto the line through the gap, then along it to the courtyard.
+func _fort_way_in(p: Vector3) -> Vector3:
+	var c := Fort.centre()
+	var d := Vector2(p.x - c.x, p.z - c.z)
+	var axis := Vector2(cos(Fort.FACING), sin(Fort.FACING))
+	var along := d.dot(axis)
+	var across := d.dot(axis.orthogonal())
+	if d.length() < Fort.WALL_R - 1.0 or (along > 0.0 and absf(across) < 1.0):
+		return c
+	if along > Fort.WALL_R + 1.0 and absf(across) < Fort.WALL_R:
+		return c + Vector3(axis.x, 0, axis.y) * maxf(along, Fort.WALL_R + 3.0)
+	var rel := angle_difference(Fort.FACING, atan2(d.y, d.x))
+	return Fort.world(rel - signf(rel) * minf(0.6, absf(rel)), Fort.WALL_R + 4.5)
 
 
 func _boarder(input: PlayerInput) -> void:

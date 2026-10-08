@@ -164,8 +164,11 @@ func _init(options: Dictionary = {}) -> void:
 					items[id].pos = Vector3(-1.2 + 1.0 * k, ShipShape.DECK_Y, -2.2)
 					k += 1
 	if options.has("event"):
-		# Test hook: a world event at once (green_fire, patrol, convoy, raid).
-		var which: int = {"green_fire": WorldEvents.Kind.GREEN_FIRE, "patrol": WorldEvents.Kind.PATROL, "convoy": WorldEvents.Kind.CONVOY, "raid": WorldEvents.Kind.RAID}.get(str(options.event), WorldEvents.Kind.NONE)
+		# Test hook: a world event at once (green_fire, patrol, convoy, raid, fort, maw).
+		var which: int = {
+			"green_fire": WorldEvents.Kind.GREEN_FIRE, "patrol": WorldEvents.Kind.PATROL, "convoy": WorldEvents.Kind.CONVOY,
+			"raid": WorldEvents.Kind.RAID, "fort": WorldEvents.Kind.FORT, "maw": WorldEvents.Kind.MAW,
+		}.get(str(options.event), WorldEvents.Kind.NONE)
 		if which != WorldEvents.Kind.NONE:
 			world.start(which, Vector3(crew_ship().x, 0, crew_ship().z))
 	if options.has("test-boarding"):
@@ -643,8 +646,8 @@ func _step_projectiles() -> void:
 	for p in projectiles:
 		var age: float = time - p.t0
 		var pos := Ballistics.position(p.p0, p.v0, age)
-		if story.act5.projectile_hit(pos):
-			# The Bone Colossus's glowing joints (Act V).
+		if story.act5.projectile_hit(pos) or world.projectile_hit(pos):
+			# The Bone Colossus's glowing joints (Act V, or the Maw stirring).
 			Net.send_event("impact", [p.id, 2, pos.x, pos.y, pos.z, -1, time])
 			continue
 		if not _projectile_hits(p, pos, age, poses):

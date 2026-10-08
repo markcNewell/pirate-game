@@ -312,10 +312,15 @@ func _ash_flagship_tick(crew: int, m: Dictionary) -> void:
 
 
 ## The Colossus: turning to the nearest crew ship; a fist for those close, wreckage for the rest.
-func _colossus_tick(crew: int, m: Dictionary) -> void:
+func _colossus_tick(_crew: int, m: Dictionary) -> void:
 	var giant := colossus(m)
 	if giant == null or giant.state & KNEEL:
 		return
+	giant_attack(giant, m)
+
+
+## A giant's turn (the story's, or the Maw's lesser one): `state` holds when it next attacks.
+func giant_attack(giant: StoryObject, state: Variant) -> void:
 	var target: ShipState = null
 	var target_id := -1
 	var best := ATTACK_RANGE
@@ -331,9 +336,9 @@ func _colossus_tick(crew: int, m: Dictionary) -> void:
 	if target == null:
 		return
 	giant.yaw = atan2(-(target.x - giant.pos.x), -(target.z - giant.pos.z))
-	if sim.time < m.next_shot:
+	if sim.time < state.next_shot:
 		return
-	m.next_shot = sim.time + ATTACK_EVERY
+	state.next_shot = sim.time + ATTACK_EVERY
 	if best < SLAM_RANGE:
 		sim.stats.slams += 1
 		Net.send_event("slam", [giant.id, target.x, target.z])

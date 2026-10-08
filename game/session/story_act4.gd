@@ -266,7 +266,11 @@ func _send_allies_home() -> void:
 ## A ghost galleon, rising beside a crew ship in a storm.
 func spawn_ghost(crew: int, near: ShipState, distance: float) -> int:
 	var a := sim._rng.randf() * TAU
-	var at := Vector3(near.x + cos(a) * distance, 0, near.z + sin(a) * distance)
+	return spawn_ghost_at(Vector3(near.x + cos(a) * distance, 0, near.z + sin(a) * distance), crew)
+
+
+## A ghost galleon rising at `at`, turned toward `crew`'s ship (or the middle of the sea).
+func spawn_ghost_at(at: Vector3, crew := 0) -> int:
 	var id: int = sim.spawn_galleon(crew, 0.0, 3, at)
 	var g: ShipState = sim.ships[id]
 	g.sink = GHOST_DEPTH

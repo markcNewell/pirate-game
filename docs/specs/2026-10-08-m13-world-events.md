@@ -29,7 +29,8 @@ you go, but they all run from the start (the raid waits until someone has played
 | **Raid on Merrow** | Two boats' worth of the dead land on Port Merrow's beach: two waves of six. Only once someone on the server has finished Act III. | Both waves felled. | 300 XP and 150 gold. |
 | **Ghost Galleon** | When a crew sails deep into the roaming storm, a ghost galleon rises beside them and hunts them. | She is sunk. | A captain's skull floats up (worth 300-500 to Wren). |
 
-Not built yet: **Fuerte del Cuervo** re-garrisoning, and **The Maw Stirs** (after the story).
+The other two, **Fuerte del Cuervo** re-garrisoning and **The Maw Stirs** (after the story), came
+in M18 (docs/specs/2026-10-08-m18-fort-and-maw.md).
 
 ## Rules
 

@@ -1177,7 +1177,10 @@ func hit_gun(o: StoryObject) -> void:
 	if o.state == 0:
 		print("[server] a fort gun was silenced")
 		sim.stats.guns_silenced += 1
-		sim._tell_crew(o.crew, "A tower gun falls silent!")
+		if o.crew > 0:
+			sim._tell_crew(o.crew, "A tower gun falls silent!")
+		else:
+			Net.send_message(0, "One of the fort's tower guns falls silent!")
 
 
 ## The fort's working guns fire at the nearest crew ship in range.
