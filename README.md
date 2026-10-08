@@ -65,8 +65,12 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 
 ## Play
 
-**From a release** (Windows): download `PirateGame-windows-*.zip` from the repo's Releases, unzip,
-run `PirateGame.exe`.
+**From a release**: download from the repo's Releases.
+
+- **Windows**: `PirateGame-windows-*.zip`, unzip, run `PirateGame.exe`.
+- **Mac** (Intel or Apple Silicon): `PirateGame-macos-*.zip`, unzip, move `Pirate Game.app` to
+  Applications. It isn't signed by Apple, so the first time right-click it and choose **Open**
+  (or System Settings > Privacy & Security > Open Anyway).
 
 **From source**: install [Godot 4.7.2](https://godotengine.org/download/archive/4.7.2-stable/),
 open this folder as a project and press Play (F5).

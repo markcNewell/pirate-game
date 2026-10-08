@@ -98,7 +98,7 @@ jobs:
           curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$dest"
-          unzip -q -j templates.tpz 'templates/windows_*_x86_64.exe' 'templates/linux_*.x86_64' 'templates/version.txt' -d "$dest"
+          unzip -q -j templates.tpz 'templates/windows_*_x86_64.exe' 'templates/linux_*.x86_64' 'templates/macos.zip' 'templates/version.txt' -d "$dest"
           rm templates.tpz
 
       - name: Export
@@ -110,8 +110,10 @@ jobs:
         run: |
           cd build
           zip -j "PirateGame-windows-${GITHUB_REF_NAME}.zip" windows/PirateGame.exe
+          cp mac/PirateGame-macos.zip "PirateGame-macos-${GITHUB_REF_NAME}.zip"
           zip -j "pirate-game-server-linux-${GITHUB_REF_NAME}.zip" server/pirate-game-server.x86_64
           flags=""
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags="--prerelease"; fi
           gh release create "$GITHUB_REF_NAME" $flags --generate-notes \
-            "PirateGame-windows-${GITHUB_REF_NAME}.zip" "pirate-game-server-linux-${GITHUB_REF_NAME}.zip"
+            "PirateGame-windows-${GITHUB_REF_NAME}.zip" "PirateGame-macos-${GITHUB_REF_NAME}.zip" \
+            "pirate-game-server-linux-${GITHUB_REF_NAME}.zip"
