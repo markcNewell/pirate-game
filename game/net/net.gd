@@ -149,9 +149,10 @@ func _is_me(id: int) -> bool:
 	return not _online() or id == multiplayer.get_unique_id()
 
 
-func send_snapshot(data: Array) -> void:
+## One player's snapshot (ServerSim.snapshot_for), packed small (Wire).
+func send_snapshot_to(id: int, data: Array) -> void:
 	if _online():
-		_snapshot.rpc(data)
+		_snapshot.rpc_id(id, Wire.encode_snapshot(data))
 
 
 func send_teleport(id: int, data: Array) -> void:
@@ -251,9 +252,9 @@ func _refused(reason: String) -> void:
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func _snapshot(data: Array) -> void:
+func _snapshot(data: PackedByteArray) -> void:
 	if game:
-		game.client_on_snapshot(data)
+		game.client_on_snapshot(Wire.decode_snapshot(data))
 
 
 @rpc("authority", "call_remote", "reliable")

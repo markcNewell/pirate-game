@@ -103,6 +103,10 @@ var _passive := {}  # skeleton ships that only sit there (tests)
 const FORT_BARRELS := 10
 ## What each crew's ship was last said to look like: crew -> [crew, sails, hull, flag, trophies].
 var _ship_looks := {}
+## Snapshots (snapshot_for): what each player was last sent of the slow-changing parts.
+var _sent := {}
+const INTEREST := 500.0
+const REFRESH := 15
 var _next_looks := 0.0
 ## Whether each pirate was last told the fort is their port: peer id -> bool.
 var _fort_open := {}
@@ -401,6 +405,42 @@ func snapshot() -> Array:
 	for id in story.objects:
 		things.append(story.objects[id].to_array())
 	return [time, ship_list, list, item_list, crew_list, bones, things]
+
+
+## One player's share of `snap` (docs/specs/2026-10-08-m24-lean-snapshots.md): skeletons and
+## loot only within INTEREST of them (or on a ship within it, or carried), and the crews'
+## missions and the story's objects only when they have changed since this player was last
+## sent them, or every REFRESH snapshots in case one went astray.
+func snapshot_for(snap: Array, id: int) -> Array:
+	if not players.has(id):
+		return snap
+	var me := _world_pos(players[id])
+	var near := func(x: float, z: float) -> bool:
+		return Vector2(x - me.x, z - me.z).length() <= INTEREST
+	var bones := []
+	for entry: Array in snap[5]:
+		var frame := int(entry[1])
+		var s: ShipState = ships.get(frame)
+		if (frame < 0 and near.call(entry[2], entry[4])) or (s and near.call(s.x, s.z)):
+			bones.append(entry)
+	var loot := []
+	for entry: Array in snap[3]:
+		var state := int(entry[2])
+		var s: ShipState = ships.get(int(entry[9]))
+		if state in [Loot.State.CARRIED, Loot.State.HELD] or (state == Loot.State.ON_SHIP and s and near.call(s.x, s.z)) \
+				or (state not in [Loot.State.ON_SHIP] and near.call(entry[3], entry[5])):
+			loot.append(entry)
+	var sent: Dictionary = _sent.get(id, {})
+	_sent[id] = sent
+	var out := [snap[0], snap[1], snap[2], loot, null, bones, null]
+	var refresh := int(sent.get("count", 0)) % REFRESH == 0
+	sent.count = int(sent.get("count", 0)) + 1
+	for section: int in [4, 6]:
+		var h := hash(snap[section])
+		if refresh or sent.get(section, 0) != h:
+			sent[section] = h
+			out[section] = snap[section]
+	return out
 
 
 ## What a player is busy with, for the animation others see (Avatar.Act): digging or hammering
@@ -820,6 +860,7 @@ func remove_player(id: int) -> String:
 	tags.erase(id)
 	station_input.erase(id)
 	_fort_open.erase(id)
+	_sent.erase(id)
 	return who
 
 

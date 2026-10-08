@@ -198,9 +198,12 @@ func _physics_process(delta: float) -> void:
 	if _snapshot_timer >= 1.0 / GameConfig.SNAPSHOT_RATE:
 		_snapshot_timer = 0.0
 		var snap := sim.snapshot()
-		Net.send_snapshot(snap)
 		if has_view():
 			client_on_snapshot(snap)
+		# Each player gets what is near them, and the slow parts only when they change.
+		for id in sim.players:
+			if id != local_id or not has_view():
+				Net.send_snapshot_to(id, sim.snapshot_for(snap, id))
 	_log_timer += delta
 	if _log_timer >= 2.0 and (role == Role.SERVER or DisplayServer.get_name() == "headless"):
 		_log_timer = 0.0
@@ -280,8 +283,10 @@ func client_on_snapshot(data: Array) -> void:
 	if not mine.is_empty():
 		own_crew = mine.crew
 		own_ship = mine.crew
-	traders.clear()
-	for entry in data[4]:
+	# The missions and the story's objects come only when they change (null: keep the last).
+	if data[4] != null:
+		traders.clear()
+	for entry in (data[4] if data[4] != null else []):
 		var crew_mission := _decode_mission(entry.slice(1))
 		if not crew_mission.is_empty() and crew_mission.kind == Missions.Kind.CARGO:
 			traders[int(entry[0])] = crew_mission.targets[0]
@@ -305,7 +310,7 @@ func client_on_snapshot(data: Array) -> void:
 		var sk := Skeleton.from_array(entry)
 		snap_bones[sk.id] = sk
 	# Story things stand still, so the newest snapshot's are drawn as they are.
-	if data.size() > 6:
+	if data.size() > 6 and data[6] != null:
 		view_objects.clear()
 		for entry in data[6]:
 			var o := StoryObject.from_array(entry)

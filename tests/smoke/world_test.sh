@@ -11,7 +11,7 @@ set -euo pipefail
 GODOT="${GODOT:-godot}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PORT="${PORT:-25060}"
-RUN_FOR="${RUN_FOR:-150}"
+RUN_FOR="${RUN_FOR:-180}"
 LOGS="$(mktemp -d)"
 trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
