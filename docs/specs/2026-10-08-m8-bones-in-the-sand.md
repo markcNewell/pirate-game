@@ -1,7 +1,8 @@
 # Milestone 8: Bones in the Sand (Act I)
 
-Status: written 08-10-2026, the second build step of the story (docs/specs/2026-10-08-story.md).
-Every choice below is Claude's default; change anything and the code follows.
+Status: written and built 08-10-2026, the second build step of the story
+(docs/specs/2026-10-08-story.md). Every choice below is Claude's default; change anything and the
+code follows.
 
 ## In one paragraph
 
@@ -44,15 +45,16 @@ tower shield.
 - **Graveyard**: dead rise only from open graves, only while a crew member is within 60 m.
 - **Powder kegs**: 40 damage within 4 m when they go off, to players and skeletons alike (half at
   the edge), 1.5 s after being hit; a keg sets off any keg within 3 m.
-- **Spanish galleon**: double the hull strength of a skeleton ship (it bails twice as fast), four
-  guns a side, five skeletons aboard. It appears 300 m from the crew's ship.
+- **Spanish galleon**: tougher than a skeleton ship (it bails twice as fast and reloads 30%
+  quicker), five Spanish dead aboard. It appears 300 m from the crew's ship. Sinking one is
+  worth 250 XP to the crew.
 - **Night**: dusk is when the sun sets (time of day 0.78) and dawn when it rises (0.24).
 - **The bonfire** raises two dead every 20 s while lit (at most 6 up). Each bucket shrinks it; the
   third puts it out.
 - **Calavera**: 300 health, 35 damage a swing, 2 s between swings. Blows within 70 degrees of his
   front do nothing while his shield is up; a pistol hit from any side drops it for 3 s.
-- **Act I board flavour**: a treasure offer now and then (one in three) has a Spanish digger
-  heading for the X.
+- **Not in this milestone** (moved to the next): the Act I board flavour (Spanish diggers on
+  ordinary treasure offers) and the tales Captain Coco and Quill's Ledger.
 
 ## New things to see
 

@@ -125,6 +125,15 @@ func _init(options: Dictionary = {}) -> void:
 	# Test hook: the crew is already on a story chapter (from step --chapter-step, 0 = first).
 	if options.has("chapter") and Story.index_of(str(options.chapter)) >= 0:
 		story.start(CREW, Story.index_of(str(options.chapter)), int(options.get("chapter-step", 0)))
+		# Test hook: the chapter's crates (Quill's salt) start on the crew's deck.
+		if options.has("chapter-aboard"):
+			var k := 0
+			for id: int in crews[CREW].mission.items:
+				if items.has(id) and items[id].kind == Loot.Kind.CRATE:
+					items[id].state = Loot.State.ON_SHIP
+					items[id].ship = CREW
+					items[id].pos = Vector3(-1.2 + 1.0 * k, ShipShape.DECK_Y, -2.2)
+					k += 1
 	if options.has("start-near"):
 		var where := str(options["start-near"])
 		var spot := Outpost.anchorage() if where == "outpost" else _anchorage(int(where))

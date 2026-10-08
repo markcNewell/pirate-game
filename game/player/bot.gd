@@ -20,6 +20,8 @@ extends Node
 ##   lights  - story chapter P1 on Gull Isle: read the journal, fill a bucket in the sea, douse
 ##             the green fire and fell the dead that climb out
 ##   moll    - swim ashore at Port Merrow and talk to Moll the keeper
+##   salter  - Salt the Earth with a salt crate on deck: carry it ashore and salt a grave
+##   kegs    - Captain Coco's Warning: go ashore to the powder store and shoot a keg
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -105,6 +107,10 @@ func _physics_process(delta: float) -> void:
 			_lights(input)
 		"moll":
 			_moll(input)
+		"salter":
+			_salter(input)
+		"kegs":
+			_kegs(input)
 
 
 func _process(_delta: float) -> void:
@@ -805,7 +811,7 @@ func _say(text: String) -> void:
 func _story_object(kind: int, lit_only := false) -> StoryObject:
 	for id in game.view_objects:
 		var o: StoryObject = game.view_objects[id]
-		if o.kind == kind and (not lit_only or o.state == 1):
+		if o.kind == kind and (not lit_only or o.state >= 1):
 			return o
 	return null
 
@@ -826,8 +832,15 @@ func _lights(input: PlayerInput) -> void:
 		_say("read the journal")
 		_phase = "fire"
 	var fire := _story_object(StoryObject.Kind.FIRE, true)
+	if fire == null:
+		fire = _story_object(StoryObject.Kind.BONFIRE, true)
 	if fire:
 		if not _player.bucket:
+			# Already in the sea (overboard, or walked out): fill it here.
+			if _player.swimming or Waves.height(p.x, p.z, game.render_time) > p.y + StoryRun.SCOOP_DEPTH:
+				if _every(0.5):
+					game.send_request("scoop", 0)
+				return
 			# Out from the fire toward the sea until our feet are wet.
 			var isl := Islands.island_at(fire.pos.x, fire.pos.z)
 			var spec: Dictionary = Islands.LAYOUT[maxi(isl, 0)]
@@ -856,8 +869,10 @@ func _lights(input: PlayerInput) -> void:
 	if sk and sk.pos.distance_to(p) < 30.0:
 		_fight(input, sk, p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
 		return
-	# Knocked down and sent back aboard: back to the grave, where the dead are.
+	# Knocked down and sent back aboard: back to the grave (or bonfire), where the dead are.
 	var grave := _story_object(StoryObject.Kind.FIRE)
+	if grave == null:
+		grave = _story_object(StoryObject.Kind.BONFIRE)
 	if grave:
 		_head_to(input, grave.pos, 3.0)
 
@@ -877,3 +892,60 @@ func _moll(input: PlayerInput) -> void:
 		_player.yaw = atan2(-to.x, -to.z)
 		if _every(0.5):
 			input.interact = true
+
+
+func _salter(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		if _player.carry < 0:
+			for id in game.view_items:
+				var item: Loot = game.view_items[id]
+				if item.kind == Loot.Kind.CRATE and item.state == Loot.State.ON_SHIP:
+					if _go(input, item.pos + Vector3(0.9, 0, 0.6)):
+						_look_at(item.pos + Vector3.UP * 0.35)
+						if _every(0.5):
+							input.interact = true
+					return
+			return
+		if _phase == "act":
+			_say("picked up a salt crate")
+			_phase = "ashore"
+		_go_overboard(input)
+		return
+	var grave := _story_object(StoryObject.Kind.GRAVE, true)
+	if grave == null or _player.carry < 0:
+		if _phase != "done":
+			_say("salted a grave")
+		_phase = "done"
+		return
+	if _head_to(input, grave.pos, 1.6) and _every(0.5):
+		input.interact = true
+
+
+func _kegs(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var keg := _story_object(StoryObject.Kind.KEG, true)
+	if keg == null:
+		if _phase != "done":
+			_say("the powder store is gone")
+		_phase = "done"
+		return
+	var p := _player.body.global_position
+	if not _head_to(input, keg.pos, 7.0):
+		return
+	if _player.weapon != Weapons.Kind.PISTOL:
+		input.weapon_key = Weapons.Kind.PISTOL
+		return
+	var to := keg.pos + Vector3.UP * 0.4 - (p + Vector3.UP * LocalPlayer.EYE_HEIGHT)
+	_player.yaw = atan2(-to.x, -to.z)
+	_player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+	if _every(1.0):
+		if _phase == "act":
+			_say("shooting at a powder keg")
+			_phase = "shoot"
+		input.fire = true
