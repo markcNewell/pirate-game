@@ -53,8 +53,16 @@ tower shield.
   third puts it out.
 - **Calavera**: 300 health, 35 damage a swing, 2 s between swings. Blows within 70 degrees of his
   front do nothing while his shield is up; a pistol hit from any side drops it for 3 s.
-- **Not in this milestone** (moved to the next): the Act I board flavour (Spanish diggers on
-  ordinary treasure offers) and the tales Captain Coco and Quill's Ledger.
+- **Act I board flavour**: once a crew has finished the prologue, a treasure offer now and then
+  (one in three) has Spanish diggers landing for the same chests; the board says so.
+- **Tales** (side stories, each opening after a story chapter): *Captain Coco* (Jonah, after P1):
+  T1 Coconut Thieves, catch the smug crab that runs off with Jonah's coconut (it flees anyone
+  within 9 m; strike it and it lets go); T2 A Raft for Jonah, a bundle of planks from the beach of
+  each of three islands. *Quill's Ledger* (Quill, after chapter 2): T3 The Missing Tea, fish three
+  floating tea crates out of the sea; T4 Señor Hueso, carry the rattling crate with a polite
+  skeleton cook in it to Gull Isle's beach; T5 The Governor's Ball, two porcelain-packed crates
+  from Hueso's kitchen to Quill in six minutes; put one down anywhere but your deck and it breaks
+  (and the clock starts again). Title **Purveyor of Fine Goods**.
 
 ## New things to see
 

@@ -78,7 +78,7 @@ var stats := {
 	"kills": 0, "falls": 0, "eaten": 0, "boarded": 0, "skeleton_swings": 0, "pvp_falls": 0, "stolen": 0,
 	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0, "xp": 0, "levels": 0,
 	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
-	"galleons": 0, "blocked": 0,
+	"galleons": 0, "blocked": 0, "given": 0, "broken": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -841,6 +841,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			story.douse(r, arg)
 		"salt":
 			story.salt(r, arg)
+		"give":
+			story.give(id, r)
 
 
 func _take_station(id: int, r: Dictionary, station: int) -> void:
@@ -1114,7 +1116,16 @@ func _show_board(id: int, r: Dictionary) -> void:
 
 func _make_offers(crew: int) -> Array[Dictionary]:
 	# Test hook: every mission goes to options_island first.
-	return Missions.make_offers(_levels(crew), Islands.mission_islands(), _rng, options_island)
+	var offers := Missions.make_offers(_levels(crew), Islands.mission_islands(), _rng, options_island)
+	# Once the crew has seen the Spanish digging (the prologue done), they turn up on treasure
+	# voyages now and then.
+	var done := false
+	for list: Array in story.done_lists(crew):
+		done = done or list.has("p2")
+	for offer: Dictionary in offers:
+		if offer.kind == Missions.Kind.TREASURE and done and _rng.randf() < Missions.DIGGER_CHANCE:
+			offer.diggers = true
+	return offers
 
 
 ## Take one of the board's offers (by company), if no mission is running.
@@ -1178,6 +1189,9 @@ func _start_mission(crew: int, offer: Dictionary) -> void:
 			m.deadline = time + Missions.cargo_time(m.total)
 			_tell_crew(crew, "Cargo waits on Port Merrow's pier for %s." % Islands.LAYOUT[offer.islands[0]].name)
 	crews[crew].mission = m
+	if m.kind == Missions.Kind.TREASURE and offer.get("diggers", false):
+		story.add_board_diggers(crew, m)
+		_tell_crew(crew, "Spanish diggers are after the same hoard. Be quick!")
 	stats.voyages += 1
 	print("[server] crew %d took a %s mission: %s" % [crew, ["treasure", "bounty", "cargo"][m.kind], m.title])
 
@@ -1186,8 +1200,7 @@ func _start_mission(crew: int, offer: Dictionary) -> void:
 func _abandon(id: int, r: Dictionary) -> void:
 	if crews[r.crew].mission.is_empty():
 		return
-	if crews[r.crew].mission.kind == Missions.Kind.STORY:
-		story.cleanup(crews[r.crew].mission)
+	story.cleanup(crews[r.crew].mission)
 	crews[r.crew].mission = {}
 	crews[r.crew].offers = []
 	_tell_crew(r.crew, "%s gave up the mission." % r.name)
@@ -1244,6 +1257,7 @@ func _mission_item_done(item: Loot, by_crew: int, handed_in: bool) -> void:
 
 func _finish_mission(crew: int) -> void:
 	var m: Dictionary = crews[crew].mission
+	story.cleanup(m)
 	crews[crew].mission = {}
 	if m.own <= 0:
 		_tell_crew(crew, "The mission is over, with nothing to show for it.")
@@ -1400,6 +1414,10 @@ func _drop_carried(id: int) -> void:
 	var world: Vector3 = _world_pos(r) + ahead
 	var island := Islands.island_at(world.x, world.z)
 	var ground := Islands.ground_at(island, world.x, world.z) if island >= 0 else -99.0
+	if item.fragile:
+		stats.broken += 1
+		story.on_fragile_broken(item)
+		return
 	if ground > Waves.height(world.x, world.z, time):
 		item.state = Loot.State.GROUND
 		item.pos = Vector3(world.x, ground + 0.05, world.z)
@@ -1625,6 +1643,9 @@ func _step_skeletons(dt: float) -> void:
 		if sk.frame >= 0 and not ships.has(sk.frame):
 			skeletons.erase(sid)
 			continue
+		if sk.crab:
+			story.step_crab(sk, dt, _floor_for(sk))
+			continue
 		if sk.thief and story.step_thief(sk, dt, _floor_for(sk)):
 			continue
 		var target := _skeleton_target(sk)
@@ -1799,6 +1820,8 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 		xp = Progress.XP_CAPTAIN
 	if sk.sergeant:
 		xp = Progress.XP_BOSS
+	if sk.crab:
+		xp = 0
 	_award(attacker, xp, "felling a skeleton")
 	story.on_skeleton_fell(sk)
 	if sk.captain:

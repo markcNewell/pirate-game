@@ -30,6 +30,10 @@ const CHAIN_REACH := 3.0
 ## The Spanish galleon: how far from the crew it appears, and how much tougher it is.
 const GALLEON_DISTANCE := 300.0
 const GALLEON_CREW := 5
+## Tales: the crab runs from anyone this near, this fast; things are handed over within reach.
+const CRAB_FEAR := 9.0
+const CRAB_SPEED := 5.5
+const GIVE_REACH := 3.5
 ## Night (time of day, 0 midnight .. 1): dusk when the sun sets, dawn when it rises.
 const DUSK := 0.78
 const DAWN := 0.24
@@ -116,6 +120,7 @@ func start(crew: int, index: int, first := 0) -> void:
 		"items": [], "total": 0, "handled": 0, "own": 0, "deadline": -1.0, "captain": -1,
 		"name": ch.id, "islands": [], "objects": [], "raised": [], "thieves": [], "skull": -1,
 		"spot": Vector3.ZERO, "saved": 0, "next_rise": 0.0, "ship": -1, "captains": [], "left": 0,
+		"need": 0, "given": 0,
 	}
 	sim.crews[crew].offers = []
 	sim.stats.chapters_started += 1
@@ -170,6 +175,10 @@ func _enter_step(crew: int) -> void:
 			_enter_bonfire(crew, step)
 		Story.Step.BOSS:
 			_enter_boss(crew, step)
+		Story.Step.CHASE:
+			_enter_chase(crew, step)
+		Story.Step.GATHER:
+			_enter_gather(crew, step)
 
 
 func _enter_read(crew: int, step: Dictionary) -> void:
@@ -400,6 +409,171 @@ func _enter_boss(crew: int, step: Dictionary) -> void:
 	sim._tell_crew(crew, "%s steps out from behind his shield." % step.boss)
 
 
+## Captain Coco in the claws of a crab on an island.
+func _enter_chase(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	var island: int = step.island
+	m.islands = [island]
+	m.need = 1
+	m.given = 0
+	var spot := _dry_spot(island)
+	var crab := sim._new_skeleton(-1, spot)
+	crab.crab = true
+	crab.hp = 1
+	crab.story_crew = crew
+	crab.boat = spot
+	var coco := sim._new_item(Loot.Kind.COCONUT, Loot.State.HELD, spot, 0)
+	coco.carrier = crab.id
+	crab.holding = coco.id
+	m.items = [coco.id]
+	m.thieves = [crab.id]
+
+
+## What a gathering step wants fetched: planks at the wrecks, tea afloat, Hueso's crate on the
+## pier, or the Governor's fragile tea at Hueso's kitchen; and a clock, for the Governor.
+func _enter_gather(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	m.items = []
+	m.given = 0
+	match str(step.where):
+		"wrecks":
+			m.islands = step.islands.duplicate()
+			for island: int in step.islands:
+				var out := Vector2(1, 0).rotated(sim._rng.randf() * TAU)
+				var at := landing_spot(island, out)
+				m.items.append(sim._new_item(Loot.Kind.PLANKS, Loot.State.GROUND, at + Vector3(0, 0.05, 0), 0).id)
+		"sea":
+			var centre := Vector3(-345.0, 0.0, -90.0)
+			m.islands = [_nearest_island(centre)]
+			for n in int(step.count):
+				var crate := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, centre, 0)
+				crate.variant = Missions.TEA
+				sim._set_floating(crate, centre + Vector3(sim._rng.randf_range(-25, 25), 0, sim._rng.randf_range(-25, 25)))
+				crate.soaked = false
+				m.items.append(crate.id)
+		"pier":
+			m.islands = [Islands.outpost_index()]
+			var crate := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, Outpost.cargo_spot(0), 0)
+			crate.variant = Missions.HUESO
+			m.items.append(crate.id)
+		"beach":
+			var island: int = step.island
+			m.islands = [island]
+			var spot := Islands.trader_spot(island)
+			for n in int(step.count):
+				var crate := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, spot + Vector3(1.2 * n - 0.6, 0.05, 1.2), 0)
+				crate.variant = Missions.TEA
+				crate.fragile = step.get("fragile", false)
+				m.items.append(crate.id)
+	m.need = m.items.size()
+	if step.has("time"):
+		m.deadline = sim.time + float(step.time)
+
+
+## Where a gathering step's things are handed over: a person at Port Merrow, or a beach.
+static func give_spot(to: String) -> Vector3:
+	if to.begins_with("beach:"):
+		return Islands.trader_spot(int(to.trim_prefix("beach:")))
+	return Story.person_pos(to)
+
+
+## E with a chapter's coconut, planks or crate, at whoever (or wherever) wants it.
+func give(id: int, r: Dictionary) -> void:
+	var m := _mission_of(r.crew)
+	if m.is_empty() or r.carry < 0 or not m.items.has(r.carry) or r.mode != LocalPlayer.Mode.WORLD:
+		return
+	var step := _step(m)
+	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER]:
+		return
+	if r.pos.distance_to(give_spot(str(step.to))) > GIVE_REACH + 1.0:
+		return
+	var item: Loot = sim.items[r.carry]
+	sim.items.erase(item.id)
+	m.items.erase(item.id)
+	r.carry = -1
+	m.given += 1
+	print("[server] %s handed over a %s (%d of %d)" % [r.name, item.label(), m.given, m.need])
+	sim.stats.given += 1
+	if m.given >= m.need:
+		_say(id, step.get("lines", []))
+		_next_step(r.crew)
+	else:
+		sim._tell_crew(r.crew, "%d more to bring." % (m.need - m.given))
+
+
+## A fragile crate put down off the deck: it breaks, and the run starts again.
+func on_fragile_broken(item: Loot) -> void:
+	sim.items.erase(item.id)
+	for c in sim.crews:
+		var m := _mission_of(c)
+		if m.is_empty() or not m.items.has(item.id):
+			continue
+		print("[server] crew %d broke a fragile crate" % c)
+		sim._tell_crew(c, "Crash! Porcelain everywhere. Hueso has packed two more; the clock starts again.")
+		_restart_gather(c)
+		return
+
+
+func _restart_gather(crew: int) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	for id: int in m.items:
+		sim.items.erase(id)
+		for pid in sim.players:
+			if sim.players[pid].carry == id:
+				sim.players[pid].carry = -1
+	_clear_step(m)
+	_enter_step(crew)
+
+
+## A crab's turn: run from anyone near, otherwise potter about where it lives.
+func step_crab(sk: Skeleton, dt: float, floor_at: Callable) -> void:
+	var near := Vector3.INF
+	for id in sim.players:
+		var r: Dictionary = sim.players[id]
+		if r.mode == LocalPlayer.Mode.WORLD and r.dead_until < 0.0 and r.pos.distance_to(sk.pos) < CRAB_FEAR:
+			near = r.pos
+	if near != Vector3.INF:
+		var away := Vector3(sk.pos.x - near.x, 0, sk.pos.z - near.z).normalized()
+		# Zigzag, the way crabs do.
+		away = away.rotated(Vector3.UP, 0.7 * sin(sim.time * 2.3 + sk.id))
+		if sk.walk_to(sk.pos + away * 3.0, dt, floor_at, CRAB_SPEED) > 2.9:
+			# Cornered against the sea: dart sideways along the beach.
+			sk.walk_to(sk.pos + away.rotated(Vector3.UP, PI / 2.0) * 3.0, dt, floor_at, CRAB_SPEED)
+	elif sk.walk_to(sk.boat, dt, floor_at, 1.5) < 0.5:
+		var island := maxi(0, Islands.island_at(sk.pos.x, sk.pos.z, 4.0))
+		var s := Islands.dig_spot(island, sim._rng)
+		sk.boat = Vector3(s.x, 0, s.y)
+	if sk.holding >= 0 and sim.items.has(sk.holding):
+		sim.items[sk.holding].pos = sk.pos
+
+
+## Act I on the board: Spanish diggers after a treasure voyage's chests, landed from a boat on
+## each of its islands.
+func add_board_diggers(crew: int, m: Dictionary) -> void:
+	m.objects = []
+	m.thieves = []
+	var landings := {}
+	for id: int in m.items:
+		var chest: Loot = sim.items[id]
+		var island := Islands.island_at(chest.pos.x, chest.pos.z, 4.0)
+		if island < 0:
+			continue
+		if not landings.has(island):
+			var out := Vector2(1, 0).rotated(sim._rng.randf() * TAU)
+			landings[island] = _add_boat(crew, island, out)
+		var at: Vector3 = landings[island]
+		at.y = Islands.ground_at(island, at.x, at.z)
+		var sk := sim._new_skeleton(-1, at)
+		sk.spanish = true
+		sk.digger = true
+		sk.thief = true
+		sk.target_item = id
+		sk.dig_left = DIG_TIME * 1.5
+		sk.boat = landings[island]
+		sk.story_crew = crew
+		m.thieves.append(sk.id)
+
+
 ## The last dry ground on a line from an island's centre out along `out`, well up the beach
 ## (clear of a storm's bigger waves): where a boat's crew would step ashore.
 static func landing_spot(island: int, out: Vector2) -> Vector3:
@@ -507,7 +681,10 @@ func _add_object(crew: int, kind: int, pos: Vector3, yaw: float) -> StoryObject:
 	o.yaw = yaw
 	o.crew = crew
 	objects[o.id] = o
-	sim.crews[crew].mission.objects.append(o.id)
+	var m: Dictionary = sim.crews[crew].mission
+	if not m.has("objects"):
+		m.objects = []
+	m.objects.append(o.id)
 	return o
 
 
@@ -682,6 +859,11 @@ func tick(_dt: float) -> void:
 					_rise_from(c, m, StoryObject.Kind.GRAVE, step, 1)
 			Story.Step.BONFIRE:
 				_rise_from(c, m, StoryObject.Kind.BONFIRE, step, int(step.rise))
+			Story.Step.GATHER:
+				if m.deadline > 0.0 and sim.time > m.deadline:
+					print("[server] crew %d ran out of time" % c)
+					sim._tell_crew(c, "Too late! The ball has started. Hueso packs two more crates; try again.")
+					_restart_gather(c)
 			Story.Step.VIGIL:
 				if sim.time > m.deadline:
 					print("[server] crew %d: dawn ended the vigil" % c)
@@ -851,6 +1033,11 @@ func on_item_done(crew: int, item: Loot, by_crew: int, handed_in: bool) -> void:
 				# Lost at sea: Quill sighs and puts another on the pier.
 				sim._tell_crew(crew, "A crate of salt is lost. Quill puts another on the pier.")
 				_salt_crate(crew, 0)
+		Story.Step.CHASE, Story.Step.GATHER:
+			if not handed_in:
+				# Lost to the sea: the crab finds the coconut again, the tide brings another crate.
+				sim._tell_crew(crew, "It's lost! Never mind; there's another.")
+				_restart_gather(crew)
 		Story.Step.VIGIL:
 			if handed_in and by_crew == crew:
 				m.left -= 1
@@ -899,7 +1086,7 @@ func step_thief(sk: Skeleton, dt: float, floor_at: Callable) -> bool:
 			sim.skeletons.erase(sk.id)
 			sim._mission_item_done(item, 0, false)
 		return true
-	var m := _mission_of(sk.story_crew)
+	var m: Dictionary = sim.crews.get(sk.story_crew, {}).get("mission", {})
 	if m.is_empty():
 		return false
 	# A digger works at its X while the chest is still in the ground.
@@ -972,6 +1159,14 @@ func targets(m: Dictionary) -> Array:
 			var s: ShipState = sim.ships.get(m.ship)
 			if s:
 				out.append_array([_nearest_island(Vector3(s.x, 0, s.z)), s.x, s.z, 0])
+		Story.Step.CHASE, Story.Step.GATHER:
+			for id: int in m.items:
+				var it: Loot = sim.items.get(id)
+				if it:
+					out.append_array([_nearest_island(it.pos), it.pos.x, it.pos.z, 0])
+			if out.is_empty():
+				var at := give_spot(str(step.to))
+				out.append_array([_nearest_island(at), at.x, at.z, 0])
 	return out
 
 
@@ -989,6 +1184,8 @@ func counts(m: Dictionary) -> Array:
 			return [open_graves(m), standing(m)]
 		Story.Step.VIGIL:
 			return [m.left, standing(m)]
+		Story.Step.CHASE, Story.Step.GATHER:
+			return [m.need - m.given, standing(m)]
 	return [lit(m), standing(m)]
 
 

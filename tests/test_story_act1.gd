@@ -50,7 +50,7 @@ func _bucket(sim: ServerSim, r: Dictionary) -> void:
 func test_act_one_has_six_chapters_in_order() -> void:
 	var ids: Array[String] = []
 	for ch: Dictionary in Story.CHAPTERS:
-		if ch.act == 1:
+		if ch.act == 1 and not ch.has("tale"):
 			ids.append(ch.id)
 	check_eq(ids, ["a1", "a2", "a3", "a4", "a5", "a6"])
 	check(Story.open_for(Story.index_of("a1"), [["p1", "p2"]]), "Act I follows the prologue")

@@ -4,7 +4,7 @@ extends RefCounted
 ## skeleton captain's skull (bounties) or a crate of cargo. The server owns every item;
 ## snapshots carry all but the buried ones.
 
-enum Kind { CHEST, BARREL, SKULL, CRATE }
+enum Kind { CHEST, BARREL, SKULL, CRATE, COCONUT, PLANKS }
 ## HELD: in a skeleton's arms (`carrier` is the skeleton's id).
 enum State { BURIED, GROUND, FLOATING, CARRIED, ON_SHIP, HELD }
 
@@ -26,6 +26,8 @@ var ship := -1
 var variant := 0
 ## A crate that has been in the sea: it pays less.
 var soaked := false
+## Server only: breaks if put down anywhere but a ship's deck (the Governor's tea).
+var fragile := false
 ## Server only: when it started floating.
 var born := 0.0
 
@@ -45,7 +47,13 @@ func label() -> String:
 		Kind.SKULL:
 			return "captain's skull"
 		Kind.CRATE:
+			if variant == Missions.HUESO:
+				return "rattling crate"
 			return "%scrate of %s" % ["soaked " if soaked else "", Missions.GOODS[variant % Missions.GOODS.size()]]
+		Kind.COCONUT:
+			return "coconut with a face"
+		Kind.PLANKS:
+			return "bundle of planks"
 	return "supply barrel"
 
 

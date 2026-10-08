@@ -4,7 +4,7 @@ extends RefCounted
 ## chapters as data. Each chapter is a list of steps of a few kinds; ServerSim runs them, the
 ## HUD describes them. Pure data and rules, the same on every machine.
 
-enum Step { TALK, READ, DOUSE, BOUNTY, DIG_RACE, SALT, KEGS, SINK, VIGIL, BONFIRE, BOSS }
+enum Step { TALK, READ, DOUSE, BOUNTY, DIG_RACE, SALT, KEGS, SINK, VIGIL, BONFIRE, BOSS, CHASE, GATHER }
 
 ## Who you can talk to. `where` names the Outpost function giving where they stand.
 const PEOPLE := {
@@ -164,6 +164,75 @@ const CHAPTERS: Array[Dictionary] = [
 			]},
 		],
 	},
+	# --- Tales: side stories, each opening after the chapter in "after". ---
+	{
+		"id": "t1", "act": 0, "title": "Coconut Thieves", "giver": "jonah", "xp": 250, "gold": 50, "tale": "Captain Coco", "after": "p1",
+		"intro": [
+			"Jonah Salt", "Terrible news. Terrible. The crabs of Gull Isle have taken Captain Coco.",
+			"Jonah Salt", "I set him down to admire the sunset and when I looked round, a crab was carrying him off. A big one. Smug.",
+			"Jonah Salt", "Bring him back to me? He can't swim. He's a coconut.",
+		],
+		"steps": [
+			{"kind": Step.CHASE, "island": 2, "to": "jonah", "lines": [
+				"Jonah Salt", "Coco! You're safe! ...He says thank you. Well, he would if he could.",
+				"Jonah Salt", "Now, there's another thing I've been meaning to ask you. About a raft.",
+			]},
+		],
+	},
+	{
+		"id": "t2", "act": 0, "title": "A Raft for Jonah", "giver": "jonah", "xp": 300, "gold": 100, "tale": "Captain Coco", "after": "t1",
+		"intro": [
+			"Jonah Salt", "Eleven years on that island. Time I went home, wherever home is. I need a raft.",
+			"Jonah Salt", "There are wrecks on Parrot Rock, Gull Isle and Cutlass Cay with good planks in them. Bring me a bundle from each?",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "planks", "where": "wrecks", "islands": [1, 2, 0], "to": "jonah", "lines": [
+				"Jonah Salt", "Beautiful planks. I'll lash them together tonight and sail at dawn.",
+				"Jonah Salt", "...Actually, I've been thinking. The island's not so bad. And Coco likes the view. Keep the gold, and thank you.",
+			]},
+		],
+	},
+	{
+		"id": "t3", "act": 1, "title": "The Missing Tea", "giver": "quill", "xp": 300, "gold": 120, "tale": "Quill's Ledger", "after": "a2",
+		"intro": [
+			"Abel Quill", "Twenty crates of Merrow's finest tea left Gull Isle a week ago. None arrived. The ledger is most upset.",
+			"Abel Quill", "A fisherman saw crates floating between here and Gull Isle. Fish out three, if they're still dry, and bring them to me.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "tea", "where": "sea", "count": 3, "to": "quill", "lines": [
+				"Abel Quill", "Three crates. Damp, but drinkable. One of them is rattling. Tea does not rattle.",
+				"Abel Quill", "Come and see me when you have a moment. I have... a delicate matter.",
+			]},
+		],
+	},
+	{
+		"id": "t4", "act": 1, "title": "Señor Hueso", "giver": "quill", "xp": 300, "gold": 120, "tale": "Quill's Ledger", "after": "t3",
+		"intro": [
+			"Abel Quill", "The rattling crate. I opened it. There is a skeleton inside, and it is very polite.",
+			"Señor Hueso", "Buenos días. I am Hueso. I was the cook on the San Telmo. They woke me, but they forgot to give me orders. So I cook.",
+			"Abel Quill", "He would like to open a kitchen on Gull Isle, by Jonah's beach. Please take him there. Gently. He comes apart.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "hueso", "where": "pier", "count": 1, "to": "beach:2", "lines": [
+				"Señor Hueso", "Ah, the sand, the palms, a castaway with a coconut. Perfect. I will make a stew.",
+				"Señor Hueso", "Tell Quill: if he wants tea for a fancy party, my kitchen will keep it fine.",
+			]},
+		],
+	},
+	{
+		"id": "t5", "act": 1, "title": "The Governor's Ball", "giver": "quill", "xp": 400, "gold": 250, "tale": "Quill's Ledger", "after": "t4", "reward": "Purveyor of Fine Goods",
+		"intro": [
+			"Abel Quill", "The Governor's ball is tonight, at the Drowned Rat, and I promised them the finest tea in the Isles.",
+			"Abel Quill", "Hueso has two crates waiting at his kitchen on Gull Isle. They are porcelain-packed. If you put one down anywhere but your deck, it breaks.",
+			"Abel Quill", "Six minutes. I am not panicking. Go.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "fine_tea", "where": "beach", "island": 2, "count": 2, "to": "quill", "time": 360.0, "fragile": true, "lines": [
+				"Abel Quill", "Intact! Both of them! The Governor will never know how close we came.",
+				"Abel Quill", "A purveyor of fine goods. That's what you are. I shall write it in the ledger.",
+			]},
+		],
+	},
 ]
 
 
@@ -199,21 +268,32 @@ static func person_pos(who: String) -> Vector3:
 	return Vector3.ZERO
 
 
-## May a crew start chapter `i`, given each pirate's finished chapters? The first always; any
-## other once someone aboard has finished the one before it.
+## May a crew start chapter `i`, given each pirate's finished chapters? The first always; a tale
+## once someone aboard has finished the chapter it follows ("after"); any other once someone has
+## finished the story chapter before it.
 static func open_for(i: int, done_lists: Array) -> bool:
-	if i <= 0:
-		return i == 0
-	var before: String = CHAPTERS[i - 1].id
+	if i < 0 or i >= CHAPTERS.size():
+		return false
+	var before := str(CHAPTERS[i].get("after", ""))
+	if before == "":
+		var k := i - 1
+		while k >= 0 and CHAPTERS[k].has("tale"):
+			k -= 1
+		if k < 0:
+			return true
+		before = CHAPTERS[k].id
 	for done: Array in done_lists:
 		if done.has(before):
 			return true
 	return false
 
 
-## The crew's next chapter: the first that is open and not yet finished by all of them, or -1.
+## The crew's next story chapter (tales aside): the first that is open and not yet finished by
+## all of them, or -1.
 static func next_for(done_lists: Array) -> int:
 	for i in CHAPTERS.size():
+		if CHAPTERS[i].has("tale"):
+			continue
 		if not open_for(i, done_lists):
 			return -1
 		for done: Array in done_lists:
@@ -287,4 +367,11 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 			return "Fell the dead of the camp (%d left)" % standing
 		Step.BOSS:
 			return "Beat %s" % step.boss
+		Step.CHASE:
+			return "Catch the crab with Captain Coco on %s and bring him to %s" % [Islands.LAYOUT[step.island].name, person_name(step.to)]
+		Step.GATHER:
+			var what: String = {"planks": "a bundle of planks from each wreck", "tea": "floating tea crates (%d left)" % lit,
+				"hueso": "Señor Hueso's crate (on the pier)", "fine_tea": "the fine tea from Hueso's kitchen (%d left)" % lit}[step.item]
+			var to: String = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)
+			return "Bring %s to %s" % [what, to]
 	return ""

@@ -421,7 +421,7 @@ def cargo_crate(goods):
     """A Merchant Alliance crate (0.8 x 0.6 x 0.6, on the ground at y = 0), planked and battened,
     stencilled with the Alliance's anchor, its lid ajar on what it holds: rum bottles, bolts of
     silk or sacks of spice."""
-    name = ["rum", "silk", "spice", "salt"][goods]
+    name = ["rum", "silk", "spice", "salt", "tea", "hueso"][goods]
     parts = []
     hx, hy, hz = 0.4, 0.3, 0.3
     parts.append(kit.box("core", (0, hy, 0), (2 * hx - 0.04, 2 * hy - 0.02, 2 * hz - 0.04), "4a3020"))
@@ -456,6 +456,24 @@ def cargo_crate(goods):
     elif goods == 1:
         for k, c in enumerate(("c8302a", "6a3aa0", "e0b030")):
             parts.append(kit.tube("bolt", [(0.02, top + 0.01, -0.2 + k * 0.15), (0.36, top + 0.01, -0.2 + k * 0.15)], 0.06, 12, c))
+    elif goods == 4:
+        # Merrow's finest: paper-wrapped tea bricks in straw, a red seal on each.
+        for k in range(4):
+            x = 0.0 + 0.14 * (k % 2)
+            z = -0.12 + 0.2 * (k // 2)
+            parts.append(kit.box("teabrick", (x + 0.05, top + 0.02 + 0.03 * (k % 2), z), (0.12, 0.06, 0.16), "e8dcc0", bevel=0.01))
+            parts.append(kit.noink(kit.ellipsoid("seal", (x + 0.05, top + 0.055 + 0.03 * (k % 2), z), (0.025, 0.006, 0.025), "b8302a", rings=3, sectors=8), 0.0))
+        parts.append(kit.noink(kit.ellipsoid("straw", (0.2, top - 0.02, 0.0), (0.18, 0.04, 0.24), "d8c070", rings=4, sectors=8), 0.3))
+    elif goods == 5:
+        # Señor Hueso inside, peeking out from under the lid with a cheerful bony wave.
+        bone = "f0e8d0"
+        parts.append(kit.ellipsoid("hueso_skull", (0.12, top + 0.06, -0.05), (0.1, 0.11, 0.12), bone, rings=8, sectors=12))
+        for sx in (1, -1):
+            parts.append(kit.noink(kit.ellipsoid("hueso_eye", (0.12 + sx * 0.04, top + 0.08, -0.16), (0.025, 0.03, 0.01), "1a1714", rings=4, sectors=8), 0.3))
+        parts.append(kit.tube("hueso_arm", [(0.25, top - 0.05, 0.1), (0.35, top + 0.15, 0.12), (0.42, top + 0.3, 0.1)], 0.018, 6, bone))
+        for k in range(3):
+            parts.append(kit.tube("hueso_finger", [(0.42, top + 0.3, 0.1), (0.42 + 0.03 * (k - 1), top + 0.4, 0.1)], 0.008, 4, bone))
+        parts.append(kit.tube("ladle", [(0.0, top - 0.05, 0.15), (-0.05, top + 0.25, 0.2)], 0.012, 5, "6a6e76"))
     elif goods == 3:
         # Quill's salt: white sacks tied at the neck, a scoop and spilled grains.
         for k in range(2):
@@ -704,6 +722,35 @@ def dig_camp():
     return kit.join("dig_camp", parts)
 
 
+def coconut():
+    """Captain Coco: a coconut (0.22 m) with a painted face, two wide eyes and a cheerful
+    smile, sitting on its flat side."""
+    nut = kit.ellipsoid("coconut", (0, 0.11, 0), (0.1, 0.11, 0.1), "6a4428", rings=8, sectors=12)
+    kit.jitter(nut, 0.006, 2)
+    kit.paint_where(nut, "4a2e18", lambda x, y, z: y > 0.19)
+    parts = [nut]
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.ellipsoid("eye", (sx * 0.035, 0.14, -0.088), (0.022, 0.026, 0.008), "f8f4ea", rings=4, sectors=8), 0.2))
+        parts.append(kit.noink(kit.ellipsoid("pupil", (sx * 0.033, 0.137, -0.096), (0.01, 0.012, 0.004), "1a1714", rings=3, sectors=6), 0.0))
+    smile = [(0.045 * math.sin(a), 0.09 - 0.018 * math.cos(a), -0.095) for a in [-1.2 + 0.3 * k for k in range(9)]]
+    parts.append(kit.noink(kit.tube("smile", smile, 0.006, 4, "1a1714"), 0.0))
+    return kit.join("coconut", parts)
+
+
+def planks():
+    """A bundle of wreck planks (1.6 m) lashed with rope, for Jonah's raft."""
+    parts = []
+    for k in range(3):
+        x = -0.12 + 0.12 * k
+        y = 0.05 + 0.02 * (k % 2)
+        p = kit.box("plank", (x, y, 0.0), (0.11, 0.04, 1.6 - 0.1 * (k % 2)), ("a0522d", "8a5a30", "b07a42")[k], bevel=0.008)
+        kit.paint_where(p, "6e3a20", lambda px, py, pz: pz > 0.7)
+        parts.append(p)
+    for z in (-0.45, 0.45):
+        parts.append(kit.noink(kit.lathe("rope", [(0.2, z - 0.02), (0.2, z + 0.02)], 10, "c8b080", caps=False, centre=(0, 0.06, 0), axis="z"), 0.3))
+    return kit.join("planks", parts)
+
+
 def tent_shape(half_w, h, length, color):
     """A ridge tent along Z: two sloping canvas sides, closed ends with a dark door at the front
     (-Z), a ridge pole sticking out at both ends."""
@@ -731,7 +778,7 @@ def bottle():
 def main(names):
     builders = {
         "story": lambda: [grave(), journal(), rowboat(), open_grave(), open_grave("grave_salted", salted=True), keg(), powder_store(), bonfire(), dig_camp(), bottle()],
-        "loot": lambda: [skull()] + [cargo_crate(g) for g in range(4)],
+        "loot": lambda: [skull(), coconut(), planks()] + [cargo_crate(g) for g in range(6)],
         "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
         "chests": lambda: [chest(t) for t in range(3)],

@@ -333,6 +333,16 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = -0.18
+	elif game and view == "crab":
+		# Coconut Thieves (--chapter t1): the crab with Captain Coco, seen from a few steps off.
+		for sk: Skeleton in game.sim.skeletons.values():
+			if sk.crab:
+				# Out of its fright range, or it would be off up the beach before the picture.
+				var at := sk.pos + Vector3(8.0, 0, 5.0)
+				at.y = Islands.ground_at(2, at.x, at.z)
+				var d := sk.pos - at
+				game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, at, atan2(-d.x, -d.z))
+				game.local_player.pitch = -0.22
 	elif game and view == "galleon":
 		# From our deck, the Spanish galleon (--chapter a4) brought in close off the beam.
 		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission

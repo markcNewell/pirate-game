@@ -39,6 +39,9 @@ const CAPTAINS := [
 	"Salty Sal Skullface", "Captain Hollowbell",
 ]
 
+## Act I on the board: the chance a treasure offer has Spanish diggers after it too.
+const DIGGER_CHANCE := 0.33
+
 ## Cargo: time allowed, and what late or soaked crates pay (a fraction).
 const CARGO_BASE_TIME := 360.0
 const CARGO_TIME_PER_CRATE := 120.0
@@ -46,8 +49,11 @@ const LATE_PAY := 0.5
 const SOAKED_PAY := 0.5
 ## What the crates hold (Loot.variant for a crate). Salt is the story's: Quill's crates for
 ## Gull Isle's graves.
-const GOODS := ["rum", "silk", "spice", "salt"]
+const GOODS := ["rum", "silk", "spice", "salt", "tea", "hueso"]
 const SALT := 3
+## Quill's tea (his tales), and the crate Señor Hueso rides in.
+const TEA := 4
+const HUESO := 5
 ## The goods a cargo run may carry (not salt).
 const CARGO_GOODS := 3
 
@@ -122,7 +128,8 @@ static func describe(offer: Dictionary) -> String:
 		where.append(Islands.LAYOUT[island].name)
 	match int(offer.kind):
 		Kind.TREASURE:
-			return "Dig up %d chest%s on %s" % [offer.size, "" if offer.size == 1 else "s", ", ".join(where)]
+			var race := " (Spanish diggers are after it too)" if offer.get("diggers", false) else ""
+			return "Dig up %d chest%s on %s%s" % [offer.size, "" if offer.size == 1 else "s", ", ".join(where), race]
 		Kind.BOUNTY:
 			return "%s and %d skeletons on %s; bring back his skull" % [offer.captain, offer.size, where[0]]
 		_:

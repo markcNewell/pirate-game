@@ -260,6 +260,9 @@ func _interact(delta: float) -> void:
 			game.send_request(target.kind, 0)
 		"talk", "read":
 			game.send_request(target.kind, target.id)
+		"give":
+			game.send_request("give", 0)
+			Audio.play("coins", -6.0, 1.2)
 		"salt":
 			game.send_request("salt", target.id)
 			Audio.play("splash", -10.0, 1.6)
@@ -283,6 +286,9 @@ func current_target() -> Dictionary:
 				return {"kind": "sell", "id": 0, "label": "E  sell the %s to Silas Penny (%d gold)" % [what, held.value]}
 			if held.kind == Loot.Kind.SKULL and here.distance_to(Outpost.mystic_spot()) < 3.5:
 				return {"kind": "sell", "id": 0, "label": "E  give the skull to Mother Wren (%d gold)" % held.value}
+			var give := _give_target(held, here)
+			if not give.is_empty():
+				return give
 			if held.kind == Loot.Kind.CRATE and held.variant == Missions.SALT:
 				for id in game.view_objects:
 					var o: StoryObject = game.view_objects[id]
@@ -359,6 +365,26 @@ func current_target() -> Dictionary:
 	if not bucket and water > 0.1 and ShipShape.is_below_deck(local) and local.y < ShipShape.LOWER_Y + water + 0.2:
 		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket"}
 	return {}
+
+
+## Carrying what the story step wants (Captain Coco, planks, a tea crate, Señor Hueso) near
+## whoever or wherever wants it: hand it over.
+func _give_target(held: Loot, here: Vector3) -> Dictionary:
+	var m: Dictionary = game.mission
+	if m.is_empty() or m.kind != Missions.Kind.STORY:
+		return {}
+	var ch := Story.chapter(m.captain)
+	if ch.is_empty() or int(m.handled) >= ch.steps.size():
+		return {}
+	var step: Dictionary = ch.steps[m.handled]
+	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER]:
+		return {}
+	var to := str(step.to)
+	if here.distance_to(StoryRun.give_spot(to)) > StoryRun.GIVE_REACH:
+		return {}
+	if to.begins_with("beach:"):
+		return {"kind": "give", "id": 0, "label": "E  set the %s down here" % held.label()}
+	return {"kind": "give", "id": 0, "label": "E  give the %s to %s" % [held.label(), Story.person_name(to)]}
 
 
 ## The story's things within reach ashore: a journal to read, a green fire to douse (or a word

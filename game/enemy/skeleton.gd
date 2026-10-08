@@ -49,6 +49,8 @@ var digging := false
 ## it aside until server time `shield_down_until`.
 var sergeant := false
 var shield_up := false
+## Not a skeleton at all: a crab (the tales), small, quick and running from you.
+var crab := false
 var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
@@ -83,6 +85,8 @@ func to_array() -> Array:
 
 ## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
 func look_code() -> int:
+	if crab:
+		return 4
 	if sergeant:
 		return 3
 	if digger:
@@ -117,6 +121,7 @@ static func from_array(a: Array) -> Skeleton:
 	s.spanish = look >= 1
 	s.digger = look == 2
 	s.sergeant = look == 3
+	s.crab = look == 4
 	s.holding = int(a[10]) if a.size() > 10 else -1
 	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s

@@ -258,10 +258,10 @@ func _island(spec: Dictionary) -> void:
 		_merchant = merchant
 		_merchant_rest = merchant.rotation.y
 		# The other companies' people: the Lantern Order's mystic on the beach, the Traders' agent on
-		# the pier beside the cargo, and Moll the keeper at the foot of her lighthouse. All look out
-		# to sea.
-		for who: String in ["mystic", "agent", "keeper"]:
-			var at: Vector3 = {"mystic": Outpost.mystic_pos(), "agent": Outpost.agent_pos(), "keeper": Outpost.keeper_pos()}[who]
+		# the pier beside the cargo, Moll the keeper at the foot of her lighthouse, and Jonah Salt
+		# visiting from his island. All look out to sea.
+		for who: String in ["mystic", "agent", "keeper", "castaway"]:
+			var at: Vector3 = {"mystic": Outpost.mystic_pos(), "agent": Outpost.agent_pos(), "keeper": Outpost.keeper_pos(), "castaway": Outpost.jonah_pos()}[who]
 			var out := Vector3(at.x - spec.x, 0, at.z - spec.z).normalized()
 			if who == "agent":
 				out = Vector3(0, 0, 1)

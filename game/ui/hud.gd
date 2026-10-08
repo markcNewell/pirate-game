@@ -1069,6 +1069,10 @@ class TreasureMap:
 							draw_string(Hud.display_font(), x - Vector2(14, -16), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 52, Color("c8302a"))
 						Story.Step.BOSS, Story.Step.VIGIL:
 							_skull(x)
+						Story.Step.CHASE, Story.Step.GATHER:
+							for t: Dictionary in m.targets:
+								if Islands.island_at(t.x, t.z, 30.0) == v.island or t.island == v.island:
+									_crate(centre + Vector2(t.x - spec.x, t.z - spec.z) * scale)
 						_:
 							_flame(x, false)
 		draw_string(Hud.display_font(), Vector2(0, 50), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 42, INKY)

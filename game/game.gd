@@ -536,6 +536,10 @@ func _update_skeletons(delta: float) -> void:
 			_skeleton_views.erase(id)
 	for id in view_skeletons:
 		var sk: Skeleton = view_skeletons[id]
+		if not _skeleton_views.has(id) and sk.crab:
+			var crab := CrabView.new()
+			add_child(crab)
+			_skeleton_views[id] = crab
 		if not _skeleton_views.has(id):
 			var v := SkeletonView.new()
 			v.look = id
@@ -599,7 +603,8 @@ func _update_items() -> void:
 			Loot.State.HELD:
 				# In a Spanish skeleton's arms, running for its boat.
 				if _skeleton_views.has(item.carrier):
-					at = _skeleton_views[item.carrier].global_transform * Transform3D(Basis.IDENTITY, Vector3(0, 1.0, -0.45))
+					var held_at := Vector3(0, 0.32, -0.32) if _skeleton_views[item.carrier] is CrabView else Vector3(0, 1.0, -0.45)
+					at = _skeleton_views[item.carrier].global_transform * Transform3D(Basis.IDENTITY, held_at)
 		view.global_transform = at
 
 
