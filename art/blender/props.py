@@ -421,7 +421,7 @@ def cargo_crate(goods):
     """A Merchant Alliance crate (0.8 x 0.6 x 0.6, on the ground at y = 0), planked and battened,
     stencilled with the Alliance's anchor, its lid ajar on what it holds: rum bottles, bolts of
     silk or sacks of spice."""
-    name = ["rum", "silk", "spice"][goods]
+    name = ["rum", "silk", "spice", "salt"][goods]
     parts = []
     hx, hy, hz = 0.4, 0.3, 0.3
     parts.append(kit.box("core", (0, hy, 0), (2 * hx - 0.04, 2 * hy - 0.02, 2 * hz - 0.04), "4a3020"))
@@ -456,6 +456,14 @@ def cargo_crate(goods):
     elif goods == 1:
         for k, c in enumerate(("c8302a", "6a3aa0", "e0b030")):
             parts.append(kit.tube("bolt", [(0.02, top + 0.01, -0.2 + k * 0.15), (0.36, top + 0.01, -0.2 + k * 0.15)], 0.06, 12, c))
+    elif goods == 3:
+        # Quill's salt: white sacks tied at the neck, a scoop and spilled grains.
+        for k in range(2):
+            sack = kit.ellipsoid("saltsack", (0.08 + k * 0.2, top + 0.04, -0.06 + 0.12 * k), (0.12, 0.1, 0.12), "f2efe6", rings=8, sectors=10)
+            kit.jitter(sack, 0.008, 7 + k)
+            parts.append(sack)
+            parts.append(kit.noink(kit.lathe("tie", [(0.03, top + 0.12), (0.03, top + 0.15)], 8, "b08a5a", caps=False, centre=(0.08 + k * 0.2, 0, -0.06 + 0.12 * k)), 0.3))
+        parts.append(kit.noink(kit.ellipsoid("spill", (0.3, top + 0.0, 0.18), (0.08, 0.015, 0.06), "ffffff", rings=3, sectors=6), 0.0))
     else:
         for k, c in enumerate(("c9b48a", "b89a6a")):
             sack = kit.ellipsoid("sack", (0.1 + k * 0.17, top + 0.03, -0.05 + 0.1 * k), (0.11, 0.09, 0.12), c, rings=8, sectors=10)
@@ -557,10 +565,173 @@ def rowboat():
     return kit.join("rowboat", parts)
 
 
+def open_grave(name="grave_open", salted=False):
+    """An old pirate grave dug open (about 2 m along Z, its head at -Z): a dark pit with the
+    spoil heaped beside it and a weathered driftwood cross. Salted, the pit is filled level with
+    white salt."""
+    rng = random.Random(11 if salted else 5)
+    earth, dark = "5a3e26", "2a1c12"
+    rim = kit.loft("rim", [(-0.02, 0.62, 1.12, 0, 0), (0.06, 0.6, 1.1, 0, 0), (0.08, 0.5, 0.98, 0, 0), (-0.25, 0.42, 0.88, 0, 0)], earth, sides=20, power=2.6, cap_bottom=False, cap_top=True)
+    kit.paint_where(rim, dark, lambda x, y, z: y < 0.0)
+    parts = [rim]
+    if salted:
+        salt = kit.loft("salt", [(0.0, 0.48, 0.96, 0, 0), (0.08, 0.4, 0.86, 0, 0), (0.1, 0.25, 0.6, 0, 0)], "f4f1ea", sides=20, power=2.4, cap_bottom=False)
+        kit.jitter(salt, 0.01, 3)
+        parts.append(salt)
+        for k in range(8):
+            a = rng.uniform(0, 2 * math.pi)
+            parts.append(kit.noink(kit.ellipsoid("grain", (math.cos(a) * 0.7, 0.02, math.sin(a) * 1.2), (0.06, 0.02, 0.06), "e8e4dc", rings=3, sectors=6), 0.0))
+    spoil = kit.ellipsoid("spoil", (0.95, 0.02, 0.1), (0.42, 0.24, 0.85), earth, rings=6, sectors=12)
+    kit.jitter(spoil, 0.035, 4)
+    parts.append(spoil)
+    for k in range(5):
+        clod = kit.ellipsoid("clod", (rng.uniform(0.6, 1.3), 0.03, rng.uniform(-1.0, 1.0)), (0.08, 0.05, 0.07), dark, rings=4, sectors=6)
+        kit.jitter(clod, 0.012, 20 + k)
+        parts.append(clod)
+    wood = "8a7a62"
+    parts.append(kit.tube("post", [(0.0, -0.15, -1.25), (0.03, 0.4, -1.27), (0.05, 0.85, -1.25)], [0.045, 0.04, 0.035], 6, wood, twist=0.3))
+    parts.append(kit.tube("arm", [(-0.28, 0.62, -1.24), (0.02, 0.66, -1.27), (0.3, 0.6, -1.25)], [0.03, 0.034, 0.028], 6, wood, twist=0.2))
+    return kit.join(name, parts)
+
+
+def keg():
+    """A Spanish powder keg (0.7 m tall): dark staves, red bands and a white skull stencilled on
+    its side; a fuse poking from the bung."""
+    body = barrel("keg_body", height=0.7, r_end=0.24, r_mid=0.29, hoops=(0.07, 0.63), seed=8)
+    parts = [body]
+    for h in (0.3, 0.42):
+        parts.append(kit.lathe("band", [(0.292, h), (0.292, h + 0.05)], 16, "b8302a", caps=False))
+    parts.append(kit.noink(kit.ellipsoid("stencil", (0, 0.36, -0.292), (0.07, 0.07, 0.006), "f2ece0", rings=4, sectors=8), 0.0))
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.box("stencilbone", (0, 0.27, -0.292), (0.16, 0.02, 0.006), "f2ece0", rot=(0, 0, sx * 0.6)), 0.0))
+    parts.append(kit.tube("fuse", [(0.08, 0.7, 0.0), (0.12, 0.8, 0.02), (0.1, 0.88, 0.06)], 0.012, 4, "c8b080"))
+    return kit.join("keg", parts)
+
+
+def powder_store():
+    """The Spanish powder store on Cutlass Cay: two big grey rocks leaning together like old
+    friends (Jonah's landmark), a patched sailcloth tied between them over crates and coils of
+    fuse. The kegs are separate (they blow up)."""
+    parts = []
+    # Two boulders leaning in until their tops nearly touch.
+    for sx in (1, -1):
+        rock = kit.ellipsoid("bigrock", (0.0, 1.1, 0.0), (0.85, 1.35, 0.95), "8a8a84", rings=9, sectors=12)
+        kit.jitter(rock, 0.12, 30 + sx)
+        rock.rotation_euler = (0, 0, sx * 0.42)
+        kit.transform_apply(rock)
+        rock.location = (sx * 1.55, 0.0, 0.0)
+        kit.transform_apply(rock)
+        kit.paint_where(rock, "6e6e68", lambda x, y, z: y < 0.45)
+        kit.paint_where(rock, "6a8a4a", lambda x, y, z: y > 2.05)
+        parts.append(rock)
+    # A sailcloth from between their tops down to the sand behind: a lean-to over the powder.
+    rows = []
+    for k in range(6):
+        t = k / 5
+        row = []
+        for i in range(9):
+            u = i / 8
+            x = -1.15 + 2.3 * u
+            sag = 0.18 * math.sin(math.pi * u) * math.sin(math.pi * t)
+            row.append((x, 2.0 * (1.0 - t) + 0.05 - sag, -0.3 + 2.4 * t))
+        rows.append(row)
+    cloth = kit.grid_surface("sailcloth", rows, "c8b890")
+    kit.orient(cloth, lambda x, y, z: (0, 1, 0))
+    sol = cloth.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.02
+    kit.apply_all(cloth)
+    kit.paint_where(cloth, "a89a70", lambda x, y, z: abs(x - 0.3) < 0.25 and 0.6 < z < 1.2)
+    parts.append(cloth)
+    for sx in (1, -1):
+        parts.append(kit.tube("peg_rope", [(sx * 1.15, 0.05, 2.1), (sx * 1.4, 0.0, 2.5)], 0.01, 4, "c8b080"))
+    for x, z in ((-0.5, 1.1), (0.45, 1.3)):
+        parts.append(kit.box("crate", (x, 0.25, z), (0.6, 0.5, 0.5), "a87442", bevel=0.02))
+    for k in range(2):
+        coil = [(0.35 * math.cos(a / 4.0) + 0.0, 0.05 + 0.02 * k, 0.35 * math.sin(a / 4.0) - 0.6) for a in range(26)]
+        parts.append(kit.tube("coil", coil, 0.025, 5, "c8b080", caps=False))
+    return kit.join("powder_store", parts)
+
+
+def bonfire():
+    """The dig camp's bonfire (the flame is the game's): a ring of stones round a stack of logs,
+    ash and embers, 2.4 m across."""
+    rng = random.Random(3)
+    parts = []
+    for k in range(12):
+        a = 2 * math.pi * k / 12
+        st = kit.ellipsoid("stone", (math.cos(a) * 1.2, 0.08, math.sin(a) * 1.2), (0.22, 0.16, 0.18), ("7a7a74", "8e8a80")[k % 2], rings=5, sectors=8)
+        kit.jitter(st, 0.02, k)
+        parts.append(st)
+    parts.append(kit.noink(kit.lathe("ash", [(0.0, 0.02), (1.0, 0.02), (1.05, 0.0)], 18, "3a3634"), 0.3))
+    for k in range(7):
+        a = 2 * math.pi * k / 7 + rng.uniform(-0.2, 0.2)
+        parts.append(kit.tube("log", [(math.cos(a) * 0.85, 0.08, math.sin(a) * 0.85), (math.cos(a) * 0.1, 0.75, math.sin(a) * 0.1)], [0.1, 0.07], 7, ("4a3220", "3a2818")[k % 2]))
+    for k in range(6):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.2, 0.8)
+        parts.append(kit.noink(kit.ellipsoid("ember", (math.cos(a) * r, 0.05, math.sin(a) * r), (0.06, 0.03, 0.05), "7dff8a", rings=3, sectors=6), 0.0))
+    return kit.join("bonfire", parts)
+
+
+def dig_camp():
+    """The Spanish dig camp round its bonfire (centred on it, ~16 m across): a palisade of
+    sharpened stakes with a gap for a gate, two tents, a rack of spades and the Admiral's flag."""
+    rng = random.Random(9)
+    parts = []
+    for k in range(44):
+        a = 2 * math.pi * k / 48 + 0.35
+        r = 7.6 + rng.uniform(-0.1, 0.1)
+        h = 2.2 + rng.uniform(-0.25, 0.25)
+        x, z = math.cos(a) * r, math.sin(a) * r
+        parts.append(kit.tube("stake", [(x, -0.2, z), (x, h - 0.3, z), (x * 1.0, h, z)], [0.14, 0.13, 0.01], 6, ("8a6a44", "7a5a38")[k % 2]))
+    rail = []
+    for k in range(45):
+        a = 2 * math.pi * k / 48 + 0.35
+        rail.append((math.cos(a) * 7.45, 1.3, math.sin(a) * 7.45))
+    parts.append(kit.tube("rail", rail, 0.06, 5, "5a4228", caps=True))
+    for (x, z, yaw) in ((-3.5, 2.5, 0.4), (3.2, 3.4, -0.5)):
+        tent = tent_shape(1.4, 1.7, 2.6, "c8b48a")
+        kit.place(tent, (x, 0, z), (0, yaw, 0))
+        parts.append(tent)
+    parts.append(kit.box("rack", (4.2, 0.9, -2.6), (1.6, 0.08, 0.08), "6a4a2c"))
+    for k in range(4):
+        x = 3.6 + 0.4 * k
+        parts.append(kit.tube("spade", [(x, 0.0, -2.5), (x, 1.2, -2.66)], 0.025, 5, "b08a5a"))
+        parts.append(kit.box("blade", (x, 0.15, -2.48), (0.22, 0.28, 0.02), "7a7e86"))
+    parts.append(kit.tube("flagpole", [(-4.8, 0.0, -3.5), (-4.8, 4.8, -3.5)], 0.05, 6, "3a2e26"))
+    parts.append(kit.prism("flag", [(0.0, 0.0), (0.0, 0.9), (1.4, 0.75), (1.3, 0.45), (1.4, 0.15)], 0.02, "1a1418", centre=(-4.78, 3.8, -3.5), plane="xy"))
+    parts.append(kit.noink(kit.prism("flagraven", [(0.3, 0.3), (0.55, 0.5), (0.8, 0.45), (0.95, 0.6), (0.9, 0.35), (1.05, 0.28), (0.7, 0.25)], 0.024, "e0b04a", centre=(-4.78, 3.8, -3.5), plane="xy"), 0.2))
+    return kit.join("dig_camp", parts)
+
+
+def tent_shape(half_w, h, length, color):
+    """A ridge tent along Z: two sloping canvas sides, closed ends with a dark door at the front
+    (-Z), a ridge pole sticking out at both ends."""
+    rows = [[(-half_w, 0.0, z), (0.0, h, z), (half_w, 0.0, z)] for z in (-length / 2, length / 2)]
+    roof = kit.grid_surface("tent", rows, color)
+    kit.orient(roof, lambda x, y, z: (x, 0.3, 0))
+    sol = roof.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.02
+    kit.apply_all(roof)
+    back = kit.prism("tentback", [(-half_w, 0.0), (half_w, 0.0), (0.0, h)], 0.02, kit.shade(color, 0.9) if hasattr(kit, "shade") else color, centre=(0, 0, length / 2), plane="xy")
+    door = kit.noink(kit.prism("tentdoor", [(-0.45, 0.0), (0.45, 0.0), (0.0, 1.1)], 0.02, "3a2a1a", centre=(0, 0, -length / 2), plane="xy"), 0.3)
+    front = kit.prism("tentfront", [(-half_w, 0.0), (half_w, 0.0), (0.0, h)], 0.02, color, centre=(0, 0, -length / 2 + 0.02), plane="xy")
+    pole = kit.tube("ridge", [(0, h + 0.02, -length / 2 - 0.2), (0, h + 0.02, length / 2 + 0.2)], 0.035, 5, "6a4a2c")
+    return kit.join("tent", [roof, back, front, door, pole])
+
+
+def bottle():
+    """A green glass bottle bobbing on its side, corked, a rolled letter inside."""
+    glass = kit.lathe("bottle", [(0.0, -0.13), (0.055, -0.13), (0.06, 0.05), (0.025, 0.11), (0.022, 0.17), (0.0, 0.17)], 12, "5aa070", axis="z")
+    cork = kit.lathe("cork", [(0.0, 0.16), (0.02, 0.16), (0.02, 0.2), (0.0, 0.2)], 8, "b08a5a", axis="z")
+    letter = kit.noink(kit.tube("letter", [(0, 0, -0.1), (0, 0, 0.06)], 0.03, 8, "f2e8cc"), 0.3)
+    return kit.join("bottle", [glass, cork, letter])
+
+
 def main(names):
     builders = {
-        "story": lambda: [grave(), journal(), rowboat()],
-        "loot": lambda: [skull()] + [cargo_crate(g) for g in range(3)],
+        "story": lambda: [grave(), journal(), rowboat(), open_grave(), open_grave("grave_salted", salted=True), keg(), powder_store(), bonfire(), dig_camp(), bottle()],
+        "loot": lambda: [skull()] + [cargo_crate(g) for g in range(4)],
         "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
         "chests": lambda: [chest(t) for t in range(3)],

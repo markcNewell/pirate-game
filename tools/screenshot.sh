@@ -6,6 +6,7 @@
 #   VIEW: deck (first person, default), wheel, outside, bow, high, crew, island[N], lighthouse, tavern, stern, swim, flag, ghost, swing, patch, help, mouselook,
 #         board, bounty, cargo, trader (missions: --voyage-island N picks the island),
 #         moll (talking to her), fire (with --chapter p1 --chapter-step 1), thieves (with --chapter p2),
+#         diggers (a1), graves (a2), store (a3), galleon (a4), camp (a6), sergeant (a6, step 1),
 #         title (the title screen: nothing is hosted), ship (--shot-from X,Y,Z --shot-look X,Y,Z in the ship's frame)
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
 #   BOTS="sails wheel" adds headless bot players to the hosted game first.

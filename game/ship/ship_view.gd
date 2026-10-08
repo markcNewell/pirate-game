@@ -10,6 +10,8 @@ const RECOIL := 0.5
 var kind := ShipState.Kind.CREW
 ## Crew number (1-4) for the sail colours; 0 for skeleton ships.
 var crew := 1
+## ShipState.flag: 1 for a Spanish galleon (black sails, the raven), else 0.
+var flag := 0
 
 var _rigs: Array[Node3D] = []
 var _sails: Array[Array] = []
@@ -54,6 +56,14 @@ static func warm_up() -> void:
 	var wreck := Models.palette_recolor(Toon.SKELETON)
 	Models.mesh("ship_wreck", wreck)
 	Models.part("ship_parts", "sail_torn_0_0", wreck)
+	var spanish := Models.palette_recolor(Toon.SPANISH)
+	Models.mesh("ship_hull", spanish)
+	Models.part("ship_parts", "sail_0_0", spanish)
+
+
+## A Spanish galleon: sound hull and sails (not a wreck), but crewed by the dead.
+func _spanish() -> bool:
+	return kind == ShipState.Kind.SKELETON and flag == 1
 
 
 func _part(name: String) -> ArrayMesh:
@@ -62,9 +72,11 @@ func _part(name: String) -> ArrayMesh:
 
 func _ready() -> void:
 	var palette: Dictionary = Toon.SKELETON if kind == ShipState.Kind.SKELETON else Toon.crew_palette(crew)
+	if _spanish():
+		palette = Toon.SPANISH
 	ShipMesh.use_palette(palette)
 	_paint = Models.palette_recolor(palette)
-	var hull := "ship_wreck" if kind == ShipState.Kind.SKELETON else "ship_hull"
+	var hull := "ship_wreck" if kind == ShipState.Kind.SKELETON and not _spanish() else "ship_hull"
 	add_child(Toon.instance(Models.mesh(hull, _paint)))
 	for m in ShipShape.MAST_Z.size():
 		_build_rig(m)
@@ -199,7 +211,7 @@ func _build_rig(mast: int) -> void:
 		var yard := Toon.instance(_part("yard_%d_%d" % [mast, k]))
 		yard.position = Vector3(0, top, -ShipShape.MAST_RADIUS - 0.2)
 		rig.add_child(yard)
-		var torn := "torn_" if kind == ShipState.Kind.SKELETON else ""
+		var torn := "torn_" if kind == ShipState.Kind.SKELETON and not _spanish() else ""
 		# The canvas rolled up on top of the yard, shown as the sail is taken in.
 		var bundle := Toon.instance(_part("furl_%d_%d" % [mast, k]))
 		bundle.position = yard.position
@@ -213,7 +225,7 @@ func _build_rig(mast: int) -> void:
 		sails.append(sail)
 		if mast == 1 and k == 0:
 			# The crew's emblem on the main course, furling with the sail.
-			var badge := Toon.instance(_part("emblem"))
+			var badge := Toon.instance(_part("raven_emblem" if _spanish() else "emblem"))
 			badge.position = Vector3(0, -spec[1] * 0.5, 0)
 			badge.layers = Lantern.UNLIT_LAYER
 			sail.add_child(badge)

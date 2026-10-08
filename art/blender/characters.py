@@ -909,7 +909,7 @@ def skeleton():
     body = kit.join("skeleton", parts)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(5):
+    for i in range(6):
         ob = kit.join("look%d" % i, skeleton_look(i))
         rig.bind(ob, arm)
         meshes.append(ob)
@@ -1021,6 +1021,49 @@ def breastplate(color="b4bac2"):
     return [plate, ridge, skirt] + straps
 
 
+def tower_shield(side="l"):
+    """A tall wooden shield strapped to the forearm, its face toward the enemy: dark red with an
+    iron rim, a boss and the Admiral's gold raven."""
+    el, wr = rig.joint("forearm_" + side), rig.joint("hand_" + side)
+    # In front of the body, covering the left side and the middle, as a shield wall would.
+    mid = (el + wr) * 0.5 + Vector((-0.17 if side == "l" else 0.17, 0.05, -0.26))
+    rows = []
+    for k in range(7):
+        y = -0.55 + 1.1 * k / 6
+        row = []
+        for i in range(7):
+            x = -0.3 + 0.6 * i / 6
+            row.append((mid.x + x, mid.y + y, mid.z - 0.06 * math.cos(x / 0.3 * math.pi / 2)))
+        rows.append(row)
+    face = kit.grid_surface("shield", rows, "6a1a18")
+    kit.orient(face, lambda x, y, z: (0, 0, -1))
+    sol = face.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.03
+    kit.apply_all(face)
+    parts = [face]
+    rim = [(mid.x + 0.31 * sx, mid.y + 0.56 * sy, mid.z - 0.02) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1), (-1, -1))]
+    parts.append(kit.tube("shieldrim", rim, 0.025, 5, "4a4a52", caps=False))
+    parts.append(kit.ellipsoid("boss", (mid.x, mid.y + 0.05, mid.z - 0.1), (0.08, 0.08, 0.05), "c8a040", rings=6, sectors=10))
+    raven = kit.noink(kit.prism("shieldraven", [(-0.2, 0.2), (-0.05, 0.3), (0.08, 0.26), (0.2, 0.36), (0.18, 0.2), (0.24, 0.12), (0.0, 0.1), (-0.12, 0.0)], 0.01, "e0b040", centre=(mid.x, mid.y - 0.1, mid.z - 0.092), plane="xy"), 0.3)
+    parts.append(raven)
+    for p in parts:
+        rig.set_weights(p, rig.rigid("forearm_" + side))
+    return parts
+
+
+def halberd(side="r"):
+    """A halberd in the fist, its shaft upright: an axe blade, a spike and a hook at the top."""
+    g = Vector(rig.grip_point(side))
+    parts = [kit.tube("haft", [tuple(g + Vector((0, -0.9, 0))), tuple(g + Vector((0, 1.3, 0)))], 0.022, 6, "6a4a2c")]
+    top = g + Vector((0, 1.3, 0))
+    parts.append(kit.prism("axe", [(0.0, -0.18), (0.24, -0.26), (0.3, 0.0), (0.24, 0.22), (0.0, 0.12)], 0.02, "9aa0a8", centre=tuple(top + Vector((0.02, -0.15, 0))), plane="xy"))
+    parts.append(kit.prism("hook", [(0.0, 0.0), (-0.16, 0.06), (-0.12, -0.04)], 0.02, "9aa0a8", centre=tuple(top + Vector((-0.02, -0.12, 0))), plane="xy"))
+    parts.append(kit.tube("spike", [tuple(top), tuple(top + Vector((0, 0.3, 0)))], [0.025, 0.004], 6, "b4bac2"))
+    for p in parts:
+        rig.set_weights(p, rig.rigid("hand_" + side))
+    return parts
+
+
 def skeleton_look(i):
     """The skeleton's outfits: 0 torn breeches, a sash and a battered tricorn; 1 a faded
     bandana and the rags of a shirt; 2 a rusty morion helmet and a loincloth; 3 a bounty's
@@ -1039,6 +1082,14 @@ def skeleton_look(i):
     elif i == 4:
         parts += torn_breeches("8a2a24", 6) + sash("d8b040") + breastplate()
         head_bits = morion("b4bac2", sweep=0.2, comb_h=0.15)
+    elif i == 5:
+        # Sargento Calavera: the Spanish dead's sergeant, in a gilded breastplate and plumed
+        # helmet, behind a tower shield painted with the Admiral's raven, a halberd in his fist.
+        parts += torn_breeches("5a1a18", 8) + sash("e0b040") + breastplate("c8a040")
+        head_bits = morion("c8a040", sweep=0.22, comb_h=0.18)
+        plume = kit.tube("plume", [(0, 2.0, 0.02), (0, 2.18, 0.08), (0, 2.22, 0.24), (0, 2.12, 0.36)], [0.04, 0.07, 0.06, 0.02], 8, "b8302a")
+        head_bits.append(plume)
+        parts += tower_shield("l") + halberd("r")
     elif i == 3:
         parts += torn_breeches("2a2a3a", 4)
         parts += coat("3a2a4a", trim="b89a40")

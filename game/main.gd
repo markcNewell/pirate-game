@@ -293,6 +293,57 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = -0.2
+	elif game and view in ["graves", "store", "camp", "sergeant", "diggers"]:
+		# Act I, started with --chapter (a2 graves, a3 store, a6 camp; a6 --chapter-step 1 the
+		# sergeant; a1 the diggers): stand back from the thing and look at it, everything holding
+		# its swing.
+		var look_at := Vector3.ZERO
+		var back := 7.0
+		var kinds := {"graves": StoryObject.Kind.GRAVE, "store": StoryObject.Kind.STORE, "camp": StoryObject.Kind.BONFIRE}
+		if kinds.has(view):
+			for o: StoryObject in game.sim.story.objects.values():
+				if o.kind == kinds[view]:
+					look_at = o.pos
+			back = {"graves": 6.0, "store": 7.0, "camp": 13.0}[view]
+		for sk: Skeleton in game.sim.skeletons.values():
+			sk.cooldown = 1e6
+			if (view == "sergeant" and sk.sergeant) or (view == "diggers" and sk.digger and look_at == Vector3.ZERO):
+				look_at = sk.pos
+				back = 4.5
+		if view == "diggers":
+			# Wait until a digger is at its X, then stand by it.
+			get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void:
+				for sk: Skeleton in game.sim.skeletons.values():
+					if sk.digger and sk.alive():
+						var at := sk.pos + Vector3(3.0, 0, 2.0)
+						at.y = Islands.ground_at(0, at.x, at.z)
+						var d := sk.pos - at
+						game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, at, atan2(-d.x, -d.z))
+						return)
+		var isl := maxi(0, Islands.island_at(look_at.x, look_at.z))
+		var spec: Dictionary = Islands.LAYOUT[isl]
+		var inward := (Vector3(spec.x, look_at.y, spec.z) - look_at).normalized()
+		if inward.length() < 0.5:
+			inward = Vector3(1, 0, 0)
+		var stand := look_at + inward.rotated(Vector3.UP, 0.6) * back
+		if view == "sergeant":
+			# From the camp's gate side (+x), clear of the tents.
+			stand = look_at + Vector3(4.2, 0, -0.8)
+		stand.y = Islands.ground_at(isl, stand.x, stand.z)
+		var to := look_at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = -0.18
+	elif game and view == "galleon":
+		# From our deck, the Spanish galleon (--chapter a4) brought in close off the beam.
+		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+		var g: ShipState = game.sim.ships[m.ship]
+		var own := game.sim.crew_ship()
+		g.x = own.x + 55.0
+		g.z = own.z - 20.0
+		g.yaw = own.yaw + 0.3
+		game.sim._passive[m.ship] = true
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, Vector3(1.2, ShipShape.DECK_Y, -1.0), -PI / 2.0 + 0.3)
+		game.local_player.pitch = 0.05
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":

@@ -1549,6 +1549,23 @@ def emblem():
     return kit.join("emblem", parts)
 
 
+def raven_emblem():
+    """The Spanish Admiral's raven on a galleon's main course: a flag-coloured disc (gold on her
+    palette) with a bone-coloured (black) raven in flight, front and back like the crews' emblem."""
+    parts = []
+    depth = SAIL_BELLY * 0.99
+    raven = [(-0.75, 0.05), (-0.45, 0.32), (-0.2, 0.28), (-0.05, 0.42), (0.1, 0.36), (0.3, 0.55), (0.62, 0.62),
+             (0.45, 0.4), (0.7, 0.3), (0.35, 0.18), (0.22, -0.05), (0.32, -0.38), (0.12, -0.3), (0.0, -0.08),
+             (-0.25, -0.02), (-0.5, -0.12)]
+    for side in (-1, 1):
+        z = -depth - 0.09 if side < 0 else -depth + 0.15
+        parts.append(kit.lathe("disc", [(0.0, z), (1.15, z), (1.15, z + side * 0.012), (0.0, z + side * 0.012)], 28, slot("flag"), axis="z"))
+        ring = [(1.05 * math.cos(2 * math.pi * k / 32), 1.05 * math.sin(2 * math.pi * k / 32), z + side * 0.02) for k in range(33)]
+        parts.append(kit.noink(kit.tube("ring", ring, 0.035, 5, slot("bone"), caps=False), 0.0))
+        parts.append(kit.noink(kit.prism("raven", raven, 0.015, slot("bone"), centre=(0, 0, z + side * 0.03), plane="xy"), 0.0))
+    return kit.join("raven_emblem", parts)
+
+
 def parts_model():
     objs = []
     for m in range(2):
@@ -1559,6 +1576,7 @@ def parts_model():
             objs.append(sail("sail_torn_%d_%d" % (m, k), width, height, torn=True, seed=m * 2 + k + 1))
     objs.append(wheel())
     objs.append(emblem())
+    objs.append(raven_emblem())
     objs.append(capstan())
     objs.append(cannon())
     objs.append(flag())

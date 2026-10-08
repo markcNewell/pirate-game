@@ -137,6 +137,7 @@ func _ship_view_for(id: int, s: ShipState) -> ShipView:
 		var v := ShipView.new()
 		v.kind = s.kind
 		v.crew = s.crew
+		v.flag = s.flag
 		add_child(v)
 		ship_views[id] = v
 	return ship_views[id]
@@ -252,7 +253,12 @@ func client_on_snapshot(data: Array) -> void:
 		if int(entry[0]) == own_crew:
 			mission = crew_mission
 			voyage = {}
-			if not mission.is_empty() and mission.kind == Missions.Kind.TREASURE:
+			var digging: bool = not mission.is_empty() and mission.kind == Missions.Kind.TREASURE
+			if not mission.is_empty() and mission.kind == Missions.Kind.STORY:
+				# A story step with chests to dig (Dig Faster) works the spade like a treasure map.
+				var ch := Story.chapter(mission.captain)
+				digging = not ch.is_empty() and mission.handled < ch.steps.size() and int(ch.steps[mission.handled].kind) == Story.Step.DIG_RACE
+			if digging:
 				for target: Dictionary in mission.targets:
 					if not target.done:
 						voyage = target
@@ -348,8 +354,26 @@ func client_on_event(kind: String, data: Array) -> void:
 				hud.show_journal(str(data[0]), str(data[1]))
 		"doused":
 			if _object_views.has(int(data[0])):
-				_object_views[int(data[0])].douse()
+				_object_views[int(data[0])].set_state(int(data[4]) if data.size() > 4 else 0)
 			Audio.play_at("splash", Vector3(data[1], data[2], data[3]), -2.0, 0.7)
+		"salted":
+			var at := Vector3(data[1], data[2], data[3])
+			for k in 6:
+				effects.smoke(at + Vector3(randf_range(-0.6, 0.6), 0.1, randf_range(-1.0, 1.0)))
+			Audio.play_at("splash", at, -8.0, 1.6)
+		"fuse":
+			if _object_views.has(int(data[0])):
+				_object_views[int(data[0])].set_state(2)
+		"explode":
+			var at := Vector3(data[0], data[1], data[2])
+			effects.explosion(at)
+			Audio.play_at("cannon", at, 2.0, 0.7)
+		"risen":
+			Audio.play_at("rattle", Vector3(data[0], data[1], data[2]), -2.0, 0.8)
+		"shield":
+			if _skeleton_views.has(int(data[0])):
+				_skeleton_views[int(data[0])].shield_hit(int(data[1]) == 0)
+				Audio.play_at("clang", _skeleton_views[int(data[0])].global_position + Vector3.UP, -2.0, 1.2)
 		"shot":
 			var id: int = data[0]
 			var ball := {
@@ -517,6 +541,8 @@ func _update_skeletons(delta: float) -> void:
 			v.look = id
 			v.captain = sk.captain
 			v.spanish = sk.spanish
+			v.digger = sk.digger
+			v.sergeant = sk.sergeant
 			add_child(v)
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
@@ -525,6 +551,7 @@ func _update_skeletons(delta: float) -> void:
 				continue
 			at = ship_views[sk.frame].global_transform * at
 		_skeleton_views[id].place(at, sk.walking, not sk.alive(), delta)
+		_skeleton_views[id].set_digging(sk.digging and sk.alive())
 
 
 ## The story's fires, journals and boats: made when they appear, gone when they go.
@@ -536,12 +563,12 @@ func _update_objects() -> void:
 	for id in view_objects:
 		var o: StoryObject = view_objects[id]
 		if not _object_views.has(id):
-			var v := StoryObjectView.new(o.kind, o.state == 1)
+			var v := StoryObjectView.new(o.kind, o.state)
 			add_child(v)
 			v.global_transform = Transform3D(Basis(Vector3.UP, o.yaw), o.pos)
 			_object_views[id] = v
-		elif o.kind == StoryObject.Kind.FIRE and o.state == 0:
-			_object_views[id].douse()
+		else:
+			_object_views[id].set_state(o.state)
 
 
 ## Place every chest and barrel: on the ground, afloat, stowed aboard or in someone's arms.
@@ -781,4 +808,6 @@ func nearest_enemy() -> ShipState:
 
 ## Display name of a ship: its crew's ship name, or "Skeleton ship".
 static func ship_name(s: ShipState) -> String:
-	return ServerSim.CREW_NAMES[s.crew - 1] if s.crew > 0 else "Skeleton ship"
+	if s.crew > 0:
+		return ServerSim.CREW_NAMES[s.crew - 1]
+	return "Spanish galleon" if s.flag == 1 else "Skeleton ship"

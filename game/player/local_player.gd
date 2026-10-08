@@ -260,6 +260,9 @@ func _interact(delta: float) -> void:
 			game.send_request(target.kind, 0)
 		"talk", "read":
 			game.send_request(target.kind, target.id)
+		"salt":
+			game.send_request("salt", target.id)
+			Audio.play("splash", -10.0, 1.6)
 		"douse":
 			game.send_request("douse", target.id)
 			Audio.play("splash", -6.0, 0.8)
@@ -280,6 +283,11 @@ func current_target() -> Dictionary:
 				return {"kind": "sell", "id": 0, "label": "E  sell the %s to Silas Penny (%d gold)" % [what, held.value]}
 			if held.kind == Loot.Kind.SKULL and here.distance_to(Outpost.mystic_spot()) < 3.5:
 				return {"kind": "sell", "id": 0, "label": "E  give the skull to Mother Wren (%d gold)" % held.value}
+			if held.kind == Loot.Kind.CRATE and held.variant == Missions.SALT:
+				for id in game.view_objects:
+					var o: StoryObject = game.view_objects[id]
+					if o.kind == StoryObject.Kind.GRAVE and o.state == 1 and here.distance_to(o.pos) < StoryRun.SALT_REACH:
+						return {"kind": "salt", "id": o.id, "label": "E  pour the salt on the grave"}
 			if held.kind == Loot.Kind.CRATE:
 				for crew in game.traders:
 					var t: Dictionary = game.traders[crew]
@@ -365,13 +373,17 @@ func _story_target(here: Vector3) -> Dictionary:
 			StoryObject.Kind.BOOK:
 				if d < StoryRun.READ_REACH:
 					return {"kind": "read", "id": o.id, "label": "E  read the journal"}
-			StoryObject.Kind.FIRE:
-				if o.state != 1:
+			StoryObject.Kind.BOTTLE:
+				if Vector2(here.x - o.pos.x, here.z - o.pos.z).length() < StoryRun.READ_REACH:
+					return {"kind": "read", "id": o.id, "label": "E  take the letter from the bottle"}
+			StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE:
+				if o.state <= 0:
 					continue
 				any_fire = true
-				if d < StoryRun.DOUSE_REACH:
+				var reach := StoryRun.DOUSE_REACH + (2.0 if o.kind == StoryObject.Kind.BONFIRE else 0.0)
+				if d < reach:
 					if bucket:
-						return {"kind": "douse", "id": o.id, "label": "E  douse the green fire"}
+						return {"kind": "douse", "id": o.id, "label": "E  throw the water on the green fire"}
 					return {"kind": "hint", "id": 0, "label": "A green fire. Fill your bucket in the sea to douse it"}
 	if any_fire and not bucket and Waves.height(here.x, here.z, game.render_time) > here.y + StoryRun.SCOOP_DEPTH:
 		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket from the sea"}

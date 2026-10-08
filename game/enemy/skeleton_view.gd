@@ -12,8 +12,12 @@ const RUST := {Color("d8dde2"): Color("9c8a74"), Color("9aa2ac"): Color("6e5e4c"
 var look := 0
 ## A bounty's captain: his own coat, hat and lantern, and a head taller.
 var captain := false
-## One of the Spanish dead: steel helmet and breastplate.
+## One of the Spanish dead: steel helmet and breastplate; a digger carries a spade instead of a
+## sword; the sergeant (Calavera) wears gilt, a tower shield and a halberd, and stands taller.
 var spanish := false
+var digger := false
+var sergeant := false
+var _digging := false
 var _model: Node3D
 var _player: AnimationPlayer
 var _material: ShaderMaterial
@@ -23,11 +27,19 @@ var _fall := 0.0
 
 
 func _ready() -> void:
-	var outfit := "look3" if captain else ("look4" if spanish else "look%d" % (look % 3))
+	var outfit := "look%d" % (look % 3)
+	if captain:
+		outfit = "look3"
+	elif sergeant:
+		outfit = "look5"
+	elif spanish:
+		outfit = "look4"
 	_model = Models.instance("skeleton", {}, ["skeleton", outfit])
 	add_child(_model)
 	if captain:
 		_model.scale = Vector3.ONE * 1.12
+	elif sergeant:
+		_model.scale = Vector3.ONE * 1.25
 	# Its own copy of the toon material, so its red flash is its own.
 	_material = Models.material(true).duplicate()
 	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
@@ -64,9 +76,38 @@ func _ready() -> void:
 	var hand_rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_r"))
 	var turn := Basis(Vector3.BACK, deg_to_rad(Avatar.ARM_A))
 	var grip := Transform3D(turn, hand_rest.origin + turn * Avatar.GRIP)
+	if sergeant:
+		return  # his halberd is part of his outfit
+	if digger:
+		# A spade, gripped like the pirates' (its shaft through the fist).
+		var spade := Toon.instance(Models.part("tools", "shovel"))
+		spade.transform = hand_rest.affine_inverse() * Transform3D(turn * Basis(Vector3.RIGHT, -PI / 2.0), grip.origin)
+		hand.add_child(spade)
+		return
 	var sword := Toon.instance(Models.mesh("cutlass", RUST))
 	sword.transform = hand_rest.affine_inverse() * grip
 	hand.add_child(sword)
+
+
+## A digger at work, or not (from the snapshot).
+func set_digging(on: bool) -> void:
+	if on == _digging:
+		return
+	_digging = on
+	if on:
+		var a := _player.get_animation("dig")
+		if a and a.loop_mode == Animation.LOOP_NONE:
+			a.loop_mode = Animation.LOOP_LINEAR
+		_player.play("dig", 0.2)
+	else:
+		_player.play("walk_blade" if _moving else "idle_blade", 0.2)
+
+
+## A blow rings off the sergeant's shield (`knocked`: a shot knocked it aside).
+func shield_hit(knocked: bool) -> void:
+	_flash = 0.4 if knocked else 0.15
+	if knocked and _player.current_animation != "slash":
+		_player.play("hurt", 0.05)
 
 
 func swing() -> void:
@@ -84,7 +125,7 @@ func place(pose: Transform3D, walking: bool, fallen: bool, delta: float) -> void
 	global_transform = pose
 	if walking != _moving and not fallen:
 		_moving = walking
-		if _player.current_animation in ["idle_blade", "walk_blade"]:
+		if _player.current_animation in ["idle_blade", "walk_blade"] and not _digging:
 			_player.play("walk_blade" if walking else "idle_blade", 0.25)
 	_flash = maxf(0.0, _flash - delta * 4.0)
 	_material.set_shader_parameter("tint", Color(1.0, 1.0 - _flash * 0.6, 1.0 - _flash * 0.6))

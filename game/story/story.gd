@@ -236,9 +236,21 @@ static func offered_by(who: String, done_lists: Array) -> int:
 	return replay
 
 
-## The mission card's line for a step: `lit` green fires still burning and `standing` dead
-## still up, for a douse.
-static func step_text(step: Dictionary, lit := 0, standing := 0) -> String:
+## The mission card's line for a step: `lit` (fires burning, graves open, chests buried...) and
+## `standing` (dead still up) give its counts; a finished step (`done`) reads without them.
+static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) -> String:
+	if done:
+		match int(step.kind):
+			Step.DOUSE:
+				return "Douse the green fire on %s" % Islands.LAYOUT[step.island].name
+			Step.DIG_RACE:
+				return "Race the Spanish for the hoards on %s" % Islands.LAYOUT[step.island].name
+			Step.SALT:
+				return "Salt the graves on %s" % Islands.LAYOUT[step.island].name
+			Step.VIGIL:
+				return "Keep the vigil"
+			Step.BONFIRE:
+				return "Put out the bonfire on %s's hill" % Islands.LAYOUT[step.island].name
 	match int(step.kind):
 		Step.TALK:
 			return "Talk to %s at Port Merrow" % person_name(step.who)

@@ -47,6 +47,25 @@ const SKELETON := {
 }
 
 ## Each crew's colours: sails and the stripe along the hull, so ships can be told apart.
+## The Spanish Admiral's galleons: black hull and sails, a red stripe, gilt, and the raven in
+## black on a gold disc (the emblem's "flag" and "bone").
+const SPANISH := {
+	"hull": Color("2a2422"),
+	"hull_dark": Color("1a1614"),
+	"bottom": Color("141210"),
+	"stripe": Color("a8322a"),
+	"deck": Color("5a5448"),
+	"rail": Color("2a2220"),
+	"mast": Color("4a4036"),
+	"rope": Color("8a8470"),
+	"trim": Color("0e0c0a"),
+	"sail": Color("2a262e"),
+	"lantern": Color("9cff8a"),
+	"gold": Color("e0b04a"),
+	"flag": Color("c8a040"),
+	"bone": Color("1a1418"),
+}
+
 const CREWS := [
 	{},
 	{"sail": Color("e05a4a"), "stripe": Color("fff2d0"), "flag": Color("7a1414")},

@@ -951,9 +951,12 @@ class MissionCard:
 				if ch.is_empty():
 					return out
 				for i in mini(int(m.handled), ch.steps.size()):
-					out.append([Story.step_text(ch.steps[i]), true])
+					out.append([Story.step_text(ch.steps[i], 0, 0, true), true])
 				if int(m.handled) < ch.steps.size():
 					out.append([Story.step_text(ch.steps[m.handled], m.total, m.get("standing", 0)), false])
+				if m.deadline > 0.0:
+					var left: float = m.deadline - now
+					out.append(["%d:%02d until dawn" % [int(left) / 60, int(left) % 60] if left > 0.0 else "!Dawn is breaking", false])
 			Missions.Kind.TREASURE:
 				for t: Dictionary in m.targets:
 					out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
@@ -987,6 +990,11 @@ class TreasureMap:
 	func _draw() -> void:
 		var m: Dictionary = hud.game.mission
 		if m.is_empty():
+			return
+		if m.targets.is_empty():
+			_parchment(RandomNumberGenerator.new())
+			draw_string(Hud.display_font(), Vector2(0, size.y * 0.5), "No map for this.", HORIZONTAL_ALIGNMENT_CENTER, size.x, 42, INKY)
+			draw_string(get_theme_default_font(), Vector2(0, size.y * 0.5 + 34), "Look to the horizon.", HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, INKY)
 			return
 		var v: Dictionary = m.targets[0]
 		for t: Dictionary in m.targets:
@@ -1046,6 +1054,21 @@ class TreasureMap:
 						Story.Step.READ:
 							_trail(beach, x, rng)
 							_book(x)
+						Story.Step.DIG_RACE:
+							for t: Dictionary in m.targets:
+								if not t.done:
+									var p := centre + Vector2(t.x - spec.x, t.z - spec.z) * scale
+									for d: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
+										draw_line(p - d * 11.0, p + d * 11.0, Color("c8302a"), 6.0, true)
+						Story.Step.SALT:
+							for t: Dictionary in m.targets:
+								var p := centre + Vector2(t.x - spec.x, t.z - spec.z) * scale
+								draw_rect(Rect2(p - Vector2(5, 10), Vector2(10, 20)), Color("f4f1ea") if t.done else Color("3a2a1a"))
+								draw_rect(Rect2(p - Vector2(5, 10), Vector2(10, 20)), INKY, false, 2.0)
+						Story.Step.KEGS:
+							draw_string(Hud.display_font(), x - Vector2(14, -16), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 52, Color("c8302a"))
+						Story.Step.BOSS, Story.Step.VIGIL:
+							_skull(x)
 						_:
 							_flame(x, false)
 		draw_string(Hud.display_font(), Vector2(0, 50), spec.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, 42, INKY)

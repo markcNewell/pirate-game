@@ -141,6 +141,27 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 	b.grid(rows, color_at, normal_at)
 
 
+## Is island-local (x, z) on one of the story's sites, which grow no palms or bushes: the dig
+## camp and the powder store on Cutlass Cay, the old graveyard on Gull Isle?
+static func story_site(spec: Dictionary, x: float, z: float) -> bool:
+	var island := Islands.LAYOUT.find(spec)
+	if island < 0:
+		return false
+	var p := Vector2(spec.x + x, spec.z + z)
+	var sites: Array = []
+	if island == 0:
+		var camp := StoryRun.camp_spot(0)
+		var store := StoryRun.powder_store(0)
+		sites = [[Vector2(camp.x, camp.z), 9.0], [Vector2(store.x, store.z), 4.0]]
+	elif island == 2:
+		var graves := StoryRun.graveyard(2, 3)
+		sites = [[Vector2(graves[1].x, graves[1].z), 5.0]]
+	for site: Array in sites:
+		if p.distance_to(site[0]) < site[1]:
+			return true
+	return false
+
+
 static func _palms(_decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerator) -> void:
 	var radius: float = spec.radius
 	var count := int(radius / 4.0)
@@ -155,8 +176,10 @@ static func _palms(_decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rn
 		var y := ground(spec, x, z)
 		if y < SAND_TOP - 0.1:
 			continue
-		# Keep the outpost's pier and hut clear of palms.
+		# Keep the outpost's pier and hut clear of palms, and the story's sites.
 		if spec.get("outpost", false) and absf(angle_difference(OUTPOST_CLEAR, a)) < OUTPOST_CLEAR_HALF:
+			continue
+		if story_site(spec, x, z):
 			continue
 		var height := rng.randf_range(6.0, 9.5)
 		var turn := rng.randf() * TAU
@@ -261,7 +284,7 @@ static func _tufts(spec: Dictionary) -> void:
 		var r := sqrt(rng.randf()) * (radius - 3.0)
 		var x := cos(a) * r
 		var z := sin(a) * r
-		if not is_grass(spec, x, z):
+		if not is_grass(spec, x, z) or story_site(spec, x, z):
 			continue
 		if spec.get("outpost", false) and absf(angle_difference(OUTPOST_CLEAR, a)) < OUTPOST_CLEAR_HALF:
 			continue
@@ -328,7 +351,7 @@ static func _bushes(_b: MeshBuilder, spec: Dictionary, rng: RandomNumberGenerato
 		var r := rng.randf_range(0.1, 0.85) * (radius - 4.0)
 		var x := cos(a) * r
 		var z := sin(a) * r
-		if not is_grass(spec, x, z):
+		if not is_grass(spec, x, z) or story_site(spec, x, z):
 			continue
 		if spec.get("outpost", false) and absf(angle_difference(OUTPOST_CLEAR, a)) < OUTPOST_CLEAR_HALF:
 			continue

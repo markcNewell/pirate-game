@@ -116,6 +116,15 @@ func _splinters(pos: Vector3, count: int) -> void:
 		_items.append({"node": piece, "age": 0.0, "life": 2.5, "kind": "splinter", "vel": vel, "spin": spin})
 
 
+## A powder keg going off: a burst of fire, splinters of stave and a column of black smoke.
+func explosion(pos: Vector3) -> void:
+	for i in 5:
+		_puff(pos + _jitter(0.4) + Vector3.UP * 0.4, Color("ffb040"), 0.6, 2.6, 0.35 + randf() * 0.15, _jitter(2.0) + Vector3.UP * 2.0)
+	for i in 8:
+		_puff(pos + _jitter(0.8) + Vector3.UP * 0.6, Color(0.18, 0.16, 0.15, 0.85), 0.6, 2.4, 1.8 + randf() * 0.8, _jitter(0.8) + Vector3.UP * 2.2)
+	_splinters(pos + Vector3.UP * 0.4, 14)
+
+
 ## A grey wisp rising from something put out (a doused green fire).
 func smoke(pos: Vector3) -> void:
 	_puff(pos + _jitter(0.2), Color(0.55, 0.6, 0.55, 0.6), 0.25, 0.9, 2.2, Vector3(0, 0.9, 0) + _jitter(0.15))

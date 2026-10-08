@@ -383,12 +383,20 @@ func _enter_boss(crew: int, step: Dictionary) -> void:
 	var m: Dictionary = sim.crews[crew].mission
 	var island: int = step.island
 	m.islands = [island]
-	var at: Vector3 = m.spot + Vector3(3.0, 0, 2.0)
+	if m.spot == Vector3.ZERO:
+		m.spot = camp_spot(island)
+	var has_camp := false
+	for oid: int in m.objects:
+		has_camp = has_camp or (objects.has(oid) and objects[oid].kind == StoryObject.Kind.CAMP)
+	if not has_camp:
+		_add_object(crew, StoryObject.Kind.CAMP, m.spot, 0.3)
+	# In the open ground of the camp between the bonfire and the gate, clear of the tents.
+	var at: Vector3 = m.spot + Vector3(1.5, 0, -2.5)
 	var boss := _spanish_at(crew, island, at)
 	boss.make_sergeant()
 	m.captain = boss.id
 	for n in int(step.guards):
-		_spanish_at(crew, island, at + Vector3(-2.0 + 4.0 * n, 0, -2.0))
+		_spanish_at(crew, island, at + Vector3(-1.8 + 3.6 * n, 0, -1.5))
 	sim._tell_crew(crew, "%s steps out from behind his shield." % step.boss)
 
 
@@ -475,10 +483,11 @@ func cleanup(m: Dictionary) -> void:
 
 
 func _clear_step(m: Dictionary) -> void:
-	# Doused fires stay as cold graves until the chapter ends; everything else goes.
+	# Doused fires (cold graves, the dead bonfire) and the dig camp stay until the chapter ends;
+	# everything else goes.
 	var kept := []
 	for oid: int in m.objects:
-		if objects.has(oid) and objects[oid].kind == StoryObject.Kind.FIRE:
+		if objects.has(oid) and objects[oid].kind in [StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.CAMP]:
 			kept.append(oid)
 		else:
 			objects.erase(oid)
