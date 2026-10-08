@@ -2,7 +2,7 @@ class_name GameConfig
 extends RefCounted
 ## Game-wide numbers shared by client and server.
 
-const VERSION := "0.2.0"
+const VERSION := "0.3.0"
 const DEFAULT_PORT := 24565
 ## Four crews of up to four.
 const MAX_PLAYERS := 16
