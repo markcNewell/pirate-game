@@ -95,6 +95,17 @@ static func _lighthouse_foot() -> Vector3:
 	return Vector3(x, IslandMesh.ground(s, x, z) - 0.3, z)
 
 
+## Where Jonah Salt stands when he visits Port Merrow (world): on the beach beyond the mystic,
+## looking out to sea for his raft.
+static func jonah_pos() -> Vector3:
+	var s := spec()
+	var a := MYSTIC_ANGLE - 0.45
+	var r: float = s.radius - HUT_RADIUS_IN - 1.0
+	var x := cos(a) * r
+	var z := sin(a) * r
+	return _centre() + Vector3(x, IslandMesh.ground(s, x, z), z)
+
+
 ## Where Moll the keeper stands (world): at the foot of her lighthouse, on its seaward side.
 static func keeper_pos() -> Vector3:
 	var s := spec()

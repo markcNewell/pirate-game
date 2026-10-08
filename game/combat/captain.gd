@@ -18,6 +18,9 @@ const PATCH_EVERY := 25.0
 const AIM_HEIGHT := 0.8
 
 var rng := RandomNumberGenerator.new()
+## A Spanish galleon bails this many times as fast and reloads this much faster.
+var bail_scale := 1.0
+var reload_scale := 1.0
 ## Scales the deliberate aiming error (0 = perfect aim, for tests).
 var error_scale := 1.0
 var _patch_timer := 0.0
@@ -65,7 +68,7 @@ func think(
 		c.sail_raise[m] = clampf((sail - me.sail_height[m]) * 4.0, -1.0, 1.0)
 		c.sail_turn[m] = clampf((trim - me.sail_angle[m]) * 4.0, -1.0, 1.0)
 
-	c.bail = BAIL_RATE * dt
+	c.bail = BAIL_RATE * bail_scale * dt
 	_patch_timer += dt
 	if _patch_timer >= PATCH_EVERY and not me.holes.is_empty():
 		_patch_timer = 0.0

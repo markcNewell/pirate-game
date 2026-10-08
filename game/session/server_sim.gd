@@ -47,6 +47,8 @@ const CAMP_WAKE := 80.0
 const CAMP_RESPAWN := 180.0
 const SHIP_SKELETONS := 3
 const ATTACK_SLACK := 0.1
+## Attack targets at or above this id are the story's powder kegs (id - KEG_TARGET).
+const KEG_TARGET := 10000000
 
 var time := 0.0
 var ships := {}  # ship id -> ShipState
@@ -75,7 +77,8 @@ var stats := {
 	"voyages": 0, "dug": 0, "sold": 0, "restocked": 0, "loot_spawned": 0, "stowed": 0,
 	"kills": 0, "falls": 0, "eaten": 0, "boarded": 0, "skeleton_swings": 0, "pvp_falls": 0, "stolen": 0,
 	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0, "xp": 0, "levels": 0,
-	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0,
+	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
+	"galleons": 0, "blocked": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -211,6 +214,7 @@ func crew_name(crew: int) -> String:
 func tick(dt: float) -> void:
 	time += dt
 	profiles.tick(time)
+	story.tick(dt)
 	var wind := Game.wind_dir(time)
 	_maybe_spawn_skeleton()
 	_maybe_respawn_crews()
@@ -222,7 +226,7 @@ func tick(dt: float) -> void:
 		if captains.has(id) and not s.is_sinking() and not _passive.has(id):
 			var orders: Array = captains[id].think(s, _nearest_crew_ship(s), wind, time, dt, Islands.LAYOUT, c)
 			for shot: Dictionary in orders:
-				_fire(id, shot.gun, shot.yaw, shot.pitch, Captain.RELOAD + _rng.randf())
+				_fire(id, shot.gun, shot.yaw, shot.pitch, Captain.RELOAD * captains[id].reload_scale + _rng.randf())
 		c.bail += _pending_bail.get(id, 0.0)
 		_pending_bail.erase(id)
 		# In the storm the wind swirls and gusts; its length is how hard it pushes.
@@ -468,8 +472,10 @@ func _handle_sinking() -> void:
 		if not _evacuated.has(id):
 			_evacuated[id] = true
 			_evacuate(id)
+			story.on_ship_sunk(id, Vector3(s.x, 0.0, s.z))
 			if _last_hit_by.has(id) and crews.has(_last_hit_by[id]):
-				_award_crew(_last_hit_by[id], Progress.XP_PLAYER_SHIP if crews.has(id) else Progress.XP_SKELETON_SHIP, "sinking a ship")
+				var xp := Progress.XP_PLAYER_SHIP if crews.has(id) else (Progress.XP_GALLEON if s.flag == 1 else Progress.XP_SKELETON_SHIP)
+				_award_crew(_last_hit_by[id], xp, "sinking a ship")
 			_last_hit_by.erase(id)
 			if crews.has(id):
 				stats.crew_sunk += 1
@@ -824,6 +830,8 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 			story.read(r, arg)
 		"douse":
 			story.douse(r, arg)
+		"salt":
+			story.salt(r, arg)
 
 
 func _take_station(id: int, r: Dictionary, station: int) -> void:
@@ -1187,7 +1195,8 @@ func _mission_array(crew: int) -> Array:
 		# The chapter's id in the name's place, its step as "handled", fires lit as "total", and
 		# the dead standing after the targets.
 		var marks := story.targets(m)
-		return [m.kind, -1, m.title, -1.0, m.name, m.step, story.lit(m), marks.size() / 4] + marks + [story.standing(m)]
+		var n := story.counts(m)
+		return [m.kind, -1, m.title, m.deadline, m.name, m.step, n[0], marks.size() / 4] + marks + [n[1]]
 	var targets := []
 	match int(m.kind):
 		Missions.Kind.TREASURE:
@@ -1513,6 +1522,49 @@ func _crew_skeleton_ship(ship_id: int) -> void:
 		_new_skeleton(ship_id, spots[i % spots.size()])
 
 
+## A Spanish galleon (the story's): a skeleton ship under the Admiral's raven, tougher and
+## quicker to reload, appearing `distance` from the crew's ship. Returns its id.
+func spawn_galleon(crew: int, distance: float) -> int:
+	var own: ShipState = ships.get(crew)
+	var origin := Vector2(own.x, own.z) if own else Vector2.ZERO
+	var spot := origin
+	for attempt in 16:
+		var angle := _rng.randf() * TAU
+		spot = origin + Vector2(cos(angle), sin(angle)) * distance
+		var clear := true
+		for island in Islands.LAYOUT:
+			if spot.distance_to(Vector2(island.x, island.z)) < island.radius + 60.0:
+				clear = false
+		if clear:
+			break
+	var s := ShipState.new()
+	s.kind = ShipState.Kind.SKELETON
+	s.flag = 1
+	s.x = spot.x
+	s.z = spot.y
+	s.yaw = Captain.bearing(spot, origin)
+	s.anchored = false
+	s.sail_height = [1.0, 1.0]
+	s.speed = 4.0
+	var id := _next_ship_id
+	_next_ship_id += 1
+	ships[id] = s
+	var cap := Captain.new(id)
+	cap.bail_scale = 2.0
+	cap.reload_scale = 0.7
+	captains[id] = cap
+	var spots: Array[Vector3] = [
+		Vector3(-1.5, ShipShape.DECK_Y, -4.6), Vector3(1.8, ShipShape.DECK_Y, -0.2), Vector3(0, ShipShape.QUARTER_Y, 8.0),
+		Vector3(1.5, ShipShape.DECK_Y, -4.0), Vector3(-1.8, ShipShape.DECK_Y, 0.5),
+	]
+	for i in StoryRun.GALLEON_CREW:
+		_new_skeleton(id, spots[i % spots.size()]).spanish = true
+	stats.galleons += 1
+	print("[server] a Spanish galleon %d sails at (%.0f, %.0f)" % [id, spot.x, spot.y])
+	Net.send_event("alarm", [])
+	return id
+
+
 ## Test hook: a skeleton ship lying still beside the crew's ship, with its skeletons aboard.
 func _spawn_passive_skeleton_ship() -> void:
 	var crew := crew_ship()
@@ -1680,6 +1732,10 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 		if pid != id and other.crew != r.crew and other.dead_until < 0.0:
 			ids.append(-pid)
 			feet.append(_world_pos(other))
+	# The story's powder kegs (struck kegs go off after a moment).
+	for k: Array in story.kegs():
+		ids.append(KEG_TARGET + int(k[0]))
+		feet.append(k[1] + Vector3(0, -0.5, 0))
 	Net.send_event("attack", [id, weapon])
 	var damage := Weapons.CUTLASS_DAMAGE if weapon == Weapons.Kind.CUTLASS else Weapons.PISTOL_DAMAGE
 	var struck: Array[int] = []
@@ -1691,7 +1747,21 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 			struck.append(i)
 	for i in struck:
 		var target: int = ids[i]
-		if target > 0:
+		if target >= KEG_TARGET:
+			story.strike_keg(target - KEG_TARGET)
+		elif target > 0:
+			var sk: Skeleton = skeletons[target]
+			var from := eye if sk.frame < 0 else ShipPhysics.pose_of(ships[sk.frame], time).affine_inverse() * eye
+			if sk.sergeant and sk.blocks(from):
+				# The tower shield: a blade rings off it; a shot knocks it aside for a moment.
+				stats.blocked += 1
+				if weapon == Weapons.Kind.PISTOL:
+					sk.shield_up = false
+					sk.shield_down_until = time + Skeleton.SHIELD_DOWN
+					Net.send_event("shield", [target, 0])
+				else:
+					Net.send_event("shield", [target, 1])
+				continue
 			_hurt_skeleton(target, damage, r.name, id)
 		else:
 			_hurt_player(-target, damage, "%s of %s" % [r.name, crew_name(r.crew)], id)
@@ -1716,7 +1786,11 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 	stats.kills += 1
 	print("[server] %s felled skeleton %d" % [by, sid])
 	var xp := Progress.XP_SPANISH if sk.spanish else Progress.XP_SKELETON
-	_award(attacker, Progress.XP_CAPTAIN if sk.captain else xp, "felling a skeleton")
+	if sk.captain:
+		xp = Progress.XP_CAPTAIN
+	if sk.sergeant:
+		xp = Progress.XP_BOSS
+	_award(attacker, xp, "felling a skeleton")
 	story.on_skeleton_fell(sk)
 	if sk.captain:
 		_drop_skull(sk)
@@ -1749,6 +1823,9 @@ func _crew_of_ship(ship_id: int) -> int:
 
 ## A cannonball hurts anyone near where it lands, except the crew that fired it.
 func _splash(world: Vector3, shooter_crew := 0) -> void:
+	for k: Array in story.kegs():
+		if (k[1] as Vector3).distance_to(world) < 2.5:
+			story.strike_keg(int(k[0]), StoryRun.CHAIN_FUSE)
 	for id in players:
 		var r: Dictionary = players[id]
 		if r.crew == shooter_crew:

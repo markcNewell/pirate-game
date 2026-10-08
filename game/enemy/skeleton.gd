@@ -13,6 +13,9 @@ const SWING_COOLDOWN := 1.3
 ## Stay this far above the waves at the shoreline.
 const SHORE := 0.35
 const CORPSE_TIME := 2.0
+## The sergeant's shield covers this far either side of straight ahead (radians).
+const SHIELD_ARC := 1.2217  # 70 degrees
+const SHIELD_DOWN := 3.0
 
 var id := 0
 ## -1 for an island skeleton (world coordinates), else the id of the ship it crews.
@@ -36,8 +39,29 @@ var thief := false
 var holding := -1
 var boat := Vector3.ZERO
 var story_crew := 0
+## A Spanish digger: it digs up `target_item` (a buried chest) for `dig_left` seconds, then runs
+## it to `boat`. Digging shows to clients as its own state.
+var digger := false
+var target_item := -1
+var dig_left := 0.0
+var digging := false
+## Sargento Calavera: his tower shield turns blows from in front while it is up; a shot knocks
+## it aside until server time `shield_down_until`.
+var sergeant := false
+var shield_up := false
+var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
+
+
+## Make this skeleton Sargento Calavera: big, slow, hard-hitting, behind a tower shield.
+func make_sergeant() -> void:
+	sergeant = true
+	shield_up = true
+	spanish = true
+	hp = 300
+	damage = 35
+	swing_cooldown = 2.0
 
 
 ## Make this skeleton a bounty's captain.
@@ -53,8 +77,29 @@ func alive() -> bool:
 
 
 func to_array() -> Array:
-	var state := 2 if not alive() else (1 if walking else 0)
-	return [id, frame, pos.x, pos.y, pos.z, yaw, hp, state, 1 if captain else 0, 1 if spanish else 0, holding]
+	var state := 2 if not alive() else (3 if digging else (1 if walking else 0))
+	return [id, frame, pos.x, pos.y, pos.z, yaw, hp, state, 1 if captain else 0, look_code(), holding, 1 if shield_up else 0]
+
+
+## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
+func look_code() -> int:
+	if sergeant:
+		return 3
+	if digger:
+		return 2
+	return 1 if spanish else 0
+
+
+## Does the shield stop a blow struck from `from` (same frame)? Only from within SHIELD_ARC of
+## straight ahead, and only while it is up.
+func blocks(from: Vector3) -> bool:
+	if not shield_up:
+		return false
+	var to := Vector2(from.x - pos.x, from.z - pos.z)
+	if to.length() < 0.01:
+		return true
+	var facing := Vector2(-sin(yaw), -cos(yaw))
+	return facing.dot(to.normalized()) > cos(SHIELD_ARC)
 
 
 static func from_array(a: Array) -> Skeleton:
@@ -66,9 +111,14 @@ static func from_array(a: Array) -> Skeleton:
 	s.hp = a[6]
 	s.fell = 0.0 if int(a[7]) == 2 else -1.0
 	s.walking = int(a[7]) == 1
+	s.digging = int(a[7]) == 3
 	s.captain = a.size() > 8 and int(a[8]) == 1
-	s.spanish = a.size() > 9 and int(a[9]) == 1
+	var look := int(a[9]) if a.size() > 9 else 0
+	s.spanish = look >= 1
+	s.digger = look == 2
+	s.sergeant = look == 3
 	s.holding = int(a[10]) if a.size() > 10 else -1
+	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s
 
 

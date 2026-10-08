@@ -4,7 +4,11 @@ extends RefCounted
 ## journal lying on the sand, the Spanish rowing boat drawn up on a beach. The server owns them;
 ## snapshots carry them.
 
-enum Kind { FIRE, BOOK, BOAT }
+## FIRE a green grave fire, BOOK a journal, BOAT the Spanish rowing boat, GRAVE an open (1) or
+## salted (0) grave, KEG a powder keg (2 while its fuse burns), STORE the powder store's
+## sailcloth and rocks, BONFIRE a camp's great fire (state: buckets still to douse), CAMP the dig
+## camp's palisade and tents, BOTTLE a letter bobbing in the sea.
+enum Kind { FIRE, BOOK, BOAT, GRAVE, KEG, STORE, BONFIRE, CAMP, BOTTLE }
 
 var id := 0
 var kind := Kind.FIRE

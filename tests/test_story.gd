@@ -169,7 +169,7 @@ func test_the_board_names_the_next_chapter() -> void:
 	check_eq(entry[3], "Strange Lights")
 	check(str(entry[6]).contains("Moll Tinder"), "who to see")
 	sim.players[1].profile.chapters.append_array(["p1", "p2"])
-	check(sim.story.board_entry(1).is_empty(), "nothing more written yet")
+	check_eq(sim.story.board_entry(1)[3], "Dig Faster", "then Act I")
 
 
 func test_chapter_test_hook() -> void:

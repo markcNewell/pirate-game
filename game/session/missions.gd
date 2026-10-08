@@ -44,8 +44,12 @@ const CARGO_BASE_TIME := 360.0
 const CARGO_TIME_PER_CRATE := 120.0
 const LATE_PAY := 0.5
 const SOAKED_PAY := 0.5
-## What the crates hold (Loot.variant for a crate).
-const GOODS := ["rum", "silk", "spice"]
+## What the crates hold (Loot.variant for a crate). Salt is the story's: Quill's crates for
+## Gull Isle's graves.
+const GOODS := ["rum", "silk", "spice", "salt"]
+const SALT := 3
+## The goods a cargo run may carry (not salt).
+const CARGO_GOODS := 3
 
 
 static func level(points: int) -> int:
@@ -105,7 +109,7 @@ static func make_offer(company: int, lvl: int, islands: Array[int], rng: RandomN
 		Kind.CARGO:
 			offer.islands = [shuffled[0]]
 			offer.size = CARGO_CRATES[i]
-			offer.goods = rng.randi() % GOODS.size()
+			offer.goods = rng.randi() % CARGO_GOODS
 			offer.title = "%s for %s" % [GOODS[offer.goods].capitalize(), Islands.LAYOUT[offer.islands[0]].name]
 			offer.gold = Vector2i(int(CRATE_GOLD.x * PAY[i]) * offer.size, int(CRATE_GOLD.y * PAY[i]) * offer.size)
 	return offer

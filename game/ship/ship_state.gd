@@ -11,6 +11,9 @@ const MAX_BANANAS := 20
 enum Kind { CREW, SKELETON }
 
 var kind := Kind.CREW
+## What flies over a skeleton ship: 0 the pirate dead's rags, 1 the Spanish Admiral's black
+## sails and gold raven (a tougher galleon).
+var flag := 0
 ## The crew sailing her (1-4), or 0 for a skeleton ship.
 var crew := 0
 var x := 0.0
@@ -61,7 +64,7 @@ func to_array() -> Array:
 	var a := [
 		kind, crew, x, z, yaw, speed, rudder,
 		sail_height[0], sail_height[1], sail_angle[0], sail_angle[1],
-		1 if anchored else 0, anchor_progress, water, sink, cannonballs, planks, bananas,
+		1 if anchored else 0, anchor_progress, water, sink, cannonballs, planks, bananas, flag,
 	]
 	for g in GUNS:
 		a.append_array([gun_yaw[g], gun_pitch[g], gun_reload[g]])
@@ -89,7 +92,8 @@ static func from_array(a: Array) -> ShipState:
 	s.cannonballs = a[15]
 	s.planks = a[16]
 	s.bananas = a[17]
-	var i := 18
+	s.flag = a[18]
+	var i := 19
 	for g in GUNS:
 		s.gun_yaw[g] = a[i]
 		s.gun_pitch[g] = a[i + 1]
