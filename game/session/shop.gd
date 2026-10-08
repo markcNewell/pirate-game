@@ -31,6 +31,10 @@ const ITEMS := [
 	[Kind.DYE, 8, "Rust", 250],
 	[Kind.DYE, 9, "Rose", 300],
 	[Kind.DYE, 10, "Maw-green", 0],
+	# Deeds' gifts (Deeds.LIST).
+	[Kind.DYE, 11, "Ember", 0],
+	[Kind.DYE, 12, "Gold thread", 0],
+	[Kind.DYE, 13, "Lantern jade", 0],
 	# The armoury (docs/specs/2026-10-08-m14-the-armoury.md): sidegrades, never upgrades. The
 	# cutlass and pistol (0) are everyone's from the start.
 	[Kind.BLADE, 0, "Cutlass", 0],
@@ -47,7 +51,7 @@ const ITEMS := [
 const DYES: Array[Color] = [
 	Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0"), Color("e8b020"),
 	Color("efe8d8"), Color("2a2a3a"), Color("2a9a9a"), Color("b0582a"), Color("e07aa0"),
-	Color("6fe36a"),
+	Color("6fe36a"), Color("e8602a"), Color("d8b040"), Color("2f8a6a"),
 ]
 const REACH := 3.5
 

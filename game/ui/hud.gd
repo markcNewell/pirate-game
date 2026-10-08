@@ -773,10 +773,11 @@ func _fill_wright() -> void:
 			grid.add_child(name)
 			var own := Shipwright.has({"owned": game.owned}, i)
 			var on: bool = (int(fitted[kind]) if fitted.size() > kind else 0) == item[1]
-			grid.add_child(_card_label("on the ship" if on else ("owned" if own else "%d gold" % item[3]), 16, Color("5a3e22")))
+			var gift: bool = item[3] <= 0
+			grid.add_child(_card_label("on the ship" if on else ("owned" if own else ("a deed's gift" if gift else "%d gold" % item[3])), 16, Color("5a3e22")))
 			var button := Button.new()
-			button.text = "Fit" if own else "Buy"
-			button.disabled = on or (not own and game.purse < item[3])
+			button.text = "Fit" if own else ("-" if gift else "Buy")
+			button.disabled = on or (not own and (gift or game.purse < item[3]))
 			button.custom_minimum_size = Vector2(80, 0)
 			button.pressed.connect(func() -> void:
 				game.send_request("wright", i)

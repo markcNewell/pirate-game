@@ -344,8 +344,8 @@ func client_on_roster(new_roster: Dictionary) -> void:
 func _make_avatar(id: int, index: int) -> void:
 	if avatars.has(id):
 		avatars[id].queue_free()
-	var t: Array = tags.get(id, [1, "", -1, -1, 0, 0])
-	var avatar := Avatar.new(roster[id], index, t[2], t[3])
+	var t: Array = tags.get(id, [1, "", -1, -1, 0, 0, 0])
+	var avatar := Avatar.new(roster[id], index, t[2], t[3], t[6])
 	avatar.visible = false
 	add_child(avatar)
 	avatars[id] = avatar
@@ -397,14 +397,14 @@ func client_on_event(kind: String, data: Array) -> void:
 	match kind:
 		"tags":
 			tags.clear()
-			for i in range(0, data.size() - 6, 7):
-				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2]), int(data[i + 3]), int(data[i + 4]), int(data[i + 5]), int(data[i + 6])]
+			for i in range(0, data.size() - 7, 8):
+				tags[int(data[i])] = [int(data[i + 1]), str(data[i + 2]), int(data[i + 3]), int(data[i + 4]), int(data[i + 5]), int(data[i + 6]), int(data[i + 7])]
 			for id in avatars.keys():
 				if not tags.has(id):
 					continue
 				var t: Array = tags[id]
 				var a: Avatar = avatars[id]
-				if a.outfit != t[2] or a.dye != t[3]:
+				if a.outfit != t[2] or a.dye != t[3] or a.armour != t[6]:
 					# Dressed differently from Martha's: dress the figure again.
 					_make_avatar(id, a.index)
 				avatars[id].set_tag(t[0], t[1])

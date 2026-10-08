@@ -730,6 +730,66 @@ def look(index):
     return head_bits, body_bits, {"rolled": True, "cuff": None}
 
 
+def _torso_shell(name, color, grow, y0, y1, thickness):
+    """The torso's shape grown by `grow`, cut between heights y0 and y1 and given thickness:
+    the base of anything worn over the body (Weapons.ARMOURS)."""
+    import bmesh
+    shell = torso(color, grow=grow, name=name)
+    bm = bmesh.new()
+    bm.from_mesh(shell.data)
+    dead = [f for f in bm.faces if not y0 <= kit.G(f.calc_center_median())[1] <= y1]
+    bmesh.ops.delete(bm, geom=dead, context="FACES")
+    bm.to_mesh(shell.data)
+    bm.free()
+    sol = shell.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = thickness
+    kit.apply_all(shell)
+    return shell
+
+
+def padded_coat():
+    """The padded coat (armour1: softer against blades, harder against shot): a sleeveless
+    quilted linen jack over whatever you wear, from the collar to a short flared skirt, its
+    quilting in stitched lines, laced up the front."""
+    linen, seam = "b8a476", "8e7a50"
+    jack = _torso_shell("jack", linen, 0.03, 0.9, 1.44, 0.02)
+    # Quilting: vertical stitched channels all round, and two rows across.
+    kit.paint_where(jack, seam, lambda x, y, z: int((math.atan2(x, z) + math.pi) * 18 / math.pi) % 3 == 0 or abs(y - 1.05) < 0.008 or abs(y - 1.22) < 0.008)
+    skirt = kit.loft("jack_skirt", [(0.76, 0.25, 0.2, 0, 0.0), (0.84, 0.225, 0.18, 0, -0.005), (0.92, 0.21, 0.165, 0, -0.01)], linen, sides=24, power=2.2, cap_bottom=False, cap_top=False)
+    sol = skirt.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.015
+    kit.apply_all(skirt)
+    kit.paint_where(skirt, seam, lambda x, y, z: int((math.atan2(x, z) + math.pi) * 18 / math.pi) % 3 == 0)
+    collar = kit.tube("jack_collar", [(0.115 * math.sin(2 * math.pi * k / 16), 1.445, 0.09 * math.cos(2 * math.pi * k / 16) + 0.005) for k in range(17)], 0.022, 6, linen, caps=False)
+    laces = [kit.noink(kit.tube("jack_lace", [(-0.03, y, -0.19 + (y - 1.0) * 0.06), (0.03, y + 0.04, -0.19 + (y - 1.0) * 0.06)], 0.005, 4, "4a2c1c"), 0.3) for y in (0.98, 1.08, 1.18, 1.28)]
+    for p in [jack, collar] + laces:
+        rig.set_weights(p, rig.torso_weights)
+    rig.set_weights(skirt, rig.rigid("hips"))
+    return [jack, skirt, collar] + laces
+
+
+def steel_cuirass():
+    """The steel cuirass (armour2: harder against blades, softer against shot): breast and back
+    plates over whatever you wear, a ridge down the front, rivets round the edges and leather
+    straps over the shoulders and round the waist."""
+    steel = "a8aeb6"
+    plate = _torso_shell("cuirass", steel, 0.04, 0.96, 1.42, 0.012)
+    kit.paint_where(plate, "8a9098", lambda x, y, z: z > 0.03)
+    ridge = kit.noink(kit.tube("cuirass_ridge", [(0, 1.0, -0.2), (0, 1.2, -0.205), (0, 1.36, -0.19)], 0.009, 4, "d0d4da"), 0.4)
+    rivets = []
+    for k in range(12):
+        a = 2 * math.pi * k / 12
+        for y, r in ((1.0, (0.225, 0.175)), (1.39, (0.27, 0.18))):
+            rivets.append(kit.noink(kit.ellipsoid("rivet", (r[0] * math.sin(a), y, r[1] * math.cos(a) - 0.01), (0.009, 0.009, 0.009), "5a5e66", rings=3, sectors=5), 0.0))
+    straps = [kit.tube("cuirass_strap", [(sx * 0.12, 1.43, -0.13), (sx * 0.14, 1.5, 0.0), (sx * 0.12, 1.43, 0.13)], 0.016, 5, "4a2c1c") for sx in (1, -1)]
+    belt_ring = kit.lathe("cuirass_belt", [(0.235, 0.0), (0.24, 0.01), (0.24, 0.035), (0.235, 0.045)], 24, "4a2c1c", caps=False, centre=(0, 0.95, -0.01))
+    belt_ring.scale = (1.0, 1.0, 0.8)
+    kit.transform_apply(belt_ring)
+    for p in [plate, ridge, belt_ring] + rivets + straps:
+        rig.set_weights(p, rig.torso_weights)
+    return [plate, ridge, belt_ring] + rivets + straps
+
+
 def pirate():
     arm = rig.build_armature("rig")
     base = []
@@ -751,6 +811,11 @@ def pirate():
                 parts += sleeve(side, rolled=opt["rolled"], cuff=opt["cuff"])
         parts += trousers(TROUSERS[i]) + boots() + belt() + body_bits
         ob = kit.join("look%d" % i, parts)
+        rig.bind(ob, arm)
+        meshes.append(ob)
+    # Armour, worn over any look (Weapons.ARMOURS; Avatar adds the part).
+    for name, build in (("armour1", padded_coat), ("armour2", steel_cuirass)):
+        ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)
     rig.animate(arm)

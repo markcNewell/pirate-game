@@ -8,7 +8,8 @@ enum Kind { SAILS, HULL, FLAG }
 ## Trophies as bits, for the ship_look event.
 enum Trophy { HALBERD = 1, RAVEN = 2, LANTERN = 4 }
 
-## Each: [kind, which, name, price]. Which 0 of each kind is the crew's own colours, everyone's.
+## Each: [kind, which, name, price]. Which 0 of each kind is the crew's own colours, everyone's;
+## a price of 0 otherwise is a deed's gift (Deeds.LIST), never sold.
 const ITEMS := [
 	[Kind.SAILS, 0, "The crew's own", 0],
 	[Kind.SAILS, 1, "Bone white", 500],
@@ -18,22 +19,27 @@ const ITEMS := [
 	[Kind.SAILS, 5, "Sea-green", 600],
 	[Kind.SAILS, 6, "Royal purple", 800],
 	[Kind.SAILS, 7, "Black", 900],
+	[Kind.SAILS, 8, "Ghost-green", 0],
+	[Kind.SAILS, 9, "Ash grey", 0],
 	[Kind.HULL, 0, "The crew's own", 0],
 	[Kind.HULL, 1, "Tar black", 800],
 	[Kind.HULL, 2, "Navy", 800],
 	[Kind.HULL, 3, "Oxblood", 800],
 	[Kind.HULL, 4, "Sea-green", 900],
 	[Kind.HULL, 5, "Ivory and gold", 1500],
+	[Kind.HULL, 6, "Bone and black", 0],
 	[Kind.FLAG, 0, "The crew's own", 0],
 	[Kind.FLAG, 1, "Crimson", 300],
 	[Kind.FLAG, 2, "Navy", 300],
 	[Kind.FLAG, 3, "Bottle green", 300],
 	[Kind.FLAG, 4, "Purple", 300],
 	[Kind.FLAG, 5, "Bone", 300],
+	[Kind.FLAG, 6, "Raven gold", 0],
+	[Kind.FLAG, 7, "Merrow blue", 0],
 ]
 const SAILS: Array[Color] = [
 	Color(), Color("f4efe2"), Color("c8382e"), Color("6aa8e8"), Color("e8b020"), Color("3aa88a"),
-	Color("6a3a9a"), Color("2a2630"),
+	Color("6a3a9a"), Color("2a2630"), Color("8adca0"), Color("6a6460"),
 ]
 const HULLS: Array[Dictionary] = [
 	{},
@@ -42,8 +48,12 @@ const HULLS: Array[Dictionary] = [
 	{"hull": Color("7a2a24"), "hull_dark": Color("561c18"), "bottom": Color("3e1412")},
 	{"hull": Color("2e7a6a"), "hull_dark": Color("1e564a"), "bottom": Color("143e36")},
 	{"hull": Color("efe6d0"), "hull_dark": Color("cfc2a2"), "bottom": Color("3a2a22"), "stripe": Color("ffd23a")},
+	{"hull": Color("e8e0cc"), "hull_dark": Color("2a2622"), "bottom": Color("1a1614"), "stripe": Color("1a1614")},
 ]
-const FLAGS: Array[Color] = [Color(), Color("a8221c"), Color("1a2c5a"), Color("1a4a26"), Color("4a1e6a"), Color("e8e0cc")]
+const FLAGS: Array[Color] = [
+	Color(), Color("a8221c"), Color("1a2c5a"), Color("1a4a26"), Color("4a1e6a"), Color("e8e0cc"),
+	Color("d8a83a"), Color("3c6fd6"),
+]
 ## The chapter that earns each trophy: the Sergeant's halberd (Act I's finale), the Admiral's
 ## raven figurehead (Act IV's) and Linnet's green lantern (The Other Lantern's end).
 const TROPHIES := {Trophy.HALBERD: "a6", Trophy.RAVEN: "d6", Trophy.LANTERN: "t11"}

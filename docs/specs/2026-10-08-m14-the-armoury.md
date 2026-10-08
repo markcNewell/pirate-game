@@ -35,8 +35,8 @@ about 16, the blunderbuss more only if every pellet lands, which happens only up
 | Padded coat | 0.7 times | 1.3 times | 700 |
 | Steel cuirass | 1.3 times | 0.7 times | 700 |
 
-Lightning, a giant's fist and the Heart's burn are the same for everyone. Armour is worn under
-your outfit (nothing to see yet), bought and put on at Martha's like the arms.
+Lightning, a giant's fist and the Heart's burn are the same for everyone. Armour is worn over
+your outfit for everyone to see (M20), bought and put on at Martha's like the arms.
 
 ## Rules
 

@@ -134,6 +134,7 @@ func _init(options: Dictionary = {}) -> void:
 	profiles.start_gold = int(options.get("gold", 0))
 	profiles.start_blade = int(options.get("blade", 0))
 	profiles.start_gun = int(options.get("gun", 0))
+	profiles.start_armour = int(options.get("armour", 0))
 	story = StoryRun.new(self)
 	world = WorldEvents.new(self)
 	world.enabled = ai_enabled
@@ -1493,9 +1494,11 @@ func _deed(id: int, deed: String, n := 1) -> void:
 	if not p.titles.has(d[3]):
 		p.titles.append(d[3])
 		p.title = d[3]
+	if not p.owned.has(d[4]):
+		p.owned.append(d[4])
 	stats.deeds += 1
 	print("[server] %s finished a deed: %s" % [players[id].name, d[1]])
-	Net.send_message(id, "Deed done: %s! You have earned the title %s." % [d[1], d[3]])
+	Net.send_message(id, "Deed done: %s! You have earned the title %s, and a gift: %s." % [d[1], d[3], Deeds.gift_name(d[4])])
 	_update_tag(id)
 	_send_profile(id)
 
@@ -1522,6 +1525,9 @@ func _wright(id: int, r: Dictionary, i: int) -> void:
 	var item: Array = Shipwright.ITEMS[i]
 	if not Shipwright.has(p, i):
 		var price: int = item[3]
+		if price <= 0:
+			Net.send_message(id, "Hobb: \"That one's earned, not sold. Go and do the deed.\"")
+			return
 		if int(p.gold) < price:
 			Net.send_message(id, "Hobb sucks his teeth: that's %d gold, and you have %d." % [price, int(p.gold)])
 			return
@@ -1626,7 +1632,7 @@ func _title_of(profile: Dictionary) -> String:
 ## What everyone sees over a pirate's head changed (or they joined): tell everyone.
 func _update_tag(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	tags[id] = [Progress.level(int(p.xp)), _title_of(p), int(p.look), int(p.dye), int(p.get("blade", 0)), int(p.get("gun", 0))]
+	tags[id] = [Progress.level(int(p.xp)), _title_of(p), int(p.look), int(p.dye), int(p.get("blade", 0)), int(p.get("gun", 0)), int(p.get("armour", 0))]
 	var flat := []
 	for pid in tags:
 		flat.append_array([pid] + tags[pid])

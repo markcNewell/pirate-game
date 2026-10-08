@@ -12,6 +12,7 @@
 #         golondrina (d5), admiral (d6, step 2), workshop (e2, step 1), beacon (e3, step 1),
 #         colossus (e5), anvil (e5, step 1), deeds, worldmark (a world event on the compass),
 #         hobb (his counter), refit, trophies, figurehead (a refitted ship with every trophy),
+#         crew with --armour 1 or 2 (crewmates in armour; BOTS="sails wheel anchor"),
 #         title (the title screen: nothing is hosted), ship (--shot-from X,Y,Z --shot-look X,Y,Z in the ship's frame)
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
 #   BOTS="sails wheel" adds headless bot players to the hosted game first.

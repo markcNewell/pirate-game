@@ -8,10 +8,16 @@ func _sim() -> ServerSim:
 	return sim
 
 
-func test_every_deed_has_a_goal_and_a_title() -> void:
+func test_every_deed_has_a_goal_a_title_and_a_gift() -> void:
 	for d: Array in Deeds.LIST:
 		check(int(d[2]) > 0 and str(d[3]) != "", "%s: %d for %s" % [d[1], d[2], d[3]])
+		var shop := Shop.index_of(d[4])
+		var wright := Shipwright.index_of(d[4])
+		check(shop >= 0 or wright >= 0, "%s gives a look that exists (%s)" % [d[1], d[4]])
+		var price: int = Shop.ITEMS[shop][3] if shop >= 0 else (Shipwright.ITEMS[wright][3] if wright >= 0 else -1)
+		check_eq(price, 0, "%s's gift is never sold" % d[1])
 	check(Deeds.page({"fires": 3}).contains("3 of 50"), "the page counts")
+	check(Deeds.page({}).contains("Ghost-green sails"), "and names the gift")
 
 
 func test_felling_the_dead_counts_and_earns_a_title() -> void:
@@ -25,6 +31,7 @@ func test_felling_the_dead_counts_and_earns_a_title() -> void:
 	var last := sim._new_skeleton(-1, Vector3(0, 0, 0))
 	sim._hurt_skeleton(last.id, 9999, "Anne", 1)
 	check(p.titles.has("Bonebreaker"), "five hundred: Bonebreaker")
+	check(p.owned.has("hull6"), "and the bone-and-black hull paint")
 	check_eq(p.title, "Bonebreaker", "and wears it")
 	check_eq(sim.stats.deeds, 1)
 	var more := sim._new_skeleton(-1, Vector3(0, 0, 0))
@@ -61,3 +68,18 @@ func test_dousing_and_selling_count() -> void:
 	r.pos = Outpost.sell_spot()
 	sim.request(1, "sell", 0, [])
 	check_eq(Deeds.count(r.profile, "chests"), 1, "a chest for Silas")
+
+
+func test_a_deeds_gift_cannot_be_bought() -> void:
+	var sim := _sim()
+	var r: Dictionary = sim.players[1]
+	r.mode = LocalPlayer.Mode.WORLD
+	r.ship = -1
+	r.pos = Outpost.hobb_pos()
+	r.profile.gold = 9999
+	sim.request(1, "wright", Shipwright.index_of("sails8"), [])
+	check(not r.profile.owned.has("sails8"), "Hobb won't sell ghost-green sails")
+	check_eq(int(r.profile.gold), 9999)
+	r.profile.owned.append("sails8")
+	sim.request(1, "wright", Shipwright.index_of("sails8"), [])
+	check_eq(sim.crews[1].looks[0], 8, "but fits them once earned")

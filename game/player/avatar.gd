@@ -61,19 +61,24 @@ var _act := Act.NONE
 var index := 0
 var outfit := -1
 var dye := -1
+## The armour worn over the outfit (Weapons.ARMOURS; 0 none).
+var armour := 0
 
 
-func _init(player_name: String, look_index: int, bought_outfit := -1, bought_dye := -1) -> void:
+func _init(player_name: String, look_index: int, bought_outfit := -1, bought_dye := -1, worn_armour := 0) -> void:
 	index = look_index
 	outfit = bought_outfit
 	dye = bought_dye
+	armour = worn_armour
+	var parts := ["body", "look%d" % (bought_outfit % LOOKS if bought_outfit >= 0 else look_index % ROSTER_LOOKS)]
+	if worn_armour > 0:
+		parts.append("armour%d" % worn_armour)
 	var shirt := Shop.shirt_of(bought_dye, look_index)
 	var skin := skin_for(look_index)
-	var look := bought_outfit % LOOKS if bought_outfit >= 0 else look_index % ROSTER_LOOKS
 	_model = Models.instance("pirate", {
 		Models.SHIRT: shirt, Models.SHIRT_DARK: shirt.darkened(0.28),
 		Models.SKIN: skin, Models.SKIN_DARK: skin.darkened(0.12).lerp(Color("c0503a"), 0.12),
-	}, ["body", "look%d" % look])
+	}, parts)
 	add_child(_model)
 	_skeleton = _model.find_children("*", "Skeleton3D", true, false)[0]
 	_build_tree()

@@ -145,6 +145,7 @@ func test_armour_is_a_trade() -> void:
 	r.profile.gold = 1000
 	sim.request(1, "buy", Shop.index_of("armour1"), [])
 	check_eq(int(r.profile.armour), 1, "a padded coat")
+	check_eq(sim.tags[1][6], 1, "worn where everyone can see it")
 	sim._hurt_player(1, 20, "a skeleton", -1, Weapons.Hit.BLADE)
 	check_eq(int(r.hp), ServerSim.HEALTH - 14, "softer against blades")
 	r.hp = ServerSim.HEALTH
