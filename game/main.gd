@@ -28,6 +28,8 @@ extends Node
 var _menu: Menu
 var _backdrop: MenuBackdrop
 var _args := {}
+## The RESULT lines are printed (at the end of a --quit-after run, or when its session ended).
+var _summarised := false
 
 
 func _ready() -> void:
@@ -48,6 +50,12 @@ func _ready() -> void:
 
 func _start() -> void:
 	var port := int(_args.get("port", GameConfig.DEFAULT_PORT))
+	# A test run whose server stops first (its --quit-after ran out while this one started up
+	# late) still reports what it saw.
+	Net.session_ending.connect(func() -> void:
+		if _args.has("quit-after") and not _summarised:
+			_print_summary()
+			_summarised = true)
 
 	var headless := DisplayServer.get_name() == "headless"
 	if _args.has("server") or (headless and not _args.has("bot") and not _args.has("host")):
@@ -130,7 +138,8 @@ func _maybe_quit_later() -> void:
 	if not _args.has("quit-after"):
 		return
 	await get_tree().create_timer(float(_args["quit-after"])).timeout
-	_print_summary()
+	if not _summarised:
+		_print_summary()
 	get_tree().quit()
 
 

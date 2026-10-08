@@ -6,6 +6,8 @@ extends Node
 signal session_started(game: Game)
 signal session_failed(reason: String)
 signal session_ended(reason: String)
+## Just before a session is torn down (while Net.game still holds it).
+signal session_ending
 
 var game: Game = null
 ## Command-line options handed to each new session (AI timing and the like).
@@ -57,6 +59,7 @@ func join(address: String, port: int, player_name: String, bot_role := "", crew 
 func leave(reason := "") -> void:
 	if reason != "":
 		print("[net] session ended: %s" % reason)
+	session_ending.emit()
 	_teardown()
 	session_ended.emit(reason)
 
