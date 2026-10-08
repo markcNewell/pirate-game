@@ -631,8 +631,12 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 	elif game and view != "deck":
 		if view in ["refit", "trophies", "figurehead"]:
 			# Black sails, tarred hull, a crimson flag, and every trophy earned.
-			game.sim.crews[ServerSim.CREW].looks = [7, 1, 1]
+			game.sim.crews[ServerSim.CREW].looks = [7, 1, 1, 0]
 			game.sim.players[game.local_id].profile.chapters.append_array(["a6", "d6", "t11"])
+			game.sim._send_ship_looks()
+		elif view in ["lion", "serpent", "dolphin"]:
+			# One of Hobb's figureheads on the bow.
+			game.sim.crews[ServerSim.CREW].looks = [0, 0, 0, ["", "lion", "serpent", "dolphin"].find(view)]
 			game.sim._send_ship_looks()
 		var cam := Camera3D.new()
 		cam.far = 3000.0
@@ -644,6 +648,9 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 			"refit": [Vector3(-16, 6, -24), Vector3(0, 4.5, -6)],
 			"trophies": [Vector3(-4.5, 7.6, 3.5), Vector3(0.5, 6.0, 10.5)],
 			"figurehead": [Vector3(-4.0, 3.6, -17.5), Vector3(0, 2.9, -13.3)],
+			"lion": [Vector3(-4.0, 3.6, -17.5), Vector3(0, 2.9, -13.3)],
+			"serpent": [Vector3(-4.0, 3.6, -17.5), Vector3(0, 2.9, -13.3)],
+			"dolphin": [Vector3(-4.0, 3.6, -17.5), Vector3(0, 2.9, -13.3)],
 			"bow": [Vector3(-8, 8, -40), Vector3(0, 5, 0)],
 			"stern": [Vector3(3, 5.5, 24), Vector3(0, 3.6, 12)],
 			"flag": [Vector3(7, ShipShape.DECK_Y + ShipShape.MAST_HEIGHT[1] - 3.0, ShipShape.MAST_Z[1] + 5.0),

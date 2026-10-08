@@ -58,7 +58,7 @@ var deeds := {}
 ## The armour we wear (Weapons.ARMOURS).
 var my_armour := 0
 var owned: Array = []
-## How each crew's ship looks (Shipwright): crew -> [sails, hull, flag, trophies].
+## How each crew's ship looks (Shipwright): crew -> [sails, hull, flag, figurehead, trophies].
 var ship_looks := {}
 ## Is Fuerte del Cuervo our crew's port (the story done, the dead not holding it)?
 var fort_port := false

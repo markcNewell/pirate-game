@@ -753,10 +753,13 @@ func _fill_wright() -> void:
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 36)
 	_shop_box.add_child(columns)
-	for kind: int in [Shipwright.Kind.SAILS, Shipwright.Kind.HULL, Shipwright.Kind.FLAG]:
-		var column := VBoxContainer.new()
-		columns.add_child(column)
-		column.add_child(_card_label(["Sails", "Hull paint", "Flag"][kind], 22, Color("8a2a1a")))
+	# Three columns: sails, hull paint, and the flag with the figurehead under it.
+	var column: VBoxContainer
+	for kind: int in [Shipwright.Kind.SAILS, Shipwright.Kind.HULL, Shipwright.Kind.FLAG, Shipwright.Kind.FIGUREHEAD]:
+		if kind != Shipwright.Kind.FIGUREHEAD:
+			column = VBoxContainer.new()
+			columns.add_child(column)
+		column.add_child(_card_label(["Sails", "Hull paint", "Flag", "Figurehead"][kind], 22, Color("8a2a1a")))
 		var grid := GridContainer.new()
 		grid.columns = 3
 		grid.add_theme_constant_override("h_separation", 12)
@@ -769,7 +772,7 @@ func _fill_wright() -> void:
 			var name := _card_label(item[2], 17, Color("2a1a10"))
 			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			name.custom_minimum_size = Vector2(150, 0)
-			if item[1] > 0:
+			if item[1] > 0 and kind != Shipwright.Kind.FIGUREHEAD:
 				var swatch: Color = [Shipwright.SAILS[item[1]] if kind == Shipwright.Kind.SAILS else Color(),
 					Shipwright.HULLS[item[1]].get("hull", Color()) if kind == Shipwright.Kind.HULL else Color(),
 					Shipwright.FLAGS[item[1]] if kind == Shipwright.Kind.FLAG else Color()][kind]

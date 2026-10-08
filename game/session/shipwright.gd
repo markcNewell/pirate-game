@@ -4,7 +4,7 @@ extends RefCounted
 ## (docs/specs/2026-10-08-m19-shipwright.md), and the story's trophies that go up on it. Pure
 ## rules: ServerSim sells and fits, ShipView paints.
 
-enum Kind { SAILS, HULL, FLAG }
+enum Kind { SAILS, HULL, FLAG, FIGUREHEAD }
 ## Trophies as bits, for the ship_look event.
 enum Trophy { HALBERD = 1, RAVEN = 2, LANTERN = 4 }
 
@@ -36,7 +36,15 @@ const ITEMS := [
 	[Kind.FLAG, 5, "Bone", 300],
 	[Kind.FLAG, 6, "Raven gold", 0],
 	[Kind.FLAG, 7, "Merrow blue", 0],
+	[Kind.FIGUREHEAD, 0, "The mermaid", 0],
+	[Kind.FIGUREHEAD, 1, "Gilded lion", 1200],
+	[Kind.FIGUREHEAD, 2, "Sea serpent", 1400],
+	[Kind.FIGUREHEAD, 3, "Leaping dolphin", 1000],
 ]
+## The ship part for each figurehead (ShipView); the raven is a story trophy, not for sale.
+const FIGUREHEADS: Array[String] = ["figurehead", "figurehead_lion", "figurehead_serpent", "figurehead_dolphin"]
+## Which of a ship's looks is which: [sails, hull, flag, figurehead].
+const LOOKS := 4
 const SAILS: Array[Color] = [
 	Color(), Color("f4efe2"), Color("c8382e"), Color("6aa8e8"), Color("e8b020"), Color("3aa88a"),
 	Color("6a3a9a"), Color("2a2630"), Color("8adca0"), Color("6a6460"),
@@ -69,7 +77,16 @@ static func index_of(item_key: String) -> int:
 
 
 static func key(i: int) -> String:
-	return "%s%d" % [["sails", "hull", "flag"][ITEMS[i][0]], ITEMS[i][1]]
+	return "%s%d" % [["sails", "hull", "flag", "figurehead"][ITEMS[i][0]], ITEMS[i][1]]
+
+
+## The figurehead a ship carries: one fitted at Hobb's, else the Admiral's raven if someone
+## aboard earned it, else the mermaid she was built with.
+static func figurehead_part(looks: Array, trophy_bits: int) -> String:
+	var fitted := int(looks[Kind.FIGUREHEAD]) if looks.size() > Kind.FIGUREHEAD else 0
+	if fitted > 0 and fitted < FIGUREHEADS.size():
+		return FIGUREHEADS[fitted]
+	return "figurehead_raven" if trophy_bits & Trophy.RAVEN else FIGUREHEADS[0]
 
 
 ## Does a pirate have this look: bought, or the crew's own (everyone's)?

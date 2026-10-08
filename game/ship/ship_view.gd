@@ -13,7 +13,8 @@ var crew := 1
 ## ShipState.flag: 0 the pirate dead's wreck, 1 a Spanish galleon (black sails, the raven), 2 the
 ## Cuervo Negro, 3 a ghost galleon, 4 Isabel's La Golondrina, 5 the prison hulk (no yards or sails).
 var flag := 0
-## A crew's ship: her fitted looks and trophies from the shipwright, [sails, hull, flag, trophies].
+## A crew's ship: her fitted looks and trophies from the shipwright, [sails, hull, flag,
+## figurehead, trophies].
 var looks: Array = []
 
 var _rigs: Array[Node3D] = []
@@ -122,8 +123,8 @@ func _ready() -> void:
 
 	# The figurehead, or the Admiral's raven if someone aboard has earned it; and the crew's
 	# other trophies (Shipwright.Trophy).
-	var trophies := int(looks[3]) if looks.size() > 3 else 0
-	add_child(Toon.instance(_part("figurehead_raven" if trophies & Shipwright.Trophy.RAVEN else "figurehead")))
+	var trophies := int(looks[Shipwright.LOOKS]) if looks.size() > Shipwright.LOOKS else 0
+	add_child(Toon.instance(_part(Shipwright.figurehead_part(looks, trophies))))
 	if trophies & Shipwright.Trophy.HALBERD:
 		add_child(Toon.instance(_part("trophy_halberd")))
 	if trophies & Shipwright.Trophy.LANTERN:

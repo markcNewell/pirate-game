@@ -1599,16 +1599,18 @@ func _wright(id: int, r: Dictionary, i: int) -> void:
 		p.gold = int(p.gold) - price
 		p.owned.append(Shipwright.key(i))
 		stats.bought += 1
-		print("[server] %s bought %s %s for %d gold" % [r.name, item[2], ["sails", "hull paint", "flag"][item[0]], price])
-		Net.send_message(id, "Bought: %s %s." % [item[2], ["sails", "hull paint", "flag"][item[0]]])
+		print("[server] %s bought %s %s for %d gold" % [r.name, item[2], ["sails", "hull paint", "flag", "figurehead"][item[0]], price])
+		Net.send_message(id, "Bought: %s %s." % [item[2], ["sails", "hull paint", "flag", "figurehead"][item[0]]])
 	var looks: Array = crews[r.crew].looks
-	while looks.size() < 3:
+	while looks.size() < Shipwright.LOOKS:
 		looks.append(0)
+	while p.ship.size() < Shipwright.LOOKS:
+		p.ship.append(0)
 	looks[item[0]] = item[1]
 	p.ship[item[0]] = item[1]
 	stats.refits += 1
-	print("[server] %s fitted %s %s to %s" % [r.name, item[2], ["sails", "hull paint", "flag"][item[0]], crew_name(r.crew)])
-	_tell_crew(r.crew, "%s has Hobb fit %s %s to the ship." % [r.name, item[2], ["sails", "hull paint", "flag"][item[0]]])
+	print("[server] %s fitted %s %s to %s" % [r.name, item[2], ["sails", "hull paint", "flag", "figurehead"][item[0]], crew_name(r.crew)])
+	_tell_crew(r.crew, "%s has Hobb fit %s %s to the ship." % [r.name, item[2], ["sails", "hull paint", "flag", "figurehead"][item[0]]])
 	profiles.changed(r.name)
 	_send_profile(id)
 	_send_ship_looks()
@@ -1621,8 +1623,10 @@ func _send_ship_looks() -> void:
 		var lists: Array = []
 		for pid in _crew_members(c):
 			lists.append(players[pid].profile.chapters)
-		var data := [c, int(looks[0]) if looks.size() > 0 else 0, int(looks[1]) if looks.size() > 1 else 0,
-			int(looks[2]) if looks.size() > 2 else 0, Shipwright.trophies(lists)]
+		var data := [c]
+		for k in Shipwright.LOOKS:
+			data.append(int(looks[k]) if looks.size() > k else 0)
+		data.append(Shipwright.trophies(lists))
 		if _ship_looks.get(c, []) != data:
 			_ship_looks[c] = data
 			Net.send_event("ship_look", data)

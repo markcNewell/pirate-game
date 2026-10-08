@@ -509,6 +509,76 @@ def raven_figurehead():
     return parts + head_rails()
 
 
+def lion_figurehead():
+    """A gilded lion (Hobb's, for gold): a crouching body under the bowsprit, a great mane round
+    a snarling face, forepaws out over the sea."""
+    gold = slot("gold")
+    base = Vector((0, S.DECK_Y - 0.2, -13.35))
+    parts = []
+    body = [(0, -0.85, 0.3), (0, -0.45, 0.12), (0, -0.05, -0.02), (0, 0.3, -0.1)]
+    parts.append(kit.tube("ln_body", [tuple(base + Vector(p)) for p in body], [0.13, 0.2, 0.22, 0.2], 10, gold))
+    head = base + Vector((0, 0.58, -0.22))
+    mane = kit.ellipsoid("ln_mane", tuple(head + Vector((0, 0.0, 0.05))), (0.3, 0.3, 0.2), "c88a2a", rings=8, sectors=14)
+    kit.displace(mane, 0.03, 0.08, seed=7)
+    parts.append(mane)
+    parts.append(kit.ellipsoid("ln_face", tuple(head + Vector((0, -0.02, -0.12))), (0.17, 0.18, 0.17), gold, rings=8, sectors=12))
+    parts.append(kit.ellipsoid("ln_muzzle", tuple(head + Vector((0, -0.08, -0.27))), (0.09, 0.07, 0.08), gold, rings=6, sectors=10))
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.ellipsoid("ln_eye", tuple(head + Vector((sx * 0.07, 0.05, -0.27))), (0.025, 0.02, 0.02), "1a1418", rings=4, sectors=6), 0.0))
+        parts.append(kit.ellipsoid("ln_ear", tuple(head + Vector((sx * 0.15, 0.2, -0.05))), (0.05, 0.06, 0.03), gold, rings=4, sectors=8))
+        paw = [(sx * 0.12, -0.05, -0.15), (sx * 0.14, -0.25, -0.35), (sx * 0.13, -0.38, -0.42)]
+        parts.append(kit.tube("ln_leg", [tuple(base + Vector(p)) for p in paw], [0.07, 0.06, 0.07], 8, gold))
+    tail = [(0, -0.85, 0.3), (0, -1.15, 0.55), (0, -1.3, 0.9)]
+    parts.append(kit.tube("ln_tail", [tuple(base + Vector(p)) for p in tail], [0.05, 0.04, 0.025], 6, gold))
+    parts.append(kit.ellipsoid("ln_tuft", tuple(base + Vector((0, -1.32, 0.95))), (0.06, 0.08, 0.06), "c88a2a", rings=4, sectors=8))
+    return parts + head_rails()
+
+
+def serpent_figurehead():
+    """A sea serpent (Hobb's, for gold): a green scaled neck coiling up out of the bow, a fanged
+    head with a fin crest, looking down at the sea."""
+    green, belly = "2e7a5a", "c8d8a0"
+    base = Vector((0, S.DECK_Y - 0.4, -13.2))
+    neck = [(0, -0.9, 0.35), (0, -0.4, 0.05), (0, 0.15, -0.15), (0, 0.6, -0.15), (0, 0.85, -0.38)]
+    body = kit.tube("sp_neck", [tuple(base + Vector(p)) for p in neck], [0.16, 0.15, 0.13, 0.11, 0.1], 10, green)
+    kit.paint_where(body, belly, lambda x, y, z: z < base.z - 0.08 + (y - base.y) * -0.1 and abs(x) < 0.08)
+    parts = [body]
+    head = base + Vector((0, 0.82, -0.62))
+    parts.append(kit.ellipsoid("sp_head", tuple(head), (0.12, 0.11, 0.24), green, rings=8, sectors=12))
+    parts.append(kit.ellipsoid("sp_jaw", tuple(head + Vector((0, -0.08, -0.08))), (0.09, 0.05, 0.18), belly, rings=6, sectors=10))
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.ellipsoid("sp_eye", tuple(head + Vector((sx * 0.09, 0.05, -0.05))), (0.025, 0.025, 0.025), "e8c020", rings=4, sectors=6), 0.0))
+        parts.append(kit.tube("sp_fang", [tuple(head + Vector((sx * 0.05, -0.08, -0.2))), tuple(head + Vector((sx * 0.05, -0.17, -0.22)))], [0.015, 0.002], 5, "f4efe2"))
+    crest = kit.prism("sp_crest", [(0.0, 0.0), (0.12, 0.18), (0.3, 0.12), (0.45, 0.22), (0.65, 0.1), (0.85, 0.15), (0.95, 0.0)], 0.02, "c8382e", plane="zy")
+    kit.place(crest, tuple(head + Vector((0, 0.08, -0.05))))
+    parts.append(crest)
+    return parts + head_rails()
+
+
+def dolphin_figurehead():
+    """A leaping dolphin (Hobb's, for gold): grey-blue, its beak out over the sea, flippers
+    spread and its tail curled back under the bowsprit."""
+    blue, belly = "6a8aa8", "e8eef2"
+    base = Vector((0, S.DECK_Y - 0.25, -13.3))
+    spine = [(0, -1.05, 0.55), (0, -0.7, 0.25), (0, -0.25, 0.0), (0, 0.2, -0.15), (0, 0.5, -0.4)]
+    body = kit.tube("dp_body", [tuple(base + Vector(p)) for p in spine], [0.06, 0.15, 0.2, 0.17, 0.11], 12, blue)
+    kit.paint_where(body, belly, lambda x, y, z: z < base.z + (y - base.y) * -0.55 - 0.02)
+    parts = [body]
+    parts.append(kit.tube("dp_beak", [tuple(base + Vector((0, 0.5, -0.4))), tuple(base + Vector((0, 0.62, -0.7)))], [0.08, 0.035], 8, blue))
+    for sx in (1, -1):
+        parts.append(kit.noink(kit.ellipsoid("dp_eye", tuple(base + Vector((sx * 0.1, 0.48, -0.42))), (0.02, 0.02, 0.02), "1a1418", rings=4, sectors=6), 0.0))
+        flip = kit.prism("dp_flipper", [(0.0, 0.0), (0.22, -0.05), (0.32, -0.18), (0.15, -0.12)], 0.03, blue, plane="xy")
+        kit.place(flip, tuple(base + Vector((sx * 0.12, 0.05, -0.12))), (0.0, 0.0 if sx > 0 else math.pi, 0.0))
+        parts.append(flip)
+    fin = kit.prism("dp_fin", [(0.0, 0.0), (0.12, 0.2), (0.25, 0.0)], 0.03, blue, plane="zy")
+    kit.place(fin, tuple(base + Vector((0, 0.05, 0.08))))
+    parts.append(fin)
+    fluke = kit.prism("dp_fluke", [(-0.25, 0.0), (0.0, 0.08), (0.25, 0.0), (0.0, -0.06)], 0.03, blue, plane="xz")
+    kit.place(fluke, tuple(base + Vector((0, -1.08, 0.6))))
+    parts.append(fluke)
+    return parts + head_rails()
+
+
 def trophy_halberd():
     """The Sergeant's halberd (Act I's trophy, ship parts), lashed upright to the quarterdeck's
     starboard rail beside the wheel: an ash haft, an axe blade, a hook, a spike, a red tassel."""
@@ -1634,6 +1704,9 @@ def parts_model():
     objs.append(raven_emblem())
     objs.append(kit.join("figurehead", figurehead()))
     objs.append(kit.join("figurehead_raven", raven_figurehead()))
+    objs.append(kit.join("figurehead_lion", lion_figurehead()))
+    objs.append(kit.join("figurehead_serpent", serpent_figurehead()))
+    objs.append(kit.join("figurehead_dolphin", dolphin_figurehead()))
     objs.append(kit.join("trophy_halberd", trophy_halberd()))
     objs.append(kit.join("trophy_lantern", trophy_lantern()))
     objs.append(capstan())

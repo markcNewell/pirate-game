@@ -32,7 +32,7 @@ static func gift_name(item_key: String) -> String:
 		return "%s %s" % [Shop.ITEMS[i][2], ["outfit", "shirt dye"][Shop.ITEMS[i][0]]]
 	i = Shipwright.index_of(item_key)
 	if i >= 0:
-		return "%s %s" % [Shipwright.ITEMS[i][2], ["sails", "hull paint", "flag"][Shipwright.ITEMS[i][0]]]
+		return "%s %s" % [Shipwright.ITEMS[i][2], ["sails", "hull paint", "flag", "figurehead"][Shipwright.ITEMS[i][0]]]
 	return item_key
 
 

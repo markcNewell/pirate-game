@@ -18,7 +18,8 @@ void vertex() {
 	VERTEX += flutter(VERTEX, TIME);
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float dist = length(CAMERA_POSITION_WORLD - world);
-	VERTEX += normalize(n) * max(min_width, dist * width);
+	float scale = max(length(MODEL_MATRIX[0].xyz), 0.0001);
+	VERTEX += normalize(n) * max(min_width, dist * width) / scale;
 }
 
 void fragment() {

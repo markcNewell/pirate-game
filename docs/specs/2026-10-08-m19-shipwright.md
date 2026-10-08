@@ -30,8 +30,11 @@ Admiral's raven figurehead and Linnet's green lantern.
 | Sails | Bone white 500, Crimson 500, Sky 500, Saffron 600, Sea-green 600, Royal purple 800, Black 900 |
 | Hull paint | Tar black 800, Navy 800, Oxblood 800, Sea-green 900, Ivory and gold 1,500 |
 | Flag | Crimson 300, Navy 300, Bottle green 300, Purple 300, Bone 300 |
+| Figurehead (added later) | Leaping dolphin 1,000, Gilded lion 1,200, Sea serpent 1,400 |
 
-"The crew's own" (the colours a crew's ship starts with) is always there, free, for each kind.
+"The crew's own" (the colours a crew's ship starts with, and the mermaid figurehead) is always
+there, free, for each kind. A figurehead fitted at Hobb's takes the place of the raven trophy; fit
+"the mermaid" again and the raven comes back.
 
 ## Trophies
 

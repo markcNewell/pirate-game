@@ -18,7 +18,7 @@ func _at_hobb(sim: ServerSim, id: int) -> Dictionary:
 
 
 func test_every_crew_starts_in_its_own_colours_for_free() -> void:
-	for kind: int in [Shipwright.Kind.SAILS, Shipwright.Kind.HULL, Shipwright.Kind.FLAG]:
+	for kind: int in [Shipwright.Kind.SAILS, Shipwright.Kind.HULL, Shipwright.Kind.FLAG, Shipwright.Kind.FIGUREHEAD]:
 		var found := false
 		for i in Shipwright.ITEMS.size():
 			if Shipwright.ITEMS[i][0] == kind and Shipwright.ITEMS[i][1] == 0:
@@ -47,8 +47,8 @@ func test_buying_and_fitting() -> void:
 	sim.request(1, "wright", black, [])
 	check_eq(int(r.profile.gold), 100, "paid for them")
 	check(r.profile.owned.has("sails7"), "they are ours")
-	check_eq(sim.crews[1].looks, [7, 0, 0], "and on our ship")
-	check_eq(r.profile.ship, [7, 0, 0], "remembered as our choice")
+	check_eq(sim.crews[1].looks, [7, 0, 0, 0], "and on our ship")
+	check_eq(r.profile.ship, [7, 0, 0, 0], "remembered as our choice")
 	sim.request(1, "wright", Shipwright.index_of("sails0"), [])
 	check_eq(sim.crews[1].looks[0], 0, "back to the crew's own, free")
 	check_eq(int(r.profile.gold), 100)
@@ -71,7 +71,7 @@ func test_everyone_is_told_and_late_joiners_too() -> void:
 	var r := _at_hobb(sim, 1)
 	r.profile.gold = 1000
 	sim.request(1, "wright", Shipwright.index_of("hull2"), [])
-	check_eq(sim._ship_looks[1], [1, 0, 2, 0, 0], "the crew's ship look as sent")
+	check_eq(sim._ship_looks[1], [1, 0, 2, 0, 0, 0], "the crew's ship look as sent")
 
 
 func test_looks_survive_a_sinking() -> void:
@@ -85,34 +85,47 @@ func test_looks_survive_a_sinking() -> void:
 
 func test_a_new_ship_takes_its_first_pirates_looks() -> void:
 	var sim := _sim()
-	sim.players[1].profile.ship = [3, 4, 5]
+	sim.players[1].profile.ship = [3, 4, 5, 1]
 	sim.add_player(2, "Bo", 2, "b")
-	check_eq(sim.crews[2].looks, [0, 0, 0], "Bo has never fitted anything")
+	check_eq(sim.crews[2].looks, [0, 0, 0, 0], "Bo has never fitted anything")
 	var p: Dictionary = sim.profiles.get_or_make("Cal", "c")
-	p.ship = [6, 1, 2]
+	p.ship = [6, 1, 2, 3]
 	sim.add_player(3, "Cal", 3, "c")
-	check_eq(sim.crews[3].looks, [6, 1, 2], "Cal's saved looks on crew 3's new ship")
+	check_eq(sim.crews[3].looks, [6, 1, 2, 3], "Cal's saved looks on crew 3's new ship")
 	sim.add_player(4, "Di", 3, "d")
-	check_eq(sim.crews[3].looks, [6, 1, 2], "a second pirate aboard changes nothing")
+	check_eq(sim.crews[3].looks, [6, 1, 2, 3], "a second pirate aboard changes nothing")
 
 
 func test_trophies_while_their_earner_is_aboard() -> void:
 	var sim := _sim()
 	sim._send_ship_looks()
-	check_eq(sim._ship_looks[1][4], 0, "nothing earned yet")
+	check_eq(sim._ship_looks[1][5], 0, "nothing earned yet")
 	sim.players[1].profile.chapters.append_array(["a6", "t11"])
 	sim._send_ship_looks()
-	check_eq(sim._ship_looks[1][4], Shipwright.Trophy.HALBERD | Shipwright.Trophy.LANTERN, "the halberd and the lantern")
+	check_eq(sim._ship_looks[1][5], Shipwright.Trophy.HALBERD | Shipwright.Trophy.LANTERN, "the halberd and the lantern")
 	sim.add_player(2, "Bo", 1, "b")
 	sim.players[2].profile.chapters.append("d6")
 	sim._send_ship_looks()
-	check_eq(sim._ship_looks[1][4], 7, "and Bo's raven figurehead")
+	check_eq(sim._ship_looks[1][5], 7, "and Bo's raven figurehead")
 	sim.remove_player(2)
 	sim._send_ship_looks()
-	check_eq(sim._ship_looks[1][4], Shipwright.Trophy.HALBERD | Shipwright.Trophy.LANTERN, "Bo gone, the raven with him")
+	check_eq(sim._ship_looks[1][5], Shipwright.Trophy.HALBERD | Shipwright.Trophy.LANTERN, "Bo gone, the raven with him")
 
 
 func test_hobb_is_on_the_pier() -> void:
 	check(Story.PEOPLE_IDS.has("hobb"), "one of Merrow's people")
 	var pier := Outpost.pier_spot()
 	check(absf(Outpost.hobb_pos().y - pier.y) < 0.01, "standing on the pier")
+
+
+func test_a_figurehead_from_hobb_or_the_raven() -> void:
+	check_eq(Shipwright.figurehead_part([0, 0, 0, 0], 0), "figurehead", "the mermaid she was built with")
+	check_eq(Shipwright.figurehead_part([0, 0, 0, 0], Shipwright.Trophy.RAVEN), "figurehead_raven", "the raven, earned")
+	check_eq(Shipwright.figurehead_part([0, 0, 0, 1], Shipwright.Trophy.RAVEN), "figurehead_lion", "but a fitted lion wins")
+	check_eq(Shipwright.figurehead_part([], 0), "figurehead", "an old ship with no looks")
+	var sim := _sim()
+	var r := _at_hobb(sim, 1)
+	r.profile.gold = 1500
+	sim.request(1, "wright", Shipwright.index_of("figurehead2"), [])
+	check_eq(int(r.profile.gold), 100, "a sea serpent for 1,400")
+	check_eq(sim.crews[1].looks[3], 2, "on the bow")

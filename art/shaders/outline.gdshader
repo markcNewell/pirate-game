@@ -16,7 +16,10 @@ void vertex() {
 	vec3 n = normal_source == 0 ? CUSTOM0.xyz : (normal_source == 1 ? TANGENT : NORMAL * length(CUSTOM0.xyz));
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float dist = length(CAMERA_POSITION_WORLD - world);
-	VERTEX += n * max(min_width, dist * width);
+	// In world units whatever the node's scale (the Bone Colossus is a skeleton made 18 times
+	// bigger; its lines must not be).
+	float scale = max(length(MODEL_MATRIX[0].xyz), 0.0001);
+	VERTEX += n * max(min_width, dist * width) / scale;
 }
 
 void fragment() {
