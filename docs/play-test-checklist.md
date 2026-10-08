@@ -8,8 +8,8 @@ first guesses, so "too slow", "too easy" or "too much" is exactly what's wanted.
 
 Host & play, Play-test off.
 
-- [ ] Walking, looking, jumping on deck and ashore: does the mouse feel right? (Settings:
-      mouse sensitivity.) Does anything stutter?
+- [ ] Walking, looking, jumping on deck and ashore: does the mouse feel right? (Esc opens the
+      menu with mouse sensitivity.) Does anything stutter?
 - [ ] Raise the anchor, set the sails, steer to Gull Isle. Is sailing fun on your own?
 - [ ] The prologue (Moll at the lighthouse): is it clear what to do and where to go?
 - [ ] Fight a few skeletons with the cutlass and the pistol. Too hard or too easy?
