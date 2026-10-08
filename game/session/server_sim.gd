@@ -173,12 +173,11 @@ func _init(options: Dictionary = {}) -> void:
 					items[id].ship = CREW
 					items[id].pos = Vector3(-1.2 + 1.0 * k, ShipShape.DECK_Y, -2.2)
 					k += 1
+		if options.has("jump"):
+			_jump_to_chapter()
 	if options.has("event"):
 		# Test hook: a world event at once (green_fire, patrol, convoy, raid, fort, maw).
-		var which: int = {
-			"green_fire": WorldEvents.Kind.GREEN_FIRE, "patrol": WorldEvents.Kind.PATROL, "convoy": WorldEvents.Kind.CONVOY,
-			"raid": WorldEvents.Kind.RAID, "fort": WorldEvents.Kind.FORT, "maw": WorldEvents.Kind.MAW,
-		}.get(str(options.event), WorldEvents.Kind.NONE)
+		var which := PlayTest.event_kind(str(options.event))
 		if which != WorldEvents.Kind.NONE:
 			world.start(which, Vector3(crew_ship().x, 0, crew_ship().z))
 	if options.has("test-boarding"):
@@ -1166,6 +1165,25 @@ func _island_xz(where: String) -> Vector2:
 
 
 ## A spot 40 m off an island's shore, on the side facing the start (for tests).
+## Play-test (--jump): the crew's ship starts by the island its chapter sends it to, or at the
+## Black Reef's edge for the chapters out there.
+func _jump_to_chapter() -> void:
+	var m: Dictionary = crews[CREW].mission
+	if m.is_empty():
+		return
+	var islands: Array = m.get("islands", [])
+	var at := Vector3.INF
+	if not islands.is_empty() and int(islands[0]) != Islands.outpost_index():
+		at = _anchorage(int(islands[0]))
+	elif islands.is_empty() and int(Story.CHAPTERS[m.chapter].act) >= 4:
+		at = Vector3(Reef.CENTRE.x - 210.0, 0.0, Reef.CENTRE.y)
+	if at == Vector3.INF:
+		return
+	crew_ship().x = at.x
+	crew_ship().z = at.z
+	print("[server] play-test: the ship starts at (%.0f, %.0f) for chapter %s" % [at.x, at.z, Story.CHAPTERS[m.chapter].id])
+
+
 func _anchorage(index: int) -> Vector3:
 	var spec: Dictionary = Islands.LAYOUT[index]
 	var dir := -Vector2(spec.x, spec.z).normalized()

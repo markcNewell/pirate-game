@@ -8,6 +8,14 @@ var _address: LineEdit
 var _port: SpinBox
 var _crew: OptionButton
 var _status: Label
+## Play-test options (PlayTest): shown by the "Play-test" toggle, used by Host & play.
+var _test: CheckButton
+var _test_box: VBoxContainer
+var _test_chapter: OptionButton
+var _test_gold: SpinBox
+var _test_event: OptionButton
+## The command line's options, so a play-test game's never outlive it.
+var _base_options := {}
 
 
 func _ready() -> void:
@@ -35,7 +43,7 @@ func _ready() -> void:
 	title.text = "Pirate Game"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_override("font", Hud.display_font())
-	title.add_theme_font_size_override("font_size", 84)
+	title.add_theme_font_size_override("font_size", 72)
 	title.add_theme_color_override("font_color", Hud.PAPER)
 	title.add_theme_color_override("font_outline_color", Hud.INK)
 	title.add_theme_constant_override("outline_size", 16)
@@ -49,27 +57,36 @@ func _ready() -> void:
 
 	_name = _field(box, "Your name", Settings.name)
 	_name.placeholder_text = "Pirate"
-	_address = _field(box, "Server address", Settings.address)
-	var port_label := Label.new()
-	port_label.text = "Port"
-	port_label.add_theme_color_override("font_color", Hud.INK)
-	box.add_child(port_label)
+	# The server and its port on one row, and the crew on the next, so the card fits a short
+	# screen even with the play-test options open.
+	var server := HBoxContainer.new()
+	server.add_theme_constant_override("separation", 8)
+	box.add_child(server)
+	_address = LineEdit.new()
+	_address.text = Settings.address
+	_address.placeholder_text = "Server address"
+	_address.tooltip_text = "Server address"
+	_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	server.add_child(_inline_label("Server"))
+	server.add_child(_address)
+	server.add_child(_inline_label("Port"))
 	_port = SpinBox.new()
 	_port.min_value = 1024
 	_port.max_value = 65535
 	_port.value = Settings.port
-	box.add_child(_port)
+	server.add_child(_port)
 
-	var crew_label := Label.new()
-	crew_label.text = "Crew"
-	crew_label.add_theme_color_override("font_color", Hud.INK)
-	box.add_child(crew_label)
+	var crew_row := HBoxContainer.new()
+	crew_row.add_theme_constant_override("separation", 8)
+	box.add_child(crew_row)
+	crew_row.add_child(_inline_label("Crew"))
 	_crew = OptionButton.new()
+	_crew.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crew.add_item("Any crew (friends sail together)", 0)
 	for i in ServerSim.CREW_NAMES.size():
 		_crew.add_item("Crew %d: %s" % [i + 1, ServerSim.CREW_NAMES[i]], i + 1)
 	_crew.select(Settings.crew)
-	box.add_child(_crew)
+	crew_row.add_child(_crew)
 
 	# Sound: overall volume and the music, applied as you drag and saved with the rest.
 	var sound := HBoxContainer.new()
@@ -77,6 +94,8 @@ func _ready() -> void:
 	box.add_child(sound)
 	_slider(sound, "Volume", Settings.volume, func(v: float) -> void: Settings.volume = v)
 	_slider(sound, "Music", Settings.music, func(v: float) -> void: Settings.music = v)
+
+	_play_test(box)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
@@ -116,11 +135,66 @@ func _on_join() -> void:
 
 func _on_host() -> void:
 	_remember()
-	var err := Net.host(Settings.port, Settings.name, Settings.crew)
+	Net.options = _base_options.duplicate()
+	var crew := Settings.crew
+	if _test.button_pressed:
+		var chapter := "" if _test_chapter.selected <= 0 else str(Story.CHAPTERS[_test_chapter.selected - 1].id)
+		Net.options.merge(PlayTest.options_for(chapter, int(_test_gold.value), PlayTest.EVENTS[maxi(0, _test_event.selected)]), true)
+		if chapter != "":
+			crew = ServerSim.CREW  # the chapter is started for crew 1
+	var err := Net.host(Settings.port, Settings.name, crew)
 	if err == ERR_UNAUTHORIZED:
 		return  # the session_ended message says why
 	if err != OK:
 		_status.text = "Could not host on port %d (%s). Is another game already using it?" % [Settings.port, error_string(err)]
+
+
+## "Play-test" and its options: start at any chapter (everything before it done), with gold, or
+## with a world event under way. Such games don't save your pirate.
+func _play_test(box: VBoxContainer) -> void:
+	_base_options = Net.options.duplicate()
+	_test = CheckButton.new()
+	_test.text = "Play-test (doesn't save your pirate)"
+	_test.add_theme_color_override("font_color", Hud.INK)
+	box.add_child(_test)
+	_test_box = VBoxContainer.new()
+	_test_box.visible = false
+	box.add_child(_test_box)
+	_test.toggled.connect(func(on: bool) -> void: _test_box.visible = on)
+	_test_chapter = OptionButton.new()
+	_test_chapter.add_item("Start at chapter: none, play from the start")
+	for i in Story.CHAPTERS.size():
+		_test_chapter.add_item(PlayTest.label(i))
+	_test_box.add_child(_test_chapter)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	_test_box.add_child(row)
+	var gold_label := Label.new()
+	gold_label.text = "Gold"
+	gold_label.add_theme_color_override("font_color", Hud.INK)
+	row.add_child(gold_label)
+	_test_gold = SpinBox.new()
+	_test_gold.max_value = 20000
+	_test_gold.step = 500
+	_test_gold.custom_minimum_size = Vector2(110, 0)
+	row.add_child(_test_gold)
+	_test_event = OptionButton.new()
+	_test_event.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for e: String in PlayTest.EVENTS:
+		_test_event.add_item("No world event" if e == "" else "Event: %s" % WorldEvents.NAMES[PlayTest.event_kind(e)])
+	row.add_child(_test_event)
+
+
+## Show the play-test options (for screenshots: --show-play-test).
+func open_play_test() -> void:
+	_test.button_pressed = true
+
+
+func _inline_label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_color_override("font_color", Hud.INK)
+	return l
 
 
 func _field(box: VBoxContainer, label: String, value: String) -> LineEdit:

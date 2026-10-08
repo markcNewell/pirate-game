@@ -3,7 +3,9 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: twenty-one milestones built, the whole story playable.** Up to four crews of four players, each
+**Status: twenty-two milestones built, the whole story playable.** To try any part of it
+without playing up to it, switch on **Play-test** on the title screen and pick a chapter (your
+pirate isn't saved). Up to four crews of four players, each
 with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patching, bailing and
 sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. Three trading
 companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
@@ -28,7 +30,7 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
 [Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
-[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md), [18 the fort and the Maw](docs/specs/2026-10-08-m18-fort-and-maw.md), [19 the shipwright](docs/specs/2026-10-08-m19-shipwright.md), [20 rewards you can see](docs/specs/2026-10-08-m20-rewards-you-can-see.md), [21 the fort as a port](docs/specs/2026-10-08-m21-fort-port.md).
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md), [18 the fort and the Maw](docs/specs/2026-10-08-m18-fort-and-maw.md), [19 the shipwright](docs/specs/2026-10-08-m19-shipwright.md), [20 rewards you can see](docs/specs/2026-10-08-m20-rewards-you-can-see.md), [21 the fort as a port](docs/specs/2026-10-08-m21-fort-port.md), [22 play-test](docs/specs/2026-10-08-m22-play-test.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -57,6 +59,8 @@ On the title screen:
 - **Host & play** runs a server inside your game and puts you on deck. Good for trying it alone,
   or for friends on the same network to join you.
 - **Join** connects to a server address (default port 24565).
+- **Play-test** (a switch under the sound sliders) starts a hosted game at any chapter or tale,
+  with gold to spend or a world event under way. Your pirate isn't saved.
 - **Crew** picks which of the four crews to sail with. "Any crew" fills crew 1 first, so friends
   who all pick it end up on the same ship.
 

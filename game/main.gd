@@ -86,6 +86,8 @@ func _start() -> void:
 
 	_menu = Menu.new()
 	add_child(_menu)
+	if _args.has("show-play-test"):
+		_menu.open_play_test()
 	_show_backdrop()
 	Net.session_started.connect(func(_g: Game) -> void:
 		_menu.visible = false
