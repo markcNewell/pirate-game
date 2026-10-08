@@ -1604,6 +1604,7 @@ func douse(r: Dictionary, object_id: int) -> void:
 	r.last_bail = sim.time
 	o.state = o.state - 1 if o.kind == StoryObject.Kind.BONFIRE else 0
 	sim.stats.doused += 1
+	sim._deed(sim.players.find_key(r), "fires")
 	Net.send_event("doused", [o.id, o.pos.x, o.pos.y, o.pos.z, o.state])
 	var m := _mission_of(o.crew)
 	if m.is_empty():

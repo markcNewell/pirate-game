@@ -434,6 +434,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			close_shop()
 			get_viewport().set_input_as_handled()
 			return
+	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_J \
+			and not _talk.visible and not _board.visible and not _shop.visible and not _menu.visible:
+		# J: your deeds, as a page of the journal (J again, or E, puts it away).
+		if _journal.visible:
+			_close_reading()
+		else:
+			show_journal("Deeds", Deeds.page(game.deeds))
+		get_viewport().set_input_as_handled()
+		return
 	if (_talk.visible or _journal.visible) and event is InputEventKey and event.pressed and not event.echo:
 		var key := (event as InputEventKey).physical_keycode
 		if key in [KEY_E, KEY_SPACE, KEY_ENTER]:
@@ -845,9 +854,10 @@ func _controls_card() -> PanelContainer:
 		["At a cannon", "mouse aims, left click fires"],
 		["Hold E", "patch a hole (needs planks), dig at the X"],
 		["Bucket", "E in the water below decks, then E on deck to throw it out"],
-		["1 / 2, left click", "cutlass or pistol, attack"],
+		["1 / 2, left click", "blade or gun (Martha sells others), attack"],
 		["E at the map table", "the mission board: treasure, bounties, cargo"],
 		["M (hold)", "read your mission's map"],
+		["J", "your deeds: long goals, each earning a title"],
 		["Tab / Esc", "crew list / menu"],
 		["Storms", "big seas and lightning that holes the hull: patch, bail, or sail out"],
 	]:

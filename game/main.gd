@@ -547,6 +547,10 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		game.sim._passive[m.ship] = true
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.ON_SHIP, Vector3(1.2, ShipShape.DECK_Y, -1.0), -PI / 2.0 + 0.3)
 		game.local_player.pitch = 0.05
+	elif game and view == "deeds":
+		# The deeds page (J), with a pirate part-way along.
+		game.deeds = {"fires": 12, "skeletons": 500, "galleons": 3, "skulls": 41, "chests": 67, "crates": 9}
+		game.hud.show_journal("Deeds", Deeds.page(game.deeds))
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":

@@ -490,6 +490,7 @@ func throw_heart(id: int, r: Dictionary) -> bool:
 	m.items.erase(r.carry)
 	r.carry = -1
 	print("[server] %s threw the Heart of Ash into the Maw" % r.name)
+	sim._deed(id, "heart")
 	crumble()
 	for pid in sim._crew_members(r.crew):
 		story._say(pid, story._step(m).get("lines", []))

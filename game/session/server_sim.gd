@@ -86,7 +86,7 @@ var stats := {
 	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
 	"blinks": 0, "braziers": 0, "beacons": 0, "slams": 0, "throws": 0, "joint_hits": 0, "crumbled": 0,
-	"world_events": 0, "world_won": 0,
+	"world_events": 0, "world_won": 0, "deeds": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -536,6 +536,10 @@ func _handle_sinking() -> void:
 			if _last_hit_by.has(id) and crews.has(_last_hit_by[id]):
 				var xp := Progress.XP_PLAYER_SHIP if crews.has(id) else (Progress.XP_GALLEON if s.flag == 1 else Progress.XP_SKELETON_SHIP)
 				_award_crew(_last_hit_by[id], xp, "sinking a ship")
+				if s.flag in [1, 2, 6]:
+					_deed_crew(_last_hit_by[id], "galleons")
+				elif s.flag == 3:
+					_deed_crew(_last_hit_by[id], "ghosts")
 			_last_hit_by.erase(id)
 			if crews.has(id):
 				stats.crew_sunk += 1
@@ -1416,7 +1420,35 @@ func _award_crew(crew: int, xp: int, why: String) -> void:
 ## what they own].
 func _send_profile(id: int) -> void:
 	var p: Dictionary = players[id].profile
-	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate(), int(p.get("blade", 0)), int(p.get("gun", 0))])
+	Net.send_event_to(id, "profile", [int(p.xp), int(p.gold), _title_of(p)] + p.rep + [p.chapters.duplicate(), int(p.look), int(p.dye), p.owned.duplicate(), int(p.get("blade", 0)), int(p.get("gun", 0)), p.get("deeds", {}).duplicate()])
+
+
+## Count one more towards a deed (Deeds) for a pirate; the title when it is done.
+func _deed(id: int, deed: String, n := 1) -> void:
+	if not players.has(id) or n <= 0:
+		return
+	var p: Dictionary = players[id].profile
+	if not p.has("deeds") or typeof(p.deeds) != TYPE_DICTIONARY:
+		p.deeds = {}
+	var d := Deeds.find(deed)
+	var before := int(p.deeds.get(deed, 0))
+	p.deeds[deed] = before + n
+	profiles.changed(players[id].name)
+	if d.is_empty() or before >= int(d[2]) or before + n < int(d[2]):
+		return
+	if not p.titles.has(d[3]):
+		p.titles.append(d[3])
+		p.title = d[3]
+	stats.deeds += 1
+	print("[server] %s finished a deed: %s" % [players[id].name, d[1]])
+	Net.send_message(id, "Deed done: %s! You have earned the title %s." % [d[1], d[3]])
+	_update_tag(id)
+	_send_profile(id)
+
+
+func _deed_crew(crew: int, deed: String) -> void:
+	for id in _crew_members(crew):
+		_deed(id, deed)
 
 
 ## E at Big Martha's counter: her shop opens.
@@ -1592,6 +1624,7 @@ func _sell(r: Dictionary, id := 0) -> void:
 		return
 	_pay_crew(r.crew, item.value)
 	stats.sold += 1
+	_deed(id, "chests" if item.kind == Loot.Kind.CHEST else "skulls")
 	items.erase(item.id)
 	r.carry = -1
 	if item.kind == Loot.Kind.CHEST:
@@ -1620,6 +1653,7 @@ func _deliver(r: Dictionary) -> void:
 		var gold := Missions.crate_pay(item.value, time, m.deadline)
 		_pay_crew(r.crew, gold)
 		stats.delivered += 1
+		_deed(players.find_key(r), "crates")
 		items.erase(item.id)
 		r.carry = -1
 		_add_rep(r.crew, Missions.Company.MERCHANT, Missions.ITEM_POINTS)
@@ -2070,6 +2104,7 @@ func _hurt_skeleton(sid: int, damage: int, by: String, attacker := -1) -> void:
 		return
 	sk.fell = time
 	stats.kills += 1
+	_deed(attacker, "skeletons")
 	print("[server] %s felled skeleton %d" % [by, sid])
 	var xp := Progress.XP_SPANISH if sk.spanish else Progress.XP_SKELETON
 	if sk.captain:
