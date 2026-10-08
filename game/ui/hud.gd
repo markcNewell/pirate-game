@@ -6,6 +6,7 @@ extends CanvasLayer
 const INK := Color("1b1a24")
 const PAPER := Color("fff8ea")
 const GOLD := Color("e0b04a")
+const WORLD_GREEN := Color("9cff8a")
 
 static var _panel_styles := {}
 
@@ -261,7 +262,7 @@ func _ready() -> void:
 
 	# The world event under way, if any: one line at the top right, under the purse.
 	_world_line = _label(18)
-	_world_line.add_theme_color_override("font_color", Color("9cff8a"))
+	_world_line.add_theme_color_override("font_color", WORLD_GREEN)
 	_world_line.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_world_line.offset_left = -520
 	_world_line.offset_right = -24
@@ -819,6 +820,18 @@ func toast(text: String) -> void:
 
 
 ## Compass heading of the camera: 0 = north (-Z), 90 = east (+X).
+## Which way the world event lies from where you stand, in compass degrees; NAN when there is
+## none or you are already there.
+func world_event_bearing() -> float:
+	var cam := get_viewport().get_camera_3d()
+	if _world_event.is_empty() or cam == null:
+		return NAN
+	var to := Vector2(float(_world_event[2]) - cam.global_position.x, float(_world_event[3]) - cam.global_position.z)
+	if to.length() < 60.0:
+		return NAN
+	return fposmod(rad_to_deg(atan2(to.x, -to.y)), 360.0)
+
+
 func heading() -> float:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
@@ -972,6 +985,11 @@ class Compass:
 				draw_string(font, Vector2(x - width * 0.5, 32), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col)
 			else:
 				draw_line(Vector2(x, 26), Vector2(x, 36), Color(PAPER, 0.6 * fade), 2.0)
+		# A green diamond marks the way to a world event, pinned to the strip's end when behind you.
+		var event := hud.world_event_bearing()
+		if not is_nan(event):
+			var ex := mid + clampf(wrapf(event - h, -180.0, 180.0), -80.0, 80.0) / 90.0 * mid
+			draw_colored_polygon(PackedVector2Array([Vector2(ex, 6), Vector2(ex + 7, 13), Vector2(ex, 20), Vector2(ex - 7, 13)]), WORLD_GREEN)
 		# A gold pointer at the top marks where you are facing.
 		draw_colored_polygon(PackedVector2Array([Vector2(mid - 8, 0), Vector2(mid + 8, 0), Vector2(mid, 10)]), GOLD)
 

@@ -42,7 +42,8 @@ Not built yet: **Fuerte del Cuervo** re-garrisoning, and **The Maw Stirs** (afte
 - **How long**: an event that nobody wins ends by itself after 10 minutes (the fires burn out,
   the patrol and convoy sail off over the horizon, the raiders crumble at dawn).
 - **Telling everyone**: a message to every player when it starts and ends, and a green line in
-  the top corner of the screen while it runs. (A mark on the map table's chart is not built yet.)
+  the top corner of the screen while it runs, saying how far away it is and which way; a green
+  diamond on the compass points to it (added in M17).
 - **Story chapters come first**: no event starts on an island a crew's chapter is using.
 - `--no-ai` turns the clock off (tests); `--event NAME` starts one at once (green_fire, patrol,
   convoy or raid), placed by the crew's ship.

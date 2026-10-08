@@ -551,6 +551,13 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		# The deeds page (J), with a pirate part-way along.
 		game.deeds = {"fires": 12, "skeletons": 500, "galleons": 3, "skulls": 41, "chests": 67, "crates": 9}
 		game.hud.show_journal("Deeds", Deeds.page(game.deeds))
+	elif game and view == "worldmark":
+		# A world event 400 m away, a little to the right of where we look: the compass marks it.
+		var cam := get_viewport().get_camera_3d()
+		var f := -cam.global_basis.z if cam else Vector3.FORWARD
+		var to := Vector3(f.x, 0, f.z).normalized().rotated(Vector3.UP, -0.5) * 400.0
+		var ship := game.view_ship
+		game.hud.set_world_event(["Raven Patrol", "A Spanish galleon is on patrol.", ship.x + to.x, ship.z + to.z])
 	elif game and view == "help":
 		game.hud.toggle_help()
 	elif game and view == "ghost":
