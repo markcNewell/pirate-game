@@ -109,6 +109,12 @@ func start(what: int, near := Vector3.INF) -> void:
 	_tell_clients()
 
 
+## Tell one pirate (just joined) about the event under way, if any.
+func tell(id: int) -> void:
+	if kind != Kind.NONE:
+		Net.send_event_to(id, "world_event", [NAMES[kind], text, place.x, place.z])
+
+
 func _tell_clients() -> void:
 	if kind == Kind.NONE:
 		Net.send_event("world_event", [])

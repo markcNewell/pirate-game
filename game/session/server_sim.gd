@@ -780,6 +780,7 @@ func add_player(id: int, player_name: String, wanted_crew := 0, token := "") -> 
 	Net.send_message(0, "%s joined %s" % [clean, crew_name(crew)])
 	_send_profile(id)
 	_update_tag(id)
+	world.tell(id)  # a world event already under way
 
 
 ## Returns the name of the player who left, or "".

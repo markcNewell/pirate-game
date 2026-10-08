@@ -72,6 +72,7 @@ var _veil: ColorRect
 ## Linnet's lantern in your eyes: the screen goes white and slowly clears.
 var _blind: ColorRect
 var _world_line: Label
+var _world_event: Array = []
 var _ring: HoldRing
 var _help: PanelContainer
 var _help_hint: Label
@@ -518,6 +519,8 @@ func _process(delta: float) -> void:
 	_purse.text = "%d gold\n%d cannonballs  %d planks" % [game.purse, ship.cannonballs, ship.planks]
 	_level.queue_redraw()
 	_level_banner_left = maxf(0.0, _level_banner_left - delta)
+	if not _world_event.is_empty() and Engine.get_process_frames() % 30 == 0:
+		_update_world_line()
 	_level_banner.modulate.a = clampf(_level_banner_left, 0.0, 1.0)
 	if Input.is_action_just_pressed("help") and not _menu.visible:
 		toggle_help()
@@ -784,7 +787,19 @@ func flash_damage() -> void:
 
 ## A world event began ([name, what, x, z]) or ended ([]).
 func set_world_event(data: Array) -> void:
-	_world_line.text = "" if data.is_empty() else "World event: %s\n%s" % [data[0], data[1]]
+	_world_event = data
+	_update_world_line()
+
+
+## The world event's line, with how far it is and which way from our ship.
+func _update_world_line() -> void:
+	if _world_event.is_empty():
+		_world_line.text = ""
+		return
+	var ship := game.view_ship
+	var to := Vector2(float(_world_event[2]) - ship.x, float(_world_event[3]) - ship.z)
+	var where := "%d m to the %s" % [int(to.length()), ServerSim.compass_name(atan2(to.x, -to.y))] if to.length() > 60.0 else "here"
+	_world_line.text = "World event: %s (%s)\n%s" % [_world_event[0], where, _world_event[1]]
 
 
 func blind() -> void:
