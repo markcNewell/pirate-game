@@ -19,6 +19,7 @@ static var token := ""
 
 
 static func load_saved() -> void:
+	bring_old_save_across()
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
 		return
@@ -30,6 +31,28 @@ static func load_saved() -> void:
 	volume = cfg.get_value("sound", "volume", volume)
 	music = cfg.get_value("sound", "music", music)
 	token = cfg.get_value("player", "token", token)
+
+
+## Until 0.4 the game was called "Pirate Game", and Godot keeps each game's saves in a folder
+## named after it: your settings, your token (so servers know your pirate) and a host's saved
+## pirates. Copy them across once, the first time Sea of Slop finds nothing of its own.
+static func bring_old_save_across(old_name := "Pirate Game") -> bool:
+	var here := OS.get_user_data_dir()
+	var old := here.get_base_dir().path_join(old_name)
+	if FileAccess.file_exists(PATH) or not DirAccess.dir_exists_absolute(old):
+		return false
+	_copy_tree(old, here)
+	print("[settings] brought settings and pirates across from %s" % old)
+	return true
+
+
+static func _copy_tree(from: String, to: String) -> void:
+	DirAccess.make_dir_recursive_absolute(to)
+	for file in DirAccess.get_files_at(from):
+		if not FileAccess.file_exists(to.path_join(file)):
+			DirAccess.copy_absolute(from.path_join(file), to.path_join(file))
+	for dir in DirAccess.get_directories_at(from):
+		_copy_tree(from.path_join(dir), to.path_join(dir))
 
 
 ## The token, made (and saved) the first time it is needed.

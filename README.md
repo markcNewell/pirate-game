@@ -1,9 +1,11 @@
-# Pirate Game
+# Sea of Slop
+
+![Sea of Slop](docs/thumbnail.png)
 
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: twenty-two milestones built, the whole story playable.** To try any part of it
+**Status: twenty-four milestones built, the whole story playable.** To try any part of it
 without playing up to it, switch on **Play-test** on the title screen and pick a chapter (your
 pirate isn't saved). Up to four crews of four players, each
 with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patching, bailing and
@@ -68,8 +70,8 @@ what is around you (Kevin MacLeod's, CC BY 4.0: see [CREDITS.md](CREDITS.md)). S
 
 **From a release**: download from the repo's Releases.
 
-- **Windows**: `PirateGame-windows-*.zip`, unzip, run `PirateGame.exe`.
-- **Mac** (Intel or Apple Silicon): `PirateGame-macos-*.zip`, unzip, move `Pirate Game.app` to
+- **Windows**: `SeaOfSlop-windows-*.zip`, unzip, run `SeaOfSlop.exe`.
+- **Mac** (Intel or Apple Silicon): `SeaOfSlop-macos-*.zip`, unzip, move `Sea of Slop.app` to
   Applications. It isn't signed by Apple, so the first time right-click it and choose **Open**
   (or System Settings > Privacy & Security > Open Anyway).
 
@@ -121,8 +123,8 @@ can swing them (A / D at the ropes) to catch a side wind.
 The same game runs as a dedicated server with no graphics:
 
 ```
-PirateGame.exe --headless -- --server --port 24565        # Windows
-./pirate-game-server.x86_64 --headless -- --server        # Linux (from a release)
+SeaOfSlop.exe --headless -- --server --port 24565        # Windows
+./sea-of-slop-server.x86_64 --headless -- --server        # Linux (from a release)
 ```
 
 Open UDP port 24565 and give friends your address. The server remembers every pirate (level,

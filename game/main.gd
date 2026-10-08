@@ -697,6 +697,12 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 				cam.look_at_from_position(ship * spec[0], ship * spec[1])
 			get_tree().process_frame.connect(follow)
 	await get_tree().create_timer(delay * 0.5).timeout
+	if game and _args.has("no-hud"):
+		# Key art: the scene alone (and no first-person arm).
+		game.hud.visible = false
+		if game.local_player and game.local_player.weapon_view:
+			game.local_player.weapon_view.visible = false
+		await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(path)

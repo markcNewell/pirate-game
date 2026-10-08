@@ -9,13 +9,13 @@ Any small Linux VPS works; the game uses very little CPU and about 20 KB/s per p
 For example a Hetzner CX22 (2 vCPU, 4 GB, a few euros a month) with Ubuntu 24.04.
 
 1. Install Docker: `curl -fsSL https://get.docker.com | sh`
-2. Get the server binary: download `pirate-game-server-linux-*.zip` from the GitHub release and
+2. Get the server binary: download `sea-of-slop-server-linux-*.zip` from the GitHub release and
    unzip it into `build/server/` in a checkout of this repo (or run `tools/export.sh`).
 3. Build and start it:
 
    ```
-   docker build -f server/Dockerfile -t pirate-game-server .
-   docker run -d --restart unless-stopped -p 24565:24565/udp --name pirate pirate-game-server
+   docker build -f server/Dockerfile -t sea-of-slop-server .
+   docker run -d --restart unless-stopped -p 24565:24565/udp --name pirate sea-of-slop-server
    ```
 
 4. Open UDP 24565 in the provider's firewall.
@@ -26,7 +26,7 @@ For example a Hetzner CX22 (2 vCPU, 4 GB, a few euros a month) with Ubuntu 24.04
 ## Without Docker
 
 ```
-./pirate-game-server.x86_64 --headless -- --server --port 24565
+./sea-of-slop-server.x86_64 --headless -- --server --port 24565
 ```
 
 ## Updating

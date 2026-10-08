@@ -1,7 +1,7 @@
 # Dedicated server image. Build the server binary first (tools/export.sh, or download it from a
 # GitHub release into build/server/), then from the repo root:
-#   docker build -f server/Dockerfile -t pirate-game-server .
-#   docker run -d --restart unless-stopped -p 24565:24565/udp --name pirate pirate-game-server
+#   docker build -f server/Dockerfile -t sea-of-slop-server .
+#   docker run -d --restart unless-stopped -p 24565:24565/udp --name pirate sea-of-slop-server
 FROM debian:bookworm-slim
 
 RUN apt-get update \
@@ -9,10 +9,10 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --create-home --shell /usr/sbin/nologin pirate
 
-COPY build/server/pirate-game-server.x86_64 /opt/pirate/pirate-game-server
-RUN chmod +x /opt/pirate/pirate-game-server
+COPY build/server/sea-of-slop-server.x86_64 /opt/pirate/sea-of-slop-server
+RUN chmod +x /opt/pirate/sea-of-slop-server
 
 USER pirate
 EXPOSE 24565/udp
-ENTRYPOINT ["/opt/pirate/pirate-game-server", "--headless", "--", "--server"]
+ENTRYPOINT ["/opt/pirate/sea-of-slop-server", "--headless", "--", "--server"]
 CMD ["--port", "24565"]

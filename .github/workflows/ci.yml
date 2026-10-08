@@ -109,11 +109,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd build
-          zip -j "PirateGame-windows-${GITHUB_REF_NAME}.zip" windows/PirateGame.exe
-          cp mac/PirateGame-macos.zip "PirateGame-macos-${GITHUB_REF_NAME}.zip"
-          zip -j "pirate-game-server-linux-${GITHUB_REF_NAME}.zip" server/pirate-game-server.x86_64
+          zip -j "SeaOfSlop-windows-${GITHUB_REF_NAME}.zip" windows/SeaOfSlop.exe
+          cp mac/SeaOfSlop-macos.zip "SeaOfSlop-macos-${GITHUB_REF_NAME}.zip"
+          zip -j "sea-of-slop-server-linux-${GITHUB_REF_NAME}.zip" server/sea-of-slop-server.x86_64
           flags=""
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags="--prerelease"; fi
           gh release create "$GITHUB_REF_NAME" $flags --generate-notes \
-            "PirateGame-windows-${GITHUB_REF_NAME}.zip" "PirateGame-macos-${GITHUB_REF_NAME}.zip" \
-            "pirate-game-server-linux-${GITHUB_REF_NAME}.zip"
+            "SeaOfSlop-windows-${GITHUB_REF_NAME}.zip" "SeaOfSlop-macos-${GITHUB_REF_NAME}.zip" \
+            "sea-of-slop-server-linux-${GITHUB_REF_NAME}.zip"

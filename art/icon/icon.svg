@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Sea of Slop: a grinning skull in a tricorn, half sunk in a heaving green sea of slop. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3a6b"/>
+      <stop offset="0.55" stop-color="#e0704a"/>
+      <stop offset="1" stop-color="#f4c060"/>
+    </linearGradient>
+    <linearGradient id="slop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9be05a"/>
+      <stop offset="1" stop-color="#3f7a2a"/>
+    </linearGradient>
+    <clipPath id="tile"><rect x="40" y="40" width="944" height="944" rx="210"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#sky)"/>
+    <!-- the setting sun behind -->
+    <circle cx="512" cy="560" r="300" fill="#ffd96a" opacity="0.55"/>
+    <!-- the hat -->
+    <path d="M168 372 C 250 300, 330 180, 512 168 C 694 180, 774 300, 856 372 C 760 352, 690 380, 512 384 C 334 380, 264 352, 168 372 Z"
+          fill="#1e1a22" stroke="#120f16" stroke-width="22" stroke-linejoin="round"/>
+    <path d="M232 360 C 330 330, 420 342, 512 344 C 604 342, 694 330, 792 360" fill="none" stroke="#e0b04a" stroke-width="20" stroke-linecap="round"/>
+    <!-- a small skull and bones on the hat -->
+    <circle cx="512" cy="262" r="34" fill="#fff8ea" stroke="#120f16" stroke-width="8"/>
+    <path d="M466 312 L558 236 M466 236 L558 312" stroke="#fff8ea" stroke-width="14" stroke-linecap="round"/>
+    <!-- the skull -->
+    <path d="M300 430 C 300 330, 724 330, 724 430 L 724 560 C 724 610, 680 640, 640 650 L 640 720 L 384 720 L 384 650 C 344 640, 300 610, 300 560 Z"
+          fill="#fff8ea" stroke="#1b1a24" stroke-width="26" stroke-linejoin="round"/>
+    <ellipse cx="420" cy="500" rx="62" ry="70" fill="#1b1a24"/>
+    <ellipse cx="604" cy="500" rx="62" ry="70" fill="#1b1a24"/>
+    <!-- green fire in its eyes -->
+    <circle cx="428" cy="508" r="22" fill="#6fe36a"/>
+    <circle cx="612" cy="508" r="22" fill="#6fe36a"/>
+    <path d="M512 560 L 486 612 L 538 612 Z" fill="#1b1a24"/>
+    <!-- the grin -->
+    <path d="M400 662 L 400 700 M 448 668 L 448 712 M 496 670 L 496 716 M 544 670 L 544 716 M 592 668 L 592 712 M 624 662 L 624 700"
+          stroke="#1b1a24" stroke-width="14" stroke-linecap="round"/>
+    <!-- the slop: a heaving green sea with lumps, bubbles and a drip -->
+    <path d="M0 700 C 90 640, 170 700, 260 670 C 350 640, 420 720, 512 690 C 604 660, 680 730, 770 680 C 860 640, 940 700, 1024 660 L 1024 1024 L 0 1024 Z"
+          fill="url(#slop)" stroke="#1b1a24" stroke-width="24" stroke-linejoin="round"/>
+    <path d="M60 790 C 140 760, 210 800, 290 780 M 420 820 C 500 790, 580 830, 660 806 M 740 770 C 820 745, 890 780, 960 760"
+          fill="none" stroke="#c6f08a" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
+    <circle cx="210" cy="880" r="34" fill="#9be05a" stroke="#1b1a24" stroke-width="14"/>
+    <circle cx="286" cy="930" r="18" fill="#9be05a" stroke="#1b1a24" stroke-width="10"/>
+    <circle cx="800" cy="900" r="40" fill="#9be05a" stroke="#1b1a24" stroke-width="14"/>
+    <circle cx="872" cy="842" r="20" fill="#9be05a" stroke="#1b1a24" stroke-width="10"/>
+    <circle cx="560" cy="920" r="26" fill="#9be05a" stroke="#1b1a24" stroke-width="12"/>
+  </g>
+  <rect x="40" y="40" width="944" height="944" rx="210" fill="none" stroke="#1b1a24" stroke-width="28"/>
+</svg>
