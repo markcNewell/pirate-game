@@ -41,6 +41,17 @@ const CAPTAINS := [
 
 ## Act I on the board: the chance a treasure offer has Spanish diggers after it too.
 const DIGGER_CHANCE := 0.33
+## The war on the board (docs/specs/2026-10-08-m16-war-on-the-board.md): later twists, their
+## chances, and who leads the Spanish bounties.
+const CACHE_CHANCE := 0.33
+const WRECK_CHANCE := 0.25
+const OFFICER_CHANCE := 0.4
+const PRESSED_CHANCE := 0.33
+const GHOST_CHANCE := 0.25
+const RAID_CHANCE := 0.33
+const OFFICERS := ["Teniente Brasa", "Alférez Lobo", "Capitán Hierro", "Sargento Cruz"]
+const PRESSED := ["Captain Redwake", "One-Eyed Ann Morrow", "Captain Crane", "Long Tom Gallows"]
+const GHOST_CAPTAIN := "the ghost galleon"
 
 ## Cargo: time allowed, and what late or soaked crates pay (a fraction).
 const CARGO_BASE_TIME := 360.0
@@ -121,6 +132,50 @@ static func make_offer(company: int, lvl: int, islands: Array[int], rng: RandomN
 	return offer
 
 
+## How far the war has got for a crew, from what its pirates have done (lists of chapter ids):
+## 0 the prologue, 1 the prologue done, 2 Act I done, 3 Act II done, 4 Act III done.
+static func war_stage(done_lists: Array) -> int:
+	var stage := 0
+	for done: Array in done_lists:
+		for pair: Array in [[1, "p2"], [2, "a6"], [3, "b6"], [4, "c6"]]:
+			if done.has(pair[1]):
+				stage = maxi(stage, pair[0])
+	return stage
+
+
+## The war's twists on an offer, the later ones tried first.
+static func add_twists(offer: Dictionary, stage: int, rng: RandomNumberGenerator) -> void:
+	match int(offer.kind):
+		Kind.TREASURE:
+			if stage >= 4 and rng.randf() < WRECK_CHANCE:
+				offer.wreck = true
+				offer.title = "Wreck gold at the Black Reef's edge"
+			elif stage >= 2 and rng.randf() < CACHE_CHANCE:
+				offer.cache = true
+				offer.title = "A Spanish cache on %s" % Islands.LAYOUT[offer.islands[0]].name
+			elif stage >= 1 and rng.randf() < DIGGER_CHANCE:
+				offer.diggers = true
+		Kind.BOUNTY:
+			if stage >= 4 and rng.randf() < GHOST_CHANCE:
+				offer.ghost = true
+				offer.captain = GHOST_CAPTAIN
+				offer.title = "Bounty: a ghost galleon"
+			elif stage >= 3 and rng.randf() < PRESSED_CHANCE:
+				offer.pressed = true
+				offer.captain = PRESSED[rng.randi() % PRESSED.size()]
+				offer.title = "The pressed dead: %s" % offer.captain
+			elif stage >= 2 and rng.randf() < OFFICER_CHANCE:
+				offer.officer = true
+				offer.captain = OFFICERS[rng.randi() % OFFICERS.size()]
+				offer.title = "Bounty: %s" % offer.captain
+		Kind.CARGO:
+			if stage >= 1:
+				offer.goods = rng.randi() % (CARGO_GOODS + 1)  # salt joins the goods
+				offer.title = "%s for %s" % [GOODS[offer.goods].capitalize(), Islands.LAYOUT[offer.islands[0]].name]
+			if stage >= 3 and rng.randf() < RAID_CHANCE:
+				offer.raided = true
+
+
 ## One line describing an offer on the board.
 static func describe(offer: Dictionary) -> String:
 	var where: Array[String] = []
@@ -128,13 +183,22 @@ static func describe(offer: Dictionary) -> String:
 		where.append(Islands.LAYOUT[island].name)
 	match int(offer.kind):
 		Kind.TREASURE:
+			if offer.get("wreck", false):
+				return "Fish %d chest%s of wreck gold out of the sea at the Black Reef's edge" % [offer.size, "" if offer.size == 1 else "s"]
 			var race := " (Spanish diggers are after it too)" if offer.get("diggers", false) else ""
+			if offer.get("cache", false):
+				race = " (two Spanish dead stand guard over each)"
 			return "Dig up %d chest%s on %s%s" % [offer.size, "" if offer.size == 1 else "s", ", ".join(where), race]
 		Kind.BOUNTY:
-			return "%s and %d skeletons on %s; bring back his skull" % [offer.captain, offer.size, where[0]]
+			if offer.get("ghost", false):
+				return "A ghost galleon will rise near you: sink her and fish her captain's skull from the sea"
+			var escort := "Spanish dead" if offer.get("officer", false) or offer.get("pressed", false) else "skeletons"
+			var raised := ", a great pirate raised to lead the Spanish," if offer.get("pressed", false) else ""
+			return "%s%s and %d %s on %s; bring back the skull" % [offer.captain, raised, offer.size, escort, where[0]]
 		_:
-			return "Carry %d crate%s of %s from Port Merrow to %s in %d minutes" % [
-				offer.size, "" if offer.size == 1 else "s", GOODS[offer.goods], where[0], int(cargo_time(offer.size) / 60.0)]
+			var raid := " (skeleton ships are raiding the route)" if offer.get("raided", false) else ""
+			return "Carry %d crate%s of %s from Port Merrow to %s in %d minutes%s" % [
+				offer.size, "" if offer.size == 1 else "s", GOODS[offer.goods], where[0], int(cargo_time(offer.size) / 60.0), raid]
 
 
 ## Offers over the network (the board): arrays of plain values.

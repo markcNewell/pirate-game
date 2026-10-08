@@ -1105,12 +1105,18 @@ class MissionCard:
 					out.append(["%d:%02d %s" % [int(left) / 60, int(left) % 60, until[0]] if left > 0.0 else until[1], false])
 			Missions.Kind.TREASURE:
 				for t: Dictionary in m.targets:
-					out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
+					if str(m.captain) == "wreck":
+						out.append(["Fish a chest of wreck gold out at the Reef's edge", t.done])
+					else:
+						out.append(["Dig at the X on %s" % Islands.LAYOUT[t.island].name, t.done])
 				out.append(["Sell to Silas Penny (%d of %d)" % [m.handled, m.total], m.handled >= m.total])
 			Missions.Kind.BOUNTY:
 				var t: Dictionary = m.targets[0]
-				out.append(["Beat %s on %s" % [m.captain, Islands.LAYOUT[t.island].name], t.done])
-				out.append(["Bring his skull to Mother Wren", m.handled >= m.total])
+				if str(m.captain) == Missions.GHOST_CAPTAIN:
+					out.append(["Sink the ghost galleon and fish up her captain's skull", t.done])
+				else:
+					out.append(["Beat %s on %s" % [m.captain, Islands.LAYOUT[t.island].name], t.done])
+				out.append(["Bring the skull to Mother Wren", m.handled >= m.total])
 			Missions.Kind.CARGO:
 				var t: Dictionary = m.targets[0]
 				out.append(["Collect the cargo on Port Merrow's pier", false])

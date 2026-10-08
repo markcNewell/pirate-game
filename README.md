@@ -3,7 +3,7 @@
 A first-person co-op pirate game in a toon style, in the spirit of Sea of Thieves. Friends crew
 one ship together on a shared sea hosted by a dedicated server. Built with Godot 4.7 (GDScript).
 
-**Status: fifteen milestones built, the whole story playable.** Up to four crews of four players, each
+**Status: sixteen milestones built, the whole story playable.** Up to four crews of four players, each
 with its own galleon: sailing, swimming, cannons, skeleton ships, holes, patching, bailing and
 sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. Three trading
 companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
@@ -14,7 +14,8 @@ side tales, and world events any crew can join (green fires, the Raven Patrol, a
 a raid on Merrow, a ghost galleon in the storm). Gold buys looks and arms at Big Martha's: a
 rapier, a boarding axe, a blunderbuss or a long musket, each a fair swap for the cutlass or
 pistol rather than an upgrade. Deeds (J) are long goals that earn titles: douse fifty green
-fires, sink twenty-five Spanish galleons. Every pirate earns XP and levels (which never make anyone
+fires, sink twenty-five Spanish galleons. And the mission board changes as the war goes on:
+Spanish caches, officers and the pressed dead, raided cargo runs, wreck gold and ghost ships. Every pirate earns XP and levels (which never make anyone
 stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
 24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
 waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
@@ -22,7 +23,7 @@ waves, gusts and lightning that can hole your ship, and sound throughout. Specs:
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
 [Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
-[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md).
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md).
 
 ![The title screen](docs/screenshots/title.png)
 

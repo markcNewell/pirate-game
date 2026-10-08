@@ -533,6 +533,7 @@ func _handle_sinking() -> void:
 			_evacuate(id)
 			story.on_ship_sunk(id, Vector3(s.x, 0.0, s.z))
 			world.on_ship_sunk(id, Vector3(s.x, 0.0, s.z))
+			_board_ghost_sunk(id, Vector3(s.x, 0.0, s.z))
 			if _last_hit_by.has(id) and crews.has(_last_hit_by[id]):
 				var xp := Progress.XP_PLAYER_SHIP if crews.has(id) else (Progress.XP_GALLEON if s.flag == 1 else Progress.XP_SKELETON_SHIP)
 				_award_crew(_last_hit_by[id], xp, "sinking a ship")
@@ -1214,14 +1215,10 @@ func _show_board(id: int, r: Dictionary) -> void:
 func _make_offers(crew: int) -> Array[Dictionary]:
 	# Test hook: every mission goes to options_island first.
 	var offers := Missions.make_offers(_levels(crew), Islands.mission_islands(), _rng, options_island)
-	# Once the crew has seen the Spanish digging (the prologue done), they turn up on treasure
-	# voyages now and then.
-	var done := false
-	for list: Array in story.done_lists(crew):
-		done = done or list.has("p2")
+	# The further the crew is in the story, the more the war turns up on the board.
+	var stage := Missions.war_stage(story.done_lists(crew))
 	for offer: Dictionary in offers:
-		if offer.kind == Missions.Kind.TREASURE and done and _rng.randf() < Missions.DIGGER_CHANCE:
-			offer.diggers = true
+		Missions.add_twists(offer, stage, _rng)
 	return offers
 
 
@@ -1250,19 +1247,50 @@ func _start_mission(crew: int, offer: Dictionary) -> void:
 	}
 	match int(offer.kind):
 		Missions.Kind.TREASURE:
-			for island: int in offer.islands:
-				var spot := Islands.dig_spot(island, _rng)
-				var gold := int(_rng.randi_range(Missions.CHEST_GOLD.x, Missions.CHEST_GOLD.y) * offer.pay)
-				var chest := _new_item(Loot.Kind.CHEST, Loot.State.BURIED, Vector3(spot.x, Islands.ground_at(island, spot.x, spot.y), spot.y), gold)
-				m.items.append(chest.id)
-			m.total = m.items.size()
-			_tell_crew(crew, "A treasure map! Hold M to read it.")
+			if offer.get("wreck", false):
+				# Wreck gold: the chests float at the Black Reef's edge, for fishing out.
+				var islands: Array = []
+				for n in int(offer.size):
+					var gold := int(_rng.randi_range(Missions.CHEST_GOLD.x, Missions.CHEST_GOLD.y) * offer.pay)
+					var at := StoryRun.REEF_EDGE + Vector3(_rng.randf_range(-35, 35), 0, _rng.randf_range(-35, 35))
+					var chest := _new_item(Loot.Kind.CHEST, Loot.State.GROUND, at, gold)
+					_set_floating(chest, at)
+					chest.born = time + 1e6  # it stays afloat until you come for it
+					m.items.append(chest.id)
+					islands.append(7)
+				m.islands = islands
+				m.name = "wreck"
+				m.total = m.items.size()
+				_tell_crew(crew, "Wreck gold floats at the Black Reef's edge, far to the south-east.")
+			else:
+				for island: int in offer.islands:
+					var spot := Islands.dig_spot(island, _rng)
+					var gold := int(_rng.randi_range(Missions.CHEST_GOLD.x, Missions.CHEST_GOLD.y) * offer.pay)
+					var chest := _new_item(Loot.Kind.CHEST, Loot.State.BURIED, Vector3(spot.x, Islands.ground_at(island, spot.x, spot.y), spot.y), gold)
+					m.items.append(chest.id)
+					if offer.get("cache", false):
+						# A Spanish cache: two of the dead stand over the X.
+						for side: float in [-1.0, 1.0]:
+							var at := Vector3(spot.x + side * 1.5, 0, spot.y + 0.8)
+							at.y = Islands.ground_at(island, at.x, at.z)
+							_new_skeleton(-1, at).spanish = true
+				m.total = m.items.size()
+				_tell_crew(crew, "A treasure map! Hold M to read it.")
+		Missions.Kind.BOUNTY when offer.get("ghost", false):
+			# A ghost ship: she rises near the crew; her captain's skull floats up when she sinks.
+			m.name = offer.captain
+			m.total = 1
+			m.skull_gold = int(_rng.randi_range(Missions.SKULL_GOLD.x, Missions.SKULL_GOLD.y) * offer.pay)
+			var own: ShipState = ships.get(crew, crew_ship())
+			m.ghost = story.act4.spawn_ghost(crew, own, 120.0)
+			_tell_crew(crew, "Green light under the sea... a ghost galleon is rising! Sink her.")
 		Missions.Kind.BOUNTY:
 			var island: int = offer.islands[0]
 			m.name = offer.captain
 			m.total = 1
 			m.skull_gold = int(_rng.randi_range(Missions.SKULL_GOLD.x, Missions.SKULL_GOLD.y) * offer.pay)
 			var spec: Dictionary = Islands.LAYOUT[island]
+			var spanish: bool = offer.get("officer", false) or offer.get("pressed", false)
 			var camp: Dictionary = camps.get(island, {"alive": 0, "wake": 0.0})
 			camps[island] = camp
 			for n in int(offer.size) + 1:
@@ -1273,6 +1301,8 @@ func _start_mission(crew: int, offer: Dictionary) -> void:
 				if n == 0:
 					sk.make_captain()
 					m.captain = sk.id
+				else:
+					sk.spanish = spanish
 				camp.alive += 1
 			_tell_crew(crew, "%s waits on %s. Bring his skull to Mother Wren!" % [offer.captain, spec.name])
 		Missions.Kind.CARGO:
@@ -1285,6 +1315,10 @@ func _start_mission(crew: int, offer: Dictionary) -> void:
 			m.total = m.items.size()
 			m.deadline = time + Missions.cargo_time(m.total)
 			_tell_crew(crew, "Cargo waits on Port Merrow's pier for %s." % Islands.LAYOUT[offer.islands[0]].name)
+			if offer.get("raided", false):
+				# The war on the route: a skeleton ship comes looking for the cargo.
+				spawn_galleon(crew, 260.0, 0)
+				_tell_crew(crew, "Lookouts report a skeleton ship on the route. Keep your guns ready.")
 	crews[crew].mission = m
 	if m.kind == Missions.Kind.TREASURE and offer.get("diggers", false):
 		story.add_board_diggers(crew, m)
@@ -1785,6 +1819,22 @@ func spawn_galleon(crew: int, distance: float, flag := 1, at := Vector3.INF) -> 
 	print("[server] a Spanish galleon %d sails at (%.0f, %.0f)" % [id, spot.x, spot.y])
 	Net.send_event("alarm", [])
 	return id
+
+
+## A board bounty's ghost galleon went down: her captain's skull floats up, the mission's prize.
+func _board_ghost_sunk(ship_id: int, at: Vector3) -> void:
+	for c in crews:
+		var m: Dictionary = crews[c].mission
+		if m.is_empty() or m.kind != Missions.Kind.BOUNTY or int(m.get("ghost", -1)) != ship_id:
+			continue
+		var skull := _new_item(Loot.Kind.SKULL, Loot.State.GROUND, at, int(m.skull_gold))
+		_set_floating(skull, at)
+		skull.born = time + 1e6
+		m.items.append(skull.id)
+		m.ghost = -1
+		stats.skulls += 1
+		print("[server] crew %d sank the ghost galleon; her captain's skull floats up" % c)
+		_tell_crew(c, "The ghost galleon goes down. Her captain's skull bobs up, glowing: fish it out!")
 
 
 ## Does any pirate of this crew online have saltshot (story chapter c3)?
