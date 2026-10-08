@@ -55,6 +55,8 @@ func join(address: String, port: int, player_name: String, bot_role := "", crew 
 
 
 func leave(reason := "") -> void:
+	if reason != "":
+		print("[net] session ended: %s" % reason)
 	_teardown()
 	session_ended.emit(reason)
 
@@ -83,6 +85,7 @@ func _connect_signals() -> void:
 		return
 	_signals_connected = true
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.peer_connected.connect(_forgiving)
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
@@ -96,10 +99,28 @@ func _start_game(role: Game.Role, my_id: int, bot := "") -> void:
 
 
 func _on_connected() -> void:
+	_forgiving(1)
 	_hello.rpc_id(1, _player_name, GameConfig.VERSION, _crew, _token)
 
 
+## ENet gives up on a peer after a few seconds without a word; a busy machine (or a busy test
+## server) can stall that long, so allow up to a minute before calling it gone.
+const PEER_TIMEOUT_MIN := 20000
+const PEER_TIMEOUT_MAX := 60000
+
+
+func _forgiving(id: int) -> void:
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	# A client only holds a link to the server; the other players reach it through the server.
+	if enet == null or (id != 1 and not multiplayer.is_server()):
+		return
+	var peer := enet.get_peer(id)
+	if peer:
+		peer.set_timeout(64, PEER_TIMEOUT_MIN, PEER_TIMEOUT_MAX)
+
+
 func _on_connection_failed() -> void:
+	print("[net] could not connect")
 	_teardown()
 	session_failed.emit("Could not reach the server. Check the address and that it is running.")
 
