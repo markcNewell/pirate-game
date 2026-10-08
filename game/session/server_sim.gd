@@ -1740,7 +1740,7 @@ func _spawn_passive_skeleton_ship() -> void:
 func _wake_camps() -> void:
 	for i in Islands.LAYOUT.size():
 		var spec: Dictionary = Islands.LAYOUT[i]
-		if spec.outpost or spec.get("fort", false):
+		if spec.outpost or spec.get("fort", false) or spec.get("story_only", false):
 			continue
 		var camp: Dictionary = camps.get(i, {"alive": 0, "wake": 0.0})
 		camps[i] = camp

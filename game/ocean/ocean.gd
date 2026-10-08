@@ -36,6 +36,8 @@ func set_storm(centre: Vector2, on: bool) -> void:
 	_material.set_shader_parameter("storm_radius", Storm.RADIUS)
 	_material.set_shader_parameter("storm_gain", Storm.WAVE_GAIN)
 	_material.set_shader_parameter("storm_on", 1.0 if on else 0.0)
+	_material.set_shader_parameter("reef_centre", Reef.CENTRE)
+	_material.set_shader_parameter("reef_radius", Reef.STORM_RADIUS)
 
 
 ## The glitter path toward a low light: its direction, colour and strength (0 for none).

@@ -13,7 +13,7 @@ func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 404
 	for spec in Islands.LAYOUT:
-		if spec.get("outpost", false):
+		if spec.get("outpost", false) or spec.get("story_only", false):
 			continue
 		for i in PER_ISLAND:
 			var crab := Toon.instance(mesh)

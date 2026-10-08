@@ -40,7 +40,7 @@ static func amount(pos: Vector2, t: float) -> float:
 	if not enabled:
 		return 0.0
 	var d := pos.distance_to(centre(t)) / RADIUS
-	return 1.0 - smoothstep(0.7, EDGE, d)
+	return maxf(1.0 - smoothstep(0.7, EDGE, d), Reef.amount(pos))
 
 
 ## How much higher than usual the waves are at a point: 1 outside the storm.
@@ -59,7 +59,11 @@ static func wind(pos: Vector2, t: float, base: Vector2) -> Vector2:
 	var s := amount(pos, t)
 	if s <= 0.0:
 		return base
-	var from_centre := pos - centre(t)
+	# Round whichever storm is the stronger here: the roaming one or the Black Reef's.
+	var middle := centre(t)
+	if Reef.amount(pos) > 1.0 - smoothstep(0.7, EDGE, pos.distance_to(middle) / RADIUS):
+		middle = Reef.CENTRE
+	var from_centre := pos - middle
 	var swirl := Vector2(from_centre.y, -from_centre.x).normalized() if from_centre.length() > 1.0 else base
 	return base.lerp(swirl, SWIRL * s).normalized() * lerpf(1.0, gust(t), s)
 

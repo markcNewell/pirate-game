@@ -16,6 +16,8 @@ var _rainbow: MeshInstance3D
 var _rainbow_material: StandardMaterial3D
 ## Set by World from the time of day: rainbows only show in good daylight.
 var daylight := 1.0
+## Where this storm stands for good (the Black Reef's), or INF to follow the roaming one.
+var fixed := Vector2.INF
 
 
 func _ready() -> void:
@@ -74,7 +76,7 @@ func _ready() -> void:
 ## `inside` is how deep in the storm the camera is (Storm.amount); returns how bright any
 ## lightning is right now as seen from the camera (0 when none).
 func follow(camera_pos: Vector3, sea_time: float, inside: float) -> float:
-	var c := Storm.centre(sea_time)
+	var c := Storm.centre(sea_time) if fixed == Vector2.INF else fixed
 	position = Vector3(c.x, 0.0, c.y)
 	# From inside, the curtain would be a wall right round you; the falling rain takes over.
 	_curtain_material.set_shader_parameter("strength", 1.0 - inside * 0.85)

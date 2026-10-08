@@ -15,7 +15,13 @@ const PROP_FILES := {
 	"tuft_0": "tufts", "tuft_1": "tufts", "camp": "camp", "wreck": "wreck", "mast_log": "wreck",
 	"starfish_0": "beach", "starfish_1": "beach", "shell_0": "beach", "shell_1": "beach",
 	"pebbles_0": "beach", "driftwood_0": "beach",
+	"calavera": "calavera", "tooth_stone": "calavera",
+	"deadtree_0": "ashtrees", "deadtree_1": "ashtrees", "deadtree_2": "ashtrees",
 }
+## Isla Ceniza's ground: ash where other islands have sand, scorched scrub for grass.
+const ASH := {"wet": Color("5e5a56"), "sand": Color("8a8580"), "dry": Color("a29c94"), "grass": Color("5a5650"), "dark": Color("46423e"), "light": Color("6e6a62")}
+## The Reef's sea stacks: black rock, a little weed.
+const STACK := {"wet": Color("2e3236"), "sand": Color("4a4e54"), "dry": Color("565a60"), "grass": Color("40444a"), "dark": Color("34383e"), "light": Color("4e6a4e")}
 ## What washes up on the beaches, picked in turn.
 const BEACH_BITS := ["shell_0", "pebbles_0", "starfish_0", "shell_1", "pebbles_0", "starfish_1", "shell_0", "driftwood_0"]
 ## On the outpost, keep scenery off the beach from the mystic round past the pier to the hut.
@@ -46,6 +52,11 @@ static func ground(spec: Dictionary, x: float, z: float) -> float:
 	if spec.hill:
 		var d := Vector2(x + 0.25 * radius, z - 0.3 * radius).length() / (0.4 * radius)
 		y = maxf(y, 0.25 * radius * (1.0 - d * d) - 1.0)
+	if spec.get("stack", false):
+		# A sea stack's flat top, a few metres up, with one slope down to its little beach.
+		var rr := Vector2(x, z).length()
+		var top := 2.4 if rr < radius - 3.5 else lerpf(2.4, beach, clampf((rr - (radius - 3.5)) / 2.0, 0.0, 1.0))
+		return maxf(beach, top)
 	if spec.get("fort", false):
 		# A flat top for the fort, falling away in a steep rocky slope to the beach.
 		var rr := Vector2(x, z).length()
@@ -70,11 +81,15 @@ static func build(spec: Dictionary) -> Dictionary:
 	_ground(ground_b, spec)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = spec.seed
-	_palms(decor, solid, spec, rng)
+	if not spec.get("stack", false):
+		_palms(decor, solid, spec, rng)
 	_rocks(decor, solid, spec, rng)
-	_bushes(decor, spec, rng)
+	if not spec.get("ash", false) and not spec.get("stack", false):
+		_bushes(decor, spec, rng)
+	if spec.get("skull", false):
+		_skull_rock(solid)
 	var fire: Variant = null
-	if not spec.get("outpost", false) and not spec.get("fort", false):
+	if not spec.get("outpost", false) and not spec.get("fort", false) and not spec.get("story_only", false):
 		fire = _camp(decor, solid, spec, rng)
 		if spec.radius > 24.0:
 			_wreck(decor, solid, spec, rng)
@@ -123,7 +138,15 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 	noise.seed = int(spec.seed)
 	noise.frequency = 0.045
 	noise.fractal_octaves = 2
+	var grim: Dictionary = ASH if spec.get("ash", false) else (STACK if spec.get("stack", false) else {})
 	var color_at := func(p: Vector3) -> Color:
+		if not grim.is_empty():
+			if p.y < 0.25:
+				return grim.wet
+			if is_grass(spec, p.x, p.z):
+				var burnt := noise.get_noise_2d(p.x, p.z)
+				return grim.dark if burnt > 0.2 else (grim.light if burnt < -0.3 else grim.grass)
+			return grim.dry if p.y > SAND_TOP - 0.15 else grim.sand
 		if p.y < 0.25:
 			return Toon.color("wet_sand")
 		if is_grass(spec, p.x, p.z):
@@ -154,6 +177,10 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 static func story_site(spec: Dictionary, x: float, z: float) -> bool:
 	if spec.get("fort", false):
 		return Vector2(x, z).length() < Fort.WALL_R + 3.0
+	if spec.get("skull", false):
+		# The skull rock and the beach before it, out to the tooth-stones.
+		var f := Calavera.frame().affine_inverse() * Vector3(x, 0, z)
+		return absf(f.x) < 13.0 and f.z > -19.0 and f.z < 11.0
 	var island := Islands.LAYOUT.find(spec)
 	if island < 0:
 		return false
@@ -196,7 +223,8 @@ static func _palms(_decor: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rn
 		rng.randf_range(1.0, 2.6)
 		var kind := 0 if height < 7.2 else (1 if height < 8.7 else 2)
 		var grow := height / PALM_HEIGHTS[kind]
-		_prop("palm_%d" % kind, Transform3D(Basis(Vector3.UP, turn).scaled(Vector3(grow, grow, grow)), Vector3(x, y - 0.2, z)))
+		var tree := "deadtree_%d" % kind if spec.get("ash", false) else "palm_%d" % kind
+		_prop(tree, Transform3D(Basis(Vector3.UP, turn).scaled(Vector3(grow, grow, grow)), Vector3(x, y - 0.2, z)))
 		solid.box(Vector3(x, y + 1.0, z), Vector3(0.35, 1.2, 0.35), Color.BLACK)
 		placed += 1
 
@@ -262,6 +290,20 @@ static func _arch(_b: MeshBuilder, solid: MeshBuilder, spec: Dictionary, rng: Ra
 		var t := PI * k / 8.0
 		var p := top + along * (-cos(t) * span) + Vector3(0, sin(t) * 2.2, 0)
 		_rock_prop(p, rng.randf_range(1.1, 1.4), Basis(Vector3.UP, rng.randf() * TAU), k)
+
+
+## Isla Calavera's skull rock and its tooth-stones (Calavera), with the rock's collision.
+static func _skull_rock(solid: MeshBuilder) -> void:
+	var f := Calavera.frame()
+	_prop("calavera", f)
+	var b := Calavera.box()
+	solid.box(b[0], b[1], Color.BLACK, Basis(Vector3.UP, -float(b[2])))
+	var spec: Dictionary = Islands.LAYOUT[Calavera.index()]
+	for i in 6:
+		var p := f * Calavera.tooth_local(i)
+		p.y = ground(spec, p.x, p.z) - 0.15
+		_prop("tooth_stone", Transform3D(f.basis * Basis(Vector3.UP, 0.2 * (i - 2.5)), p))
+		solid.box(p + Vector3(0, 1.2, 0), Vector3(0.5, 1.2, 0.4), Color.BLACK, f.basis)
 
 
 ## Tall rocks standing in the shallows, each topped with a tuft of grass.

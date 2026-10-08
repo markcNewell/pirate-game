@@ -19,6 +19,9 @@ var _lamps := -1.0
 var _lighthouse: Lighthouse
 var _lamp_glass: Lantern.LitPanes
 var _storm: StormView
+var _reef_storm: StormView
+## Fog thickens near the prison hulk off Isla Ceniza (Act IV).
+var _mist := 0.0
 var _dolphins: Dolphins
 var _wind_lines: WindLines
 var _whale: Whale
@@ -50,6 +53,10 @@ func _ready() -> void:
 	add_child(Crabs.new())
 	_storm = StormView.new()
 	add_child(_storm)
+	_reef_storm = StormView.new()
+	_reef_storm.fixed = Reef.CENTRE
+	add_child(_reef_storm)
+	_build_reef()
 	_dolphins = Dolphins.new()
 	add_child(_dolphins)
 	_wind_lines = WindLines.new()
@@ -73,6 +80,8 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 		npc.watch(camera_pos, get_process_delta_time())
 	_inside = Storm.amount(_camera, sea_time) if storm_enabled else 0.0
 	_storm.visible = storm_enabled and Storm.enabled
+	_reef_storm.visible = _storm.visible
+	_mist = clampf(1.0 - (_camera.distance_to(StoryRun.HULK_FOG) - 60.0) / 140.0, 0.0, 1.0)
 	# The light changes slowly, so a few updates a second is plenty.
 	_daylight_wait -= get_process_delta_time()
 	if _daylight_wait <= 0.0:
@@ -80,6 +89,8 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary, time_of_day
 		_apply_daylight(time_of_day if time_of_day >= 0.0 else Daylight.time_of_day(sea_time))
 	# Lightning lights up the whole scene for a moment, more the nearer it strikes.
 	var flash := _storm.follow(camera_pos, sea_time, _inside) if _storm.visible else 0.0
+	if _reef_storm.visible:
+		flash = maxf(flash, _reef_storm.follow(camera_pos, sea_time, Reef.amount(_camera)))
 	flash = maxf(flash, _strike_flash)
 	_strike_flash = maxf(0.0, _strike_flash - get_process_delta_time() * 4.0)
 	_env.ambient_light_energy = _ambient + flash * 1.4
@@ -102,8 +113,8 @@ func _apply_daylight(t: float) -> void:
 	_sky.set_shader_parameter("overcast", s)
 	_storm.daylight = clampf((look.energy - 0.6) / 0.25, 0.0, 1.0)
 	_gloom = maxf(s, look.stars)
-	_env.fog_depth_begin = lerpf(160.0, 20.0, s)
-	_env.fog_depth_end = lerpf(950.0, 260.0, s)
+	_env.fog_depth_begin = lerpf(lerpf(160.0, 20.0, s), 4.0, _mist)
+	_env.fog_depth_end = lerpf(lerpf(950.0, 260.0, s), 70.0, _mist)
 	_sky.set_shader_parameter("top_color", look.top)
 	_sky.set_shader_parameter("horizon_color", look.horizon)
 	_sky.set_shader_parameter("glow_color", look.light.lerp(Color("ff5e3a"), 0.35))
@@ -113,7 +124,7 @@ func _apply_daylight(t: float) -> void:
 	_sky.set_shader_parameter("stars", look.stars)
 	_env.ambient_light_color = look.ambient
 	_ambient = look.ambient_energy
-	_env.fog_light_color = look.fog
+	_env.fog_light_color = (look.fog as Color).lerp(Color("8a9a8e") * (look.fog as Color).v, _mist * 0.8)
 	var dir: Vector3 = look.light_dir
 	_light.look_at_from_position(Vector3.ZERO, -dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.FORWARD)
 	_light.light_color = look.light
@@ -307,7 +318,15 @@ func _island(spec: Dictionary) -> void:
 		var fort := Toon.instance(Models.mesh("fort"))
 		fort.position = Vector3(0, Fort.PLATEAU_Y, 0)
 		root.add_child(fort)
-	if not spec.outpost:
+	if spec.get("ash", false) and spec.hill:
+		# Isla Ceniza's hill smokes day and night.
+		var top := Vector3(-0.25 * spec.radius, 0.0, 0.3 * spec.radius)
+		top.y = IslandMesh.ground(spec, top.x, top.z)
+		var smoke := _chimney_smoke(top)
+		smoke.scale = Vector3.ONE * 4.0
+		smoke.material_override = Toon.clear_material(Color(0.42, 0.4, 0.4, 0.75))
+		root.add_child(smoke)
+	if not spec.outpost and not spec.get("story_only", false):
 		var flies := Fireflies.new(spec.radius)
 		flies.position = Vector3(0, IslandMesh.ground(spec, 0.0, 0.0) + 1.6, 0)
 		root.add_child(flies)
@@ -325,6 +344,23 @@ func _island(spec: Dictionary) -> void:
 	body.add_child(holder)
 	root.add_child(body)
 	add_child(root)
+
+
+## The Black Reef: its rocks breaking the surface and the masts of the drowned fleet.
+func _build_reef() -> void:
+	var root := Node3D.new()
+	add_child(root)
+	for i in Reef.ROCKS.size():
+		var p := Reef.rock_at(i)
+		var size := float(Reef.ROCKS[i][2])
+		var rock := Toon.instance(Models.part("reef", "reef_rock_%d" % (i % 2)))
+		rock.transform = Transform3D(Basis(Vector3.UP, i * 1.7).scaled(Vector3.ONE * size * 2.2), Vector3(p.x, -0.6, p.y))
+		root.add_child(rock)
+	for i in Reef.MASTS.size():
+		var p := Reef.mast_at(i)
+		var mast := Toon.instance(Models.part("reef", "wreck_mast"))
+		mast.transform = Transform3D(Basis(Vector3.UP, float(Reef.MASTS[i][2])), Vector3(p.x, 0.0, p.y))
+		root.add_child(mast)
 
 
 ## The island's palms, rocks, bushes and the rest: one batch (MultiMesh) per model, so a

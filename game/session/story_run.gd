@@ -51,6 +51,8 @@ const USE_REACH := 3.0
 ## Act III: the Black Reef's edge (where the brine floats), the battery, the talking skull, the
 ## siege's waves and La Viuda's aim.
 const REEF_EDGE := Vector3(640.0, 0.0, 560.0)
+## Act IV: where the prison hulk lies at anchor in the fog off Isla Ceniza's west shore.
+const HULK_FOG := Vector2(330.0, 760.0)
 const BATTERY_RANGE := 220.0
 const BATTERY_RELOAD := 6.0
 const BATTERY_MANNED := 12.0
