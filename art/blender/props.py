@@ -751,6 +751,74 @@ def planks():
     return kit.join("planks", parts)
 
 
+def oil_jar():
+    """A stone jar of lamp oil (0.5 m), corked and tied, with a rope handle."""
+    jar = kit.lathe("jar", [(0.0, 0.0), (0.14, 0.0), (0.2, 0.15), (0.2, 0.32), (0.1, 0.44), (0.07, 0.48), (0.0, 0.48)], 14, "b89a70")
+    kit.paint_where(jar, "8a6a48", lambda x, y, z: 0.2 < y < 0.26)
+    cork = kit.lathe("cork", [(0.0, 0.47), (0.065, 0.47), (0.06, 0.53), (0.0, 0.53)], 8, "c8a070")
+    handle = kit.tube("handle", [(-0.12, 0.4, 0), (-0.1, 0.56, 0), (0.1, 0.56, 0), (0.12, 0.4, 0)], 0.012, 4, "c8b080", caps=False)
+    drip = kit.noink(kit.ellipsoid("drip", (0.17, 0.3, -0.08), (0.03, 0.06, 0.02), "3a2a14", rings=3, sectors=6), 0.0)
+    return kit.join("oil_jar", [jar, cork, handle, drip])
+
+
+def cannon_carriage():
+    """A cannon on its wooden carriage (1.6 m), the barrel along -Z: hauled to Merrow's battery."""
+    parts = []
+    for side in (-1, 1):
+        parts.append(kit.prism("cheek", [(-0.55, 0.0), (0.55, 0.0), (0.55, 0.26), (0.2, 0.36), (-0.55, 0.3)], 0.08, "7a5a38", centre=(side * 0.26, 0.12, 0), plane="zy", bevel=0.01))
+    parts.append(kit.box("bed", (0, 0.16, 0), (0.5, 0.08, 1.2), "6a4a2c", bevel=0.01))
+    for z in (-0.5, 0.45):
+        for side in (-1, 1):
+            parts.append(kit.lathe("wheel", [(0.0, -0.05), (0.17, -0.05), (0.17, 0.05), (0.0, 0.05)], 12, "5a3e24", centre=(side * 0.34, 0.17, z), axis="x"))
+    barrel = kit.lathe("barrel", [(0.0, -1.0), (0.1, -1.0), (0.11, -0.95), (0.09, -0.85), (0.11, 0.2), (0.15, 0.32), (0.13, 0.42), (0.0, 0.45)], 14, "2e2e36", centre=(0, 0.56, 0), axis="z")
+    kit.paint_where(barrel, "4a4a52", lambda x, y, z: z > 0.25)
+    parts.append(barrel)
+    return kit.join("cannon_carriage", parts)
+
+
+def bronze_piece():
+    """A broken piece of a drowned bell: green bronze, crusted with weed, curved like a shell."""
+    import bmesh
+    piece = kit.lathe("bronze", [(0.12, 0.55), (0.17, 0.42), (0.2, 0.22), (0.24, 0.08), (0.3, 0.0)], 16, "4a8a6a", caps=False)
+    bm = bmesh.new()
+    bm.from_mesh(piece.data)
+    # Keep one jagged slice of the bell's side.
+    bm.verts.ensure_lookup_table()
+    drop = [v for v in bm.verts if abs(math.atan2(kit.G(v.co)[0], kit.G(v.co)[2])) > 0.75 + 0.1 * math.sin(kit.G(v.co)[1] * 30.0)]
+    bmesh.ops.delete(bm, geom=drop, context="VERTS")
+    bm.to_mesh(piece.data)
+    bm.free()
+    for v in piece.data.vertices:
+        x, y, z = kit.G(v.co)
+        v.co = kit.V(x, y, z - 0.2)
+    sol = piece.modifiers.new("solid", "SOLIDIFY")
+    sol.thickness = 0.03
+    kit.apply_all(piece)
+    kit.paint_where(piece, "2e6a4a", lambda x, y, z: y < 0.1)
+    weed = kit.noink(kit.tube("weed", [(0.05, 0.3, 0.02), (0.08, 0.15, 0.06), (0.06, 0.02, 0.1)], 0.012, 4, "3a6a3a"), 0.2)
+    return kit.join("bronze_piece", [piece, weed])
+
+
+def brine_barrel():
+    """A barrel of Black Reef brine, white salt crusted round its hoops and lid."""
+    body = barrel("brine_body", height=0.8, r_end=0.28, r_mid=0.34, hoops=(0.08, 0.72), seed=12)
+    parts = [body]
+    for h in (0.08, 0.72):
+        parts.append(kit.noink(kit.lathe("crust", [(0.3, h - 0.03), (0.33, h + 0.03)], 14, "f2efe6", caps=False), 0.3))
+    parts.append(kit.noink(kit.ellipsoid("lidsalt", (0.05, 0.81, 0.02), (0.18, 0.025, 0.15), "f2efe6", rings=4, sectors=8), 0.3))
+    return kit.join("brine_barrel", parts)
+
+
+def barricade():
+    """A barricade (2 m long along X): sharpened stakes crossed through a log."""
+    parts = [kit.tube("log", [(-1.0, 0.45, 0), (1.0, 0.45, 0)], 0.1, 8, "7a5a38")]
+    for k in range(6):
+        x = -0.85 + 0.34 * k
+        for sz in (1, -1):
+            parts.append(kit.tube("stake", [(x, 0.0, -sz * 0.45), (x, 0.45, 0.0), (x, 0.95, sz * 0.5)], [0.04, 0.045, 0.005], 6, "a07a4a"))
+    return kit.join("barricade", parts)
+
+
 def tent_shape(half_w, h, length, color):
     """A ridge tent along Z: two sloping canvas sides, closed ends with a dark door at the front
     (-Z), a ridge pole sticking out at both ends."""
@@ -778,7 +846,7 @@ def bottle():
 def main(names):
     builders = {
         "story": lambda: [grave(), journal(), rowboat(), open_grave(), open_grave("grave_salted", salted=True), keg(), powder_store(), bonfire(), dig_camp(), bottle()],
-        "loot": lambda: [skull(), coconut(), planks()] + [cargo_crate(g) for g in range(6)],
+        "loot": lambda: [skull(), coconut(), planks(), oil_jar(), cannon_carriage(), bronze_piece(), brine_barrel(), barricade()] + [cargo_crate(g) for g in range(6)],
         "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
         "chests": lambda: [chest(t) for t in range(3)],

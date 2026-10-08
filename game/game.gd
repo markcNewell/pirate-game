@@ -401,6 +401,16 @@ func client_on_event(kind: String, data: Array) -> void:
 			Audio.play_at("cannon", at, 2.0, 0.7)
 		"risen":
 			Audio.play_at("rattle", Vector3(data[0], data[1], data[2]), -2.0, 0.8)
+		"glint":
+			if _skeleton_views.has(int(data[0])):
+				_skeleton_views[int(data[0])].glint(StoryRun.SNIPER_GLINT)
+		"sniper_shot":
+			var muzzle := Vector3(data[0], data[1], data[2])
+			var aim := Vector3.UP
+			if avatars.has(int(data[3])):
+				aim = (avatars[int(data[3])].global_position + Vector3.UP - muzzle).normalized()
+			effects.muzzle_smoke(muzzle, aim)
+			Audio.play_at("pistol", muzzle, 6.0, 0.6)
 		"shield":
 			if _skeleton_views.has(int(data[0])):
 				_skeleton_views[int(data[0])].shield_hit(int(data[1]) == 0)
@@ -580,6 +590,7 @@ func _update_skeletons(delta: float) -> void:
 			v.sergeant = sk.sergeant
 			v.gideon = sk.gideon
 			v.bomber = sk.bomber
+			v.sniper = sk.sniper
 			add_child(v)
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
@@ -593,12 +604,14 @@ func _update_skeletons(delta: float) -> void:
 
 ## The story's fires, journals and boats: made when they appear, gone when they go.
 func _update_objects() -> void:
+	var poisoned := false
 	for id in _object_views.keys():
 		if not view_objects.has(id):
 			_object_views[id].queue_free()
 			_object_views.erase(id)
 	for id in view_objects:
 		var o: StoryObject = view_objects[id]
+		poisoned = poisoned or (o.kind == StoryObject.Kind.LAMP and o.state > 0)
 		if not _object_views.has(id):
 			var v := StoryObjectView.new(o.kind, o.state)
 			add_child(v)
@@ -610,6 +623,8 @@ func _update_objects() -> void:
 		if o.ship >= 0 and ship_views.has(o.ship):
 			at = frame_transform(o.ship) * at
 		_object_views[id].place(at)
+	if world:
+		world.set_lamp_poisoned(poisoned)
 
 
 ## Place every chest and barrel: on the ground, afloat, stowed aboard or in someone's arms.

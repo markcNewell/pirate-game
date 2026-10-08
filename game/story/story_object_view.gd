@@ -4,7 +4,8 @@ extends Node3D
 ## (a flickering flame and a green light on the ground, then smoke once doused), a journal
 ## lying open with a glint to catch the eye, the Spanish dead's rowing boat, an open grave
 ## (filled white once salted), a powder keg (sparking once struck), the powder store, the dig
-## camp and its great green bonfire (smaller with each bucket), or a bottle bobbing in the sea.
+## camp and its great green bonfire (smaller with each bucket), or a bottle bobbing in the sea;
+## in Act III the green fire in Moll's lamp, a gun of Merrow's battery and Doctor Ocaso.
 
 ## The flame's orange made green: the Heart's fire.
 const GREEN := {Color("ff8a2a"): Color("2fbf5a"), Color("ffd040"): Color("8cff7a"), Color("fff4c0"): Color("e8ffd8")}
@@ -89,6 +90,20 @@ func _init(what: int, state := 1) -> void:
 		StoryObject.Kind.VAULT:
 			_body = Toon.instance(Models.part("fort_parts", "vault_door"))
 			add_child(_body)
+		StoryObject.Kind.LAMP:
+			_add_flame(Vector3.ZERO, 0.9, 14.0)
+		StoryObject.Kind.BATTERY:
+			_body = Toon.instance(Models.part("loot", "cannon_carriage"))
+			add_child(_body)
+		StoryObject.Kind.OCASO:
+			var doctor := Npc.new("ocaso", 0.0)
+			add_child(doctor)
+			var vial := OmniLight3D.new()
+			vial.light_color = Color("7dff8a")
+			vial.light_energy = 1.2
+			vial.omni_range = 4.0
+			vial.position = Vector3(-0.3, 1.0, -0.2)
+			add_child(vial)
 		StoryObject.Kind.BOMB:
 			add_child(Toon.instance(Models.part("fort_parts", "bomb")))
 			_spark = MeshInstance3D.new()
@@ -166,7 +181,7 @@ func set_state(state: int) -> void:
 	var was := _state
 	_state = state
 	match kind:
-		StoryObject.Kind.FIRE:
+		StoryObject.Kind.FIRE, StoryObject.Kind.LAMP:
 			if state == 0:
 				_put_out(was != -99)
 		StoryObject.Kind.BONFIRE:

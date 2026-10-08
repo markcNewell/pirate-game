@@ -294,11 +294,11 @@ const CHAPTERS: Array[Dictionary] = [
 		"id": "c2", "act": 3, "title": "Powder and Shot", "giver": "quill", "xp": 700, "gold": 250,
 		"intro": [
 			"Abel Quill", "Merrow needs guns of its own. I have bought four, at a very good price, from the old dig camp on Cutlass Cay.",
-			"Abel Quill", "The previous owner, a sergeant, raised no objection. Please carry them to the headland. Skeleton ships have been sighted; do hurry.",
+			"Abel Quill", "The previous owner, a sergeant, raised no objection. Please carry them to the beach past Silas's hut. Skeleton ships have been sighted; do hurry.",
 		],
 		"steps": [
 			{"kind": Step.GATHER, "item": "cannon", "where": "camp", "island": 0, "count": 4, "to": "battery", "raids": 120.0, "lines": [
-				"Abel Quill", "Four guns on the headland. Merrow has teeth. I have entered them in the ledger as 'deterrence'.",
+				"Abel Quill", "Four guns on the beach. Merrow has teeth. I have entered them in the ledger as 'deterrence'.",
 			]},
 		],
 	},
@@ -611,7 +611,7 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 				"oil": "lamp oil from the tavern door", "cannon": "the cannons from Cutlass Cay's old camp (%d left)" % lit,
 				"saltshot": "salt, a piece of drowned bell and the Black Reef's brine (%d left)" % lit,
 				"barricade": "barricades from the tavern door (%d left)" % lit}[step.item]
-			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's headland", "pier": "the pier"}.get(str(step.to), "")
+			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's battery", "pier": "the pier"}.get(str(step.to), "")
 			if to == "":
 				to = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)
 			return "Bring %s to %s" % [what, to]

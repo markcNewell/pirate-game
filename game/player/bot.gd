@@ -25,6 +25,10 @@ extends Node
 ##             fort's powder by its gate)
 ##   bells   - The Drowned Bells: go ashore and shoot the island's bell down
 ##   diver   - The Admiral's Story: swim to the San Telmo's wreck and dive on it
+##   keeper  - Ashes on the Wind: fill a bucket, climb Moll's lighthouse, douse the green fire in
+##             the lamp, climb down, fetch the jar of lamp oil and carry it up to the lamp
+##   battery - The Siege of Port Merrow: go ashore and stand by Merrow's battery while it fires
+##   viuda   - The siege, at La Viuda: from our deck, shoot her down off the flagship
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -118,6 +122,12 @@ func _physics_process(delta: float) -> void:
 			_bells(input)
 		"diver":
 			_diver(input)
+		"keeper":
+			_keeper(input)
+		"battery":
+			_battery(input)
+		"viuda":
+			_viuda(input)
 
 
 func _process(_delta: float) -> void:
@@ -1002,3 +1012,113 @@ func _diver(input: PlayerInput) -> void:
 		return
 	if _head_to(input, wreck.pos, 2.0):
 		input.interact_held = true
+
+
+## Press E when it would do `kind` (see LocalPlayer.current_target).
+func _press(input: PlayerInput, kind: String) -> void:
+	if _player.current_target().get("kind", "") == kind and _every(0.5):
+		input.interact = true
+
+
+func _keeper(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	if game.mission.is_empty():
+		if _phase != "done":
+			_say("the lamp burns true")
+		_phase = "done"
+		return
+	var p := _player.body.global_position
+	var up_top := p.distance_to(Outpost.gallery_spot()) < 3.0
+	var door := Outpost.lighthouse_door()
+	var lamp := _story_object(StoryObject.Kind.LAMP, true)
+	if lamp:
+		if not _player.bucket:
+			if up_top:
+				_press(input, "climb_light")
+				return
+			if _player.swimming or Waves.height(p.x, p.z, game.render_time) > p.y + StoryRun.SCOOP_DEPTH:
+				if _every(0.5):
+					game.send_request("scoop", 0)
+				return
+			# Down the beach below the lighthouse until our feet are wet.
+			var spec := Outpost.spec()
+			var out := Vector3(door.x - spec.x, 0, door.z - spec.z).normalized()
+			_head_to(input, Vector3(spec.x, 0, spec.z) + out * (float(spec.radius) + 4.0), 0.5)
+			return
+		if _phase == "act":
+			_say("filled the bucket")
+			_phase = "climb"
+		if up_top:
+			if _phase == "climb":
+				_say("up on the gallery")
+				_phase = "douse"
+			_press(input, "douse")
+			return
+		if _head_to(input, door, 1.2):
+			_press(input, "climb_light")
+		return
+	if _phase in ["act", "climb", "douse"]:
+		_say("doused the green fire in the lamp")
+		_phase = "oil"
+	if _player.carry < 0:
+		if up_top:
+			_press(input, "climb_light")
+			return
+		for id in game.view_items:
+			var it: Loot = game.view_items[id]
+			if it.kind == Loot.Kind.OIL and it.state == Loot.State.GROUND:
+				if _head_to(input, it.pos, 0.8):
+					_press(input, "pickup")
+				return
+		return
+	if _phase == "oil":
+		_say("carrying the lamp oil")
+		_phase = "carry"
+	if up_top:
+		_press(input, "give")
+		return
+	if _head_to(input, door, 1.2):
+		_press(input, "climb_light")
+
+
+func _battery(input: PlayerInput) -> void:
+	if _player.dead:
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_go_overboard(input)
+		return
+	var out := Vector3(cos(Outpost.BATTERY_ANGLE), 0, sin(Outpost.BATTERY_ANGLE))
+	if _head_to(input, Outpost.battery_centre() - out * 3.0, 1.5) and _phase == "act":
+		_say("manning the battery")
+		_phase = "manned"
+
+
+func _viuda(input: PlayerInput) -> void:
+	if _player.dead or _player.mode != LocalPlayer.Mode.ON_SHIP:
+		return
+	var viuda: Skeleton = null
+	for id in game.view_skeletons:
+		var sk: Skeleton = game.view_skeletons[id]
+		if sk.sniper and sk.alive():
+			viuda = sk
+	if viuda == null or not game.view_ships.has(viuda.frame) or not game.view_ships.has(game.own_ship):
+		if _phase == "shoot":
+			_say("La Viuda is down")
+			_phase = "done"
+		return
+	if _player.weapon != Weapons.Kind.PISTOL:
+		input.weapon_key = Weapons.Kind.PISTOL
+		return
+	# Her chest, in our own deck's frame.
+	var her := ShipPhysics.pose_of(game.view_ships[viuda.frame], game.render_time) * (viuda.pos + Vector3.UP * 1.2)
+	var ours := ShipPhysics.pose_of(game.view_ships[game.own_ship], game.render_time)
+	_look_at(ours.affine_inverse() * her)
+	if _every(1.0):
+		if _phase == "act":
+			_say("shooting at La Viuda")
+			_phase = "shoot"
+		input.fire = true

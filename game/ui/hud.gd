@@ -1170,7 +1170,7 @@ class TreasureMap:
 							for t: Dictionary in m.targets:
 								if t.island == v.island:
 									_flame(centre + Vector2(t.x - spec.x, t.z - spec.z) * scale, t.done)
-						Story.Step.BREACH, Story.Step.USE:
+						Story.Step.BREACH, Story.Step.USE, Story.Step.SIEGE_SEA, Story.Step.SIEGE_BEACH, Story.Step.SNIPER, Story.Step.DOCTOR:
 							_skull(x)
 						Story.Step.CHASE, Story.Step.GATHER:
 							for t: Dictionary in m.targets:

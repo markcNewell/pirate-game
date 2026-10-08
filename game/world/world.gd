@@ -16,6 +16,8 @@ var _light: DirectionalLight3D
 var _cloud_material: ShaderMaterial
 var _daylight_wait := 0.0
 var _lamps := -1.0
+var _lighthouse: Lighthouse
+var _lamp_glass: Lantern.LitPanes
 var _storm: StormView
 var _dolphins: Dolphins
 var _wind_lines: WindLines
@@ -287,6 +289,7 @@ func _island(spec: Dictionary) -> void:
 		var glass := Lantern.lit_panes(Models.part("lighthouse", "lighthouse_glass"), Color("fff3b0"))
 		glass.transform = Outpost.lighthouse_glass()
 		root.add_child(glass)
+		_lamp_glass = glass
 		# The tavern's music drifts out of its door.
 		var tavern := Node3D.new()
 		tavern.position = Outpost.tavern_point(Vector3(3.5, 1.5, 0)) - root.position
@@ -295,6 +298,7 @@ func _island(spec: Dictionary) -> void:
 		var lighthouse := Lighthouse.new()
 		lighthouse.position = Outpost.lighthouse_lamp() - root.position
 		root.add_child(lighthouse)
+		_lighthouse = lighthouse
 		for lamp in Outpost.lamps():
 			var light := Lantern.new(Color("ffd08a"), 1.6, 9.0)
 			light.position = lamp - root.position
@@ -391,6 +395,14 @@ func _make_clouds() -> void:
 		cloud.scale = Vector3.ONE * rng.randf_range(19.0, 29.0)
 		cloud.rotation.y = rng.randf() * TAU
 		_clouds.add_child(cloud)
+
+
+## Moll's lamp burning with the Spanish green fire (a LAMP story object alight), or not.
+func set_lamp_poisoned(on: bool) -> void:
+	if _lighthouse:
+		_lighthouse.set_poisoned(on)
+	if _lamp_glass:
+		_lamp_glass.set_tint(Color("7dff8a") if on else Color.TRANSPARENT)
 
 
 ## Isabel shows at the tavern only for those who have brought her ashore (story chapter b1).

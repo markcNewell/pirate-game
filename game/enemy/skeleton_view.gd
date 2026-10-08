@@ -17,9 +17,13 @@ var captain := false
 var spanish := false
 var digger := false
 var sergeant := false
-## Fat Gideon (a living man, in the people's model) and El Polvorín (the barrel-chested gunner).
+## Fat Gideon (a living man, in the people's model), El Polvorín (the barrel-chested gunner) and
+## La Viuda (veil, mourning dress and a long musket that glints red before she fires).
 var gideon := false
 var bomber := false
+var sniper := false
+var _glint: MeshInstance3D
+var _glint_left := 0.0
 var _digging := false
 var _model: Node3D
 var _player: AnimationPlayer
@@ -35,6 +39,8 @@ func _ready() -> void:
 		outfit = "look3"
 	elif bomber:
 		outfit = "look6"
+	elif sniper:
+		outfit = "look7"
 	elif sergeant:
 		outfit = "look5"
 	elif spanish:
@@ -92,6 +98,19 @@ func _ready() -> void:
 	var hand_rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_r"))
 	var turn := Basis(Vector3.BACK, deg_to_rad(Avatar.ARM_A))
 	var grip := Transform3D(turn, hand_rest.origin + turn * Avatar.GRIP)
+	if sniper:
+		# Her musket is part of her outfit; this is the glint off its barrel as she aims.
+		_glint = MeshInstance3D.new()
+		var star := SphereMesh.new()
+		star.radius = 0.12
+		star.height = 0.24
+		_glint.mesh = star
+		_glint.material_override = Toon.glow_material(Color("ff4a3a"))
+		_glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_glint.position = Vector3(0, 1.5, -0.6)
+		_glint.visible = false
+		add_child(_glint)
+		return
 	if sergeant:
 		return  # his halberd is part of his outfit
 	if bomber:
@@ -136,6 +155,14 @@ func swing() -> void:
 	_player.play("slash", 0.08)
 
 
+## La Viuda takes aim: a red glint for as long as the server waits before the shot.
+func glint(seconds: float) -> void:
+	if _glint == null:
+		return
+	_glint_left = seconds
+	_glint.visible = true
+
+
 func hurt() -> void:
 	_flash = 1.0
 	if _player.current_animation != "slash":
@@ -150,6 +177,10 @@ func place(pose: Transform3D, walking: bool, fallen: bool, delta: float) -> void
 		if _player.current_animation in ["idle_blade", "walk_blade"] and not _digging:
 			_player.play("walk_blade" if walking else "idle_blade", 0.25)
 	_flash = maxf(0.0, _flash - delta * 4.0)
+	if _glint and _glint_left > 0.0:
+		_glint_left -= delta
+		_glint.visible = _glint_left > 0.0 and not fallen
+		_glint.scale = Vector3.ONE * (0.6 + 0.6 * absf(sin(_glint_left * 14.0)))
 	_material.set_shader_parameter("tint", Color(1.0, 1.0 - _flash * 0.6, 1.0 - _flash * 0.6))
 	if fallen:
 		_fall = minf(1.0, _fall + delta * 2.5)

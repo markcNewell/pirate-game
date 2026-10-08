@@ -590,6 +590,11 @@ func _enter_gather(crew: int, step: Dictionary) -> void:
 
 
 ## Where a gathering step's things are handed over: a person at Port Merrow, or a beach.
+## How near `give_spot(to)` a pirate must stand: the battery and the pier are long.
+static func give_reach(to: String) -> float:
+	return GIVE_REACH + (4.0 if to in ["battery", "pier"] else 1.0)
+
+
 static func give_spot(to: String) -> Vector3:
 	if to.begins_with("beach:"):
 		return Islands.trader_spot(int(to.trim_prefix("beach:")))
@@ -611,8 +616,7 @@ func give(id: int, r: Dictionary) -> void:
 	var step := _step(m)
 	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER]:
 		return
-	var reach := GIVE_REACH + (4.0 if str(step.to) in ["battery", "pier"] else 1.0)
-	if r.pos.distance_to(give_spot(str(step.to))) > reach:
+	if r.pos.distance_to(give_spot(str(step.to))) > give_reach(str(step.to)):
 		return
 	var item: Loot = sim.items[r.carry]
 	sim.items.erase(item.id)
@@ -1050,7 +1054,7 @@ func _enter_siege_sea(crew: int, step: Dictionary) -> void:
 		var at := Vector3(merrow.x, 0, merrow.z) + Vector3(cos(a), 0, sin(a)) * 300.0
 		m.ships.append(sim.spawn_galleon(crew, 0.0, 1, at))
 	for i in 4:
-		var gun := _add_object(crew, StoryObject.Kind.BATTERY, Outpost.battery_spot(i), Outpost.HUT_ANGLE + 0.75)
+		var gun := _add_object(crew, StoryObject.Kind.BATTERY, Outpost.battery_spot(i), Outpost.battery_yaw(i))
 		_gun_ready[gun.id] = sim.time + 3.0 + i
 	sim.stats.sieges += 1
 	print("[server] crew %d: the siege of Port Merrow begins" % crew)
@@ -1087,6 +1091,8 @@ func _battery(crew: int) -> void:
 		var lead := ShipPhysics.velocity_of(best) * (best_d / Ballistics.MUZZLE_SPEED)
 		sim.fire_from(o.pos + Vector3(0, 1.0, 0), Vector3(best.x, 0.8, best.z) + lead, GUN_ERROR)
 		sim.stats.battery_shots += 1
+		if sim.stats.battery_shots == 1:
+			print("[server] Merrow's battery opened fire")
 
 
 ## A wave of the dead lands on Merrow's beach from two boats.
@@ -1168,7 +1174,7 @@ func _sniper(crew: int, m: Dictionary) -> void:
 func _enter_doctor(crew: int, step: Dictionary) -> void:
 	var m: Dictionary = sim.crews[crew].mission
 	var at := Outpost.pier_spot() + Vector3(5.0, 0, 0)
-	_add_object(crew, StoryObject.Kind.OCASO, at, -PI / 2.0)
+	_add_object(crew, StoryObject.Kind.OCASO, at, PI / 2.0)
 	for id in sim._crew_members(crew):
 		_say(id, step.lines)
 	var merrow := Islands.outpost_index()
@@ -1704,7 +1710,8 @@ func on_captain_fell(sk: Skeleton) -> bool:
 			m.captain = -1
 		else:
 			who = step.captains[m.captains.find(sk.id)]
-		print("[server] %s has fallen; the skull is worth %d" % [who, gold])
+		var whose := "his" if str(step.get("pronoun", "her")) == "him" else "her"
+		print("[server] %s has fallen; %s skull is worth %d" % [who, whose, gold])
 		Net.send_message(0, "%s has fallen! The skull glows on the sand." % who)
 		return true
 	return false

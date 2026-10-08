@@ -1690,6 +1690,7 @@ func _climb_lighthouse(id: int, r: Dictionary, down: int) -> void:
 	var top := Outpost.gallery_spot()
 	if down == 0 and r.pos.distance_to(door) < 3.0:
 		stats.climbed += 1
+		print("[server] %s climbed the lighthouse" % r.name)
 		_teleport(id, LocalPlayer.Mode.WORLD, top, r.yaw)
 	elif down == 1 and r.pos.distance_to(top) < 3.5:
 		_teleport(id, LocalPlayer.Mode.WORLD, door, r.yaw)

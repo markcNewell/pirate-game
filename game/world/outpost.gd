@@ -22,6 +22,10 @@ const MYSTIC_ANGLE := -0.62
 const AGENT_AT := Vector3(3.0, 0.0, -1.05)
 ## The tavern sits inland, round from the hut, its door facing the sea.
 const TAVERN_ANGLE := 1.45
+## Merrow's battery: on the beach between the merchant's hut and the tavern, facing the bay.
+const BATTERY_ANGLE := 0.95
+const BATTERY_IN := 3.0
+const BATTERY_STEP := 0.09
 const TAVERN_IN := 13.0
 
 
@@ -142,14 +146,19 @@ static func gallery_spot() -> Vector3:
 	return _centre() + foot + outward * 1.75 + Vector3(0, LIGHTHOUSE_HEIGHT + 0.25, 0)
 
 
-## Merrow's battery on the headland past the merchant's hut: four gun spots (world).
+## Merrow's battery on the beach past the merchant's hut: four gun spots (world).
 static func battery_spot(i: int) -> Vector3:
 	var s := spec()
-	var a := HUT_ANGLE + 0.75 + 0.14 * (i - 1.5)
-	var r: float = s.radius - 5.0
+	var a := BATTERY_ANGLE + BATTERY_STEP * (i - 1.5)
+	var r: float = s.radius - BATTERY_IN
 	var x := cos(a) * r
 	var z := sin(a) * r
 	return _centre() + Vector3(x, IslandMesh.ground(s, x, z), z)
+
+
+## Which way gun `i` points (a yaw): straight out to sea.
+static func battery_yaw(i: int) -> float:
+	return -(BATTERY_ANGLE + BATTERY_STEP * (i - 1.5)) - PI / 2.0
 
 
 static func battery_centre() -> Vector3:

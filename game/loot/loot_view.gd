@@ -27,6 +27,16 @@ static func mesh_for(kind: int, tier: int, variant := 0) -> ArrayMesh:
 			return Models.part("loot", "coconut")
 		Loot.Kind.PLANKS:
 			return Models.part("loot", "planks")
+		Loot.Kind.OIL:
+			return Models.part("loot", "oil_jar")
+		Loot.Kind.CANNON:
+			return Models.part("loot", "cannon_carriage")
+		Loot.Kind.BRONZE:
+			return Models.part("loot", "bronze_piece")
+		Loot.Kind.BRINE:
+			return Models.part("loot", "brine_barrel")
+		Loot.Kind.BARRICADE:
+			return Models.part("loot", "barricade")
 	return Models.part("chests", "chest_%d" % tier)
 
 

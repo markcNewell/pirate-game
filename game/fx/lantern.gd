@@ -57,6 +57,9 @@ class LitPanes:
 	extends MeshInstance3D
 
 	var day := Color.BLACK
+	## A colour the panes glow instead, whatever the hour (the lighthouse's green fire).
+	var tint := Color.TRANSPARENT
+	var _level := 0.0
 	var _material := StandardMaterial3D.new()
 
 	func _init() -> void:
@@ -65,7 +68,15 @@ class LitPanes:
 		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	func set_level(level: float) -> void:
+		_level = level
+		if tint.a > 0.0:
+			_material.albedo_color = tint
+			return
 		_material.albedo_color = day.lerp(Color("ffcf6a"), clampf(level * 1.4, 0.0, 1.0))
+
+	func set_tint(color: Color) -> void:
+		tint = color
+		set_level(_level)
 
 
 ## 0 by day, 1 at night.

@@ -359,6 +359,65 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = {"fort": 0.12, "wreck": -0.05, "boat": -0.05}.get(view, -0.18)
+	elif game and view in ["gallery", "cannons", "battery", "ocaso"]:
+		# Act III: on the lighthouse gallery by the green lamp (c1); the cannons at the old camp
+		# (c2); behind Merrow's battery with the galleons in the bay (c6); Doctor Ocaso on the
+		# pier (c6, --chapter-step 3).
+		for sk: Skeleton in game.sim.skeletons.values():
+			sk.cooldown = 1e6
+		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+		var stand := Vector3.ZERO
+		var look_at := Vector3.ZERO
+		match view:
+			"gallery":
+				stand = Outpost.gallery_spot()
+				look_at = Outpost.lighthouse_lamp() - Vector3(0, 0.6, 0)
+				var out := (stand - look_at) * Vector3(1, 0, 1)
+				stand += out.normalized().cross(Vector3.UP) * 1.2
+			"cannons":
+				look_at = game.sim.items[m.items[0]].pos
+				var isl: Dictionary = Islands.LAYOUT[maxi(0, Islands.island_at(look_at.x, look_at.z))]
+				stand = look_at + (Vector3(isl.x, 0, isl.z) - look_at * Vector3(1, 0, 1)).normalized().rotated(Vector3.UP, 0.8) * 7.0
+			"battery":
+				var guns := Outpost.battery_centre()
+				var out := Vector3(cos(Outpost.BATTERY_ANGLE), 0, sin(Outpost.BATTERY_ANGLE))
+				stand = guns - out * 6.0 + out.cross(Vector3.UP) * 3.0
+				look_at = guns + out * 40.0 + Vector3(0, 1.5, 0)
+			"ocaso":
+				for o: StoryObject in game.sim.story.objects.values():
+					if o.kind == StoryObject.Kind.OCASO:
+						look_at = o.pos + Vector3(0, 1.0, 0)
+				stand = look_at + Vector3(-3.5, -1.0, 1.4)
+		if view != "gallery":
+			var ground_island := Islands.island_at(stand.x, stand.z)
+			if ground_island >= 0:
+				stand.y = Islands.ground_at(ground_island, stand.x, stand.z)
+			if view == "ocaso":
+				stand.y = Outpost.PIER_Y + 0.4
+		var to := look_at - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = {"gallery": -0.5, "cannons": -0.25, "battery": 0.0, "ocaso": -0.05}[view]
+	elif game and view == "viuda":
+		# The siege at --chapter c6 --chapter-step 2: La Viuda on the Cuervo Negro's quarterdeck,
+		# seen from a boat's length off her quarter.
+		for sk: Skeleton in game.sim.skeletons.values():
+			sk.cooldown = 1e6
+		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+		m.next_shot = 1e9
+		var cam := Camera3D.new()
+		cam.far = 3000.0
+		cam.fov = 45.0
+		game.add_child(cam)
+		cam.make_current()
+		var follow := func() -> void:
+			if game.ship_views.has(m.ship):
+				var ship: Transform3D = game.ship_views[m.ship].global_transform
+				cam.look_at_from_position(ship * Vector3(7.0, ShipShape.QUARTER_Y + 3.0, 15.0), ship * Vector3(0, ShipShape.QUARTER_Y + 1.1, 8.5))
+		get_tree().process_frame.connect(follow)
+		get_tree().create_timer(maxf(0.0, delay - 1.2)).timeout.connect(func() -> void:
+			for id in game._skeleton_views:
+				if game.view_skeletons.has(id) and game.view_skeletons[id].sniper:
+					game._skeleton_views[id].glint(2.0))
 	elif game and view == "crab":
 		# Coconut Thieves (--chapter t1): the crab with Captain Coco, seen from a few steps off.
 		for sk: Skeleton in game.sim.skeletons.values():

@@ -258,7 +258,7 @@ func _interact(delta: float) -> void:
 			Audio.play("splash", -8.0, 1.2)
 		"sell", "drop", "board", "deliver", "eat":
 			game.send_request(target.kind, 0)
-		"talk", "read", "search", "use", "rescue":
+		"talk", "read", "search", "use", "rescue", "climb_light":
 			game.send_request(target.kind, target.id)
 		"give":
 			game.send_request("give", 0)
@@ -289,6 +289,9 @@ func current_target() -> Dictionary:
 			var give := _give_target(held, here)
 			if not give.is_empty():
 				return give
+			var climb := _lighthouse_target(here)
+			if not climb.is_empty():
+				return climb
 			if held.kind == Loot.Kind.CRATE and held.variant == Missions.SALT:
 				for id in game.view_objects:
 					var o: StoryObject = game.view_objects[id]
@@ -386,8 +389,15 @@ func _give_target(held: Loot, here: Vector3) -> Dictionary:
 	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER]:
 		return {}
 	var to := str(step.to)
-	if here.distance_to(StoryRun.give_spot(to)) > StoryRun.GIVE_REACH:
+	if here.distance_to(StoryRun.give_spot(to)) > StoryRun.give_reach(to):
 		return {}
+	match to:
+		"lamp":
+			return {"kind": "give", "id": 0, "label": "E  fill the lamp with the oil"}
+		"battery":
+			return {"kind": "give", "id": 0, "label": "E  set the cannon in the battery"}
+		"pier":
+			return {"kind": "give", "id": 0, "label": "E  set the barricade across the pier"}
 	if to.begins_with("beach:"):
 		return {"kind": "give", "id": 0, "label": "E  set the %s down here" % held.label()}
 	return {"kind": "give", "id": 0, "label": "E  give the %s to %s" % [held.label(), Story.person_name(to)]}
@@ -422,7 +432,7 @@ func _story_target(here: Vector3) -> Dictionary:
 			StoryObject.Kind.BOTTLE:
 				if Vector2(here.x - o.pos.x, here.z - o.pos.z).length() < StoryRun.READ_REACH:
 					return {"kind": "read", "id": o.id, "label": "E  take the letter from the bottle"}
-			StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE:
+			StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.LAMP:
 				if o.state <= 0:
 					continue
 				any_fire = true
@@ -430,14 +440,29 @@ func _story_target(here: Vector3) -> Dictionary:
 				if d < reach:
 					if bucket:
 						return {"kind": "douse", "id": o.id, "label": "E  throw the water on the green fire"}
+					if o.kind == StoryObject.Kind.LAMP:
+						continue  # up on the gallery: the way down must still show
 					return {"kind": "hint", "id": 0, "label": "A green fire. Fill your bucket in the sea to douse it"}
 	if any_fire and not bucket and Waves.height(here.x, here.z, game.render_time) > here.y + StoryRun.SCOOP_DEPTH:
 		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket from the sea"}
+	var climb := _lighthouse_target(here)
+	if not climb.is_empty():
+		return climb
 	if Islands.island_at(here.x, here.z) == Islands.outpost_index():
 		for i in Story.PEOPLE_IDS.size():
 			var who := Story.PEOPLE_IDS[i]
 			if here.distance_to(Story.person_pos(who)) < Story.TALK_REACH:
 				return {"kind": "talk", "id": i, "label": "E  talk to %s" % Story.person_name(who)}
+	return {}
+
+
+## Moll's lighthouse: E at its door takes you up to the gallery, E on the gallery brings you
+## down (ServerSim._climb_lighthouse).
+func _lighthouse_target(here: Vector3) -> Dictionary:
+	if here.distance_to(Outpost.lighthouse_door()) < 2.5:
+		return {"kind": "climb_light", "id": 0, "label": "E  climb the lighthouse"}
+	if here.distance_to(Outpost.gallery_spot()) < 3.0:
+		return {"kind": "climb_light", "id": 1, "label": "E  climb down"}
 	return {}
 
 

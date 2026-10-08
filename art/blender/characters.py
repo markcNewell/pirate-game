@@ -909,7 +909,7 @@ def skeleton():
     body = kit.join("skeleton", parts)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(7):
+    for i in range(8):
         ob = kit.join("look%d" % i, skeleton_look(i))
         rig.bind(ob, arm)
         meshes.append(ob)
@@ -1021,6 +1021,44 @@ def breastplate(color="b4bac2"):
     return [plate, ridge, skirt] + straps
 
 
+def widow_dress():
+    """La Viuda's mourning dress: a fitted bodice, a full skirt to the ground with a hem of grey
+    lace, a white lace collar and a red rose at the waist; her bony arms bare."""
+    rings = [
+        (0.03, 0.37, 0.33, 0, 0.0), (0.3, 0.32, 0.28, 0, 0.0), (0.6, 0.25, 0.21, 0, 0.0),
+        (0.88, 0.17, 0.14, 0, -0.005), (0.98, 0.15, 0.12, 0, -0.01), (1.12, 0.17, 0.13, 0, -0.016),
+        (1.26, 0.2, 0.15, 0, -0.012), (1.36, 0.2, 0.14, 0, -0.004), (1.42, 0.16, 0.11, 0, 0.004),
+        (1.47, 0.08, 0.07, 0, 0.008),
+    ]
+    ob = kit.loft("widow_dress", rings, "2b2230", sides=24, power=2.2, cap_bottom=False)
+    smooth_part(ob)
+    kit.paint_where(ob, "8a8090", lambda x, y, z: y < 0.1)
+    kit.paint_where(ob, "3d2c40", lambda x, y, z: 0.98 < y < 1.38)
+    kit.paint_where(ob, "e8e0d4", lambda x, y, z: y > 1.4)
+    rig.set_weights(ob, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
+    rose = kit.ellipsoid("rose", (-0.1, 0.98, -0.115), (0.035, 0.035, 0.025), "b8202a", rings=5, sectors=8)
+    rig.set_weights(rose, rig.rigid("hips"))
+    return [ob, rose]
+
+
+def mantilla():
+    """A black lace mantilla: from the comb over the back of the skull and down to the
+    shoulders, the face left bare."""
+    def keep(x, y, z):
+        return z > HEAD_C.z + 0.01 or y > HEAD_C.y + 0.08
+    veil = shell("mantilla", "3a3240", 0.03, keep, thick=0.008, rings=18, sectors=26)
+    for v in veil.data.vertices:
+        x, y, z = kit.G(v.co)
+        if y < HEAD_C.y:
+            # Falling below the skull, it drapes on down the back and flares a little.
+            k = (HEAD_C.y - y) / HEAD_R[1]
+            y -= 0.18 * k
+            z += 0.03 * k
+            x *= 1.0 + 0.4 * k
+        v.co = kit.V(x, y, z)
+    return veil
+
+
 def tower_shield(side="l"):
     """A tall wooden shield strapped to the forearm, its face toward the enemy: dark red with an
     iron rim, a boss and the Admiral's gold raven."""
@@ -1090,6 +1128,17 @@ def skeleton_look(i):
         plume = kit.tube("plume", [(0, 2.0, 0.02), (0, 2.18, 0.08), (0, 2.22, 0.24), (0, 2.12, 0.36)], [0.04, 0.07, 0.06, 0.02], 8, "b8302a")
         head_bits.append(plume)
         parts += tower_shield("l") + halberd("r")
+    elif i == 7:
+        # La Viuda: Capitana Elena Robles, raised; a black dress, a black lace veil over a high
+        # comb, and a long Spanish musket.
+        parts += widow_dress()
+        comb = kit.prism("comb", [(-0.1, 0.0), (0.1, 0.0), (0.08, 0.14), (0.0, 0.18), (-0.08, 0.14)], 0.02, "4a2a1c", centre=(0, 1.78, 0.06), plane="xy")
+        head_bits = [comb, mantilla()]
+        g = Vector(rig.grip_point("r"))
+        musket = kit.tube("musket", [tuple(g + Vector((0, -0.25, 0.25))), tuple(g + Vector((0, 0.15, -0.35))), tuple(g + Vector((0, 0.45, -0.95)))], [0.035, 0.022, 0.016], 6, "4a3a2c")
+        kit.paint_where(musket, "3a3a42", lambda x, y, z: z < g.z - 0.4)
+        rig.set_weights(musket, rig.rigid("hand_r"))
+        parts.append(musket)
     elif i == 6:
         # El Polvorín, the fort's gunner: a barrel strapped round his ribs for armour, a bandolier
         # of bombs, a red bandana, and soot everywhere.
@@ -1577,6 +1626,29 @@ def martha():
     return parts
 
 
+def ocaso():
+    """Doctor Tomás Ocaso, the King's alchemist: thin, in a long dark green coat full of bottles,
+    spectacles of green glass, grey hair tied back, and a vial of green fire in his hand."""
+    hair = "9a968e"
+    head_bits = hair_back(hair, 0.08) + face(hair, mouth=True, gruff=-0.2)
+    for sx in (1, -1):
+        head_bits.append(kit.noink(kit.lathe("lens", [(0.0, 0.0), (0.028, 0.0)], 12, "6aff8a", centre=(sx * 0.05, 1.69, surface_z(sx * 0.05, 1.69) - 0.012), axis="z", caps=False), 0.2))
+    head_bits.append(kit.tube("specbridge", [(-0.025, 1.69, surface_z(0, 1.69) - 0.014), (0.025, 1.69, surface_z(0, 1.69) - 0.014)], 0.004, 4, GOLD))
+    parts = head(head_bits)
+    parts += coat("1e3a2a", trim="5aa86a")
+    parts += trousers("2a2a30") + boots()
+    for k in range(5):
+        y = 1.05 + 0.08 * k
+        b = kit.lathe("bottle", [(0.0, 0.0), (0.02, 0.0), (0.02, 0.05), (0.008, 0.07), (0.0, 0.07)], 8, ("6aff8a", "c8302a", "4a8ae0")[k % 3], centre=(-0.12 + 0.06 * k, y, -0.2))
+        rig.set_weights(b, rig.rigid("chest"))
+        parts.append(b)
+    g = Vector(rig.grip_point("r"))
+    vial = kit.noink(kit.ellipsoid("vial", tuple(g + Vector((0, 0.05, -0.05))), (0.035, 0.05, 0.035), "8aff9a", rings=6, sectors=8), 0.2)
+    rig.set_weights(vial, rig.rigid("hand_r"))
+    parts.append(vial)
+    return parts
+
+
 def npcs():
     arm = rig.build_armature("rig")
     base = [torso()]
@@ -1588,7 +1660,7 @@ def npcs():
     body = kit.join("body", base)
     rig.bind(body, arm)
     meshes = [body]
-    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha)):
+    for name, build in (("mystic", mystic), ("agent", agent), ("castaway", castaway), ("keeper", keeper), ("isabel", isabel), ("gideon", gideon), ("martha", martha), ("ocaso", ocaso)):
         ob = kit.join(name, build())
         rig.bind(ob, arm)
         meshes.append(ob)
