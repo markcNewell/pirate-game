@@ -437,6 +437,101 @@ const CHAPTERS: Array[Dictionary] = [
 			]},
 		],
 	},
+	# --- Penny's Hoard (Silas), after The Pressed Dead. ---
+	{
+		"id": "t6", "act": 3, "title": "My Boy Silas", "giver": "silas", "xp": 400, "gold": 0, "tale": "Penny's Hoard", "after": "c4",
+		"intro": [
+			"Silas Penny", "That skull you carried past my hut. Hollowbell's. It said my name.",
+			"Silas Penny", "'Little Silas Penny. My cabin boy. There's a hoard for him.' I was his cabin boy, forty years ago. I'd made myself forget.",
+			"Silas Penny", "He cut his mark in the rock wherever he hid things. Parrot Rock, by the tall stacks. Go and look. I'll... mind the hut.",
+		],
+		"steps": [
+			{"kind": Step.READ, "island": 1, "hint": "Find Hollowbell's mark on Parrot Rock", "title": "A bell, cut in the rock", "text":
+				"A bell, cut deep, and under it:\n\nWHERE THE SEA RUNS THROUGH THE STONE\nAND THE GULLS KEEP WATCH ALONE,\nDIG FOR THE BOY WHAT THE BELL LEFT BEHIND.\n\n" +
+				"Underneath, scratched more recently, in Spanish: 'el arco, Gull Isle'. Someone else has read it too."},
+			{"kind": Step.DIG_RACE, "island": 2, "chests": 1, "to": "silas", "lines": [
+				"Silas Penny", "It's light. Too light for Hollowbell. ...There's a note, in his hand.",
+				"Silas Penny", "'The rest is with the lads, Silas, under the hill on Cutlass Cay. They'll keep it for you.' The lads. His crew. They went down with him.",
+			]},
+		],
+	},
+	{
+		"id": "t7", "act": 3, "title": "The Old Crew", "giver": "silas", "xp": 500, "gold": 150, "tale": "Penny's Hoard", "after": "t6",
+		"intro": [
+			"Silas Penny", "Hollowbell's lads. Bosun Grieve, who taught me my knots. Cookie. The twins. If the Doctor's fire has been near that hill, they're up.",
+			"Silas Penny", "Put them down gently, if you can. And bring me Grieve's skull. He'd want to see I turned out rich.",
+		],
+		"steps": [
+			{"kind": Step.BOUNTY, "island": 0, "captain": "Bosun Grieve", "pronoun": "him", "crew": 4, "thieves": 0, "to": "silas", "talking": [
+				"Little Silas? Silas Penny? Is he still small?",
+				"I stopped swinging when you said his name. Did you see? I stopped.",
+				"Mind your knots. Always mind your knots.",
+				"We kept it for him. Every coin. Didn't spend one. Well. Cookie spent one.",
+				"Is the captain with you? No? He'll be along. He always is.",
+			], "lines": [
+				"Silas Penny", "Grieve. You old fool. You stopped fighting, didn't you? When they said my name.",
+				"Silas Penny", "...The hoard's under the old camp on the hill. He always was good at keeping things.",
+			]},
+		],
+	},
+	{
+		"id": "t8", "act": 3, "title": "Silas Cries", "giver": "silas", "xp": 400, "gold": 300, "tale": "Penny's Hoard", "after": "t7", "gift": "outfit8",
+		"intro": [
+			"Silas Penny", "Three chests under the old camp on Cutlass Cay. Bring them here. Carefully.",
+			"Silas Penny", "And don't sell them to me. I mean it. Don't.",
+		],
+		"steps": [
+			{"kind": Step.GATHER, "item": "hoard", "where": "camp", "island": 0, "count": 3, "to": "silas", "lines": [
+				"Silas Penny", "Oh. Oh, look at it. Look how it shines.",
+				"Silas Penny", "I'm not crying about Hollowbell. I'm crying because it's beautiful. ...It's a bit about Hollowbell.",
+				"Silas Penny", "This was at the bottom of the last one. My old cap. It doesn't fit me any more. It'll fit you.",
+			]},
+		],
+	},
+	# --- The Other Lantern (Mother Wren), after the siege. ---
+	{
+		"id": "t9", "act": 3, "title": "Two Lights", "giver": "wren", "xp": 300, "gold": 50, "tale": "The Other Lantern", "after": "c6",
+		"intro": [
+			"Mother Wren", "In the siege, among the dead on the beach. Did you see it? A second green light.",
+			"Mother Wren", "Moll will have seen it from her lighthouse. Ask her where it went. I need to hear it from someone else.",
+		],
+		"steps": [
+			{"kind": Step.TALK, "who": "moll", "lines": [
+				"Moll Tinder", "I saw it. A lantern, carried low, the way you'd carry it along a beach looking for someone.",
+				"Moll Tinder", "It went off toward Gull Isle once the fighting stopped. Go gently with Wren when you tell her.",
+			]},
+			{"kind": Step.TALK, "who": "wren", "lines": [
+				"Mother Wren", "Gull Isle. Where we grew up. Linnet and I. My sister. My twin.",
+				"Mother Wren", "She drowned off the arch ten years ago, out in a storm with a lantern looking for me. The Doctor has given her back her lantern. And nothing else.",
+			]},
+		],
+	},
+	{
+		"id": "t10", "act": 3, "title": "Linnet", "giver": "wren", "xp": 600, "gold": 150, "tale": "The Other Lantern", "after": "t9", "night": true,
+		"intro": [
+			"Mother Wren", "She walks at night. Follow her light from Gull Isle. She won't let you near: come close and she goes on to the next island.",
+			"Mother Wren", "Where she stops is where she means to stay. Don't look into her lantern; it blinds. Shoot it from her hand, then let her rest, and bring her home to me.",
+		],
+		"steps": [
+			{"kind": Step.BOUNTY, "linnet": true, "islands": [2, 1, 0], "island": 0, "captain": "Linnet", "crew": 3, "thieves": 0, "to": "wren", "lines": [
+				"Mother Wren", "Linnet. Hello, little sister. You found me after all.",
+				"Mother Wren", "Leave us a while. Come back at dusk; I'll want someone with me at the water's edge.",
+			]},
+		],
+	},
+	{
+		"id": "t11", "act": 3, "title": "Rest", "giver": "wren", "xp": 300, "gold": 0, "tale": "The Other Lantern", "after": "t10", "night": true, "reward": "Lantern-Bearer",
+		"intro": [
+			"Mother Wren", "Dusk. Good. Stand with me a while, down by the water.",
+		],
+		"steps": [
+			{"kind": Step.TALK, "who": "wren", "lines": [
+				"Mother Wren", "We lit lanterns for the fishing boats, she and I. One each side of the arch, so they could find the gap.",
+				"Mother Wren", "There. She's in the sea now, where she always wanted to be. No fire. No Doctor. Just the tide.",
+				"Mother Wren", "Her lantern, mended. Carry it; light it for anyone lost out there. That's what she'd want. That's what you are now: a lantern-bearer.",
+			]},
+		],
+	},
 ]
 
 
@@ -545,6 +640,8 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 		Step.DOUSE when str(step.get("where", "")) == "lamp":
 			return "Climb the lighthouse and douse the green fire in the lamp (take water up)"
 		Step.READ:
+			if step.has("hint"):
+				return step.hint
 			match str(step.get("where", "dry")):
 				"sea":
 					return "Fish the bottle out of the wreckage"
@@ -555,6 +652,8 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 			if lit > 0:
 				return "Douse the green fire on %s (fill your bucket in the sea)" % Islands.LAYOUT[step.island].name
 			return "Fell the dead (%d left)" % standing
+		Step.BOUNTY when step.get("linnet", false):
+			return "Follow Linnet's light; shoot the lantern from her hand and bring her skull to %s" % person_name(step.to)
 		Step.BOUNTY:
 			return "Fell %s on %s and bring the skull to %s" % [step.captain, Islands.LAYOUT[step.island].name, person_name(step.to)]
 		Step.DIG_RACE:
@@ -610,7 +709,8 @@ static func step_text(step: Dictionary, lit := 0, standing := 0, done := false) 
 				"hueso": "Señor Hueso's crate (on the pier)", "fine_tea": "the fine tea from Hueso's kitchen (%d left)" % lit,
 				"oil": "lamp oil from the tavern door", "cannon": "the cannons from Cutlass Cay's old camp (%d left)" % lit,
 				"saltshot": "salt, a piece of drowned bell and the Black Reef's brine (%d left)" % lit,
-				"barricade": "barricades from the tavern door (%d left)" % lit}[step.item]
+				"barricade": "barricades from the tavern door (%d left)" % lit,
+				"hoard": "Hollowbell's hoard from Cutlass Cay's old camp (%d left)" % lit}[step.item]
 			var to: String = {"lamp": "the lighthouse lamp", "battery": "Merrow's battery", "pier": "the pier"}.get(str(step.to), "")
 			if to == "":
 				to = "Gull Isle's beach" if str(step.to).begins_with("beach") else person_name(step.to)

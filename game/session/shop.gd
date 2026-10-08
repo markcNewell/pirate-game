@@ -6,7 +6,8 @@ extends RefCounted
 
 enum Kind { OUTFIT, DYE }
 
-## The eight pirate outfits (Avatar looks 0-7) and the shirt dyes. Each: [kind, which, name, price].
+## The pirate outfits (Avatar looks 0-8) and the shirt dyes. Each: [kind, which, name, price];
+## a price of 0 is a gift from the story, never sold (Silas's cap, from Penny's Hoard).
 const ITEMS := [
 	[Kind.OUTFIT, 0, "Tricorn and waistcoat", 400],
 	[Kind.OUTFIT, 1, "Bandana and eyepatch", 450],
@@ -16,6 +17,7 @@ const ITEMS := [
 	[Kind.OUTFIT, 5, "Knitted cap and beard", 450],
 	[Kind.OUTFIT, 6, "Cavalier's feathered hat", 1000],
 	[Kind.OUTFIT, 7, "The bruiser", 600],
+	[Kind.OUTFIT, 8, "Silas's cabin-boy cap", 0],
 	[Kind.DYE, 0, "Crimson", 250],
 	[Kind.DYE, 1, "Navy", 250],
 	[Kind.DYE, 2, "Emerald", 250],
@@ -32,6 +34,14 @@ const DYES: Array[Color] = [
 	Color("efe8d8"), Color("2a2a3a"), Color("2a9a9a"), Color("b0582a"), Color("e07aa0"),
 ]
 const REACH := 3.5
+
+
+## The ITEMS index for a key such as "outfit8", or -1.
+static func index_of(item_key: String) -> int:
+	for i in ITEMS.size():
+		if key(i) == item_key:
+			return i
+	return -1
 
 
 static func key(i: int) -> String:

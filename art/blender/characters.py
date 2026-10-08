@@ -24,9 +24,9 @@ BOOT_DARK = "2a1e18"
 BELT = "4a2c1c"
 GOLD = "ffd23a"
 
-TROUSERS = ["5b4a3a", "34405a", "2c2c3a", "6a6458", "7a6a50", "3a3a48", "4a2a2a", "50483e"]
-HAIR = ["5a3420", "1e1a1a", "a8a49c", "5e2e16", "c89a58", "3a2418", "2a1a12", "6a4a32"]
-LOOKS = 8
+TROUSERS = ["5b4a3a", "34405a", "2c2c3a", "6a6458", "7a6a50", "3a3a48", "4a2a2a", "50483e", "6a5a44"]
+HAIR = ["5a3420", "1e1a1a", "a8a49c", "5e2e16", "c89a58", "3a2418", "2a1a12", "6a4a32", "b06a30"]
+LOOKS = 9
 
 
 def smooth_part(ob, levels=1, angle=60):
@@ -582,6 +582,23 @@ def beanie(color=SHIRT_DARK):
     return [cap, cuff]
 
 
+def cabin_cap(color="4a6a9a"):
+    """A cabin boy's soft cap: a round crown pulled down over the head, a short peak at the
+    front, and a red bobble on top."""
+    def keep(x, y, z):
+        return y > 1.725
+    crown = shell("cabin_cap", color, 0.012, keep, thick=0.02)
+    for v in crown.data.vertices:
+        x, y, z = kit.G(v.co)
+        if y > 1.76:
+            # Puffed out and a little flat on top, the way a soft cap sits.
+            v.co = kit.V(x * 1.08, 1.76 + (y - 1.76) * 0.75, z * 1.06 + 0.01)
+    kit.paint_where(crown, "3a5682", lambda x, y, z: y < 1.745)
+    peak = kit.prism("cap_peak", [(-0.09, 0.0), (0.09, 0.0), (0.07, -0.07), (-0.07, -0.07)], 0.012, "2e3e5e", centre=(0, 1.735, HEAD_C.z - HEAD_R[2] + 0.02), plane="xz")
+    bobble = kit.ellipsoid("bobble", (0, 1.82, 0.0), (0.03, 0.03, 0.03), "c8302a", rings=6, sectors=8)
+    return [crown, peak, bobble]
+
+
 def neck_scarf(color="e0c048"):
     """A spotted neckerchief knotted at the front."""
     ring = [(0.08 * math.cos(2 * math.pi * i / 16), 1.47 + 0.01 * math.sin(2 * math.pi * i / 16), 0.07 * math.sin(2 * math.pi * i / 16) - 0.005) for i in range(17)]
@@ -691,6 +708,14 @@ def look(index):
         head_bits = cavalier() + hair_back(hair, 0.1) + locks + goatee + curly_moustache(hair) + face(hair, gruff=0.4)
         body_bits = coat("5a1a24", trim="d8c070")
         return head_bits, body_bits, {"rolled": False, "cuff": None, "coat": True}
+    if index == 8:
+        # Silas Penny's old cabin-boy cap (a gift, not for sale): a faded blue cap with a short
+        # peak and a red bobble, ginger hair sticking out under it, a red neckerchief.
+        head_bits = cabin_cap() + hair_back(hair, 0.0) + face(hair, gruff=-0.5)
+        body_bits = neck_scarf("c8302a")
+        for p in body_bits:
+            rig.set_weights(p, lambda q: rig.blend("chest", "neck", (q.y - 1.47) * 1.0, 0.04))
+        return head_bits, body_bits, {"rolled": True, "cuff": None}
     # The bruiser: bald and shining, mutton chops, both ears ringed, a bandolier.
     head_bits = mutton_chops(hair) + earring(1) + earring(-1) + face(hair, gruff=1.4)
     body_bits = bandolier()
@@ -909,7 +934,7 @@ def skeleton():
     body = kit.join("skeleton", parts)
     rig.bind(body, arm)
     meshes = [body]
-    for i in range(8):
+    for i in range(9):
         ob = kit.join("look%d" % i, skeleton_look(i))
         rig.bind(ob, arm)
         meshes.append(ob)
@@ -1019,6 +1044,21 @@ def breastplate(color="b4bac2"):
         rig.set_weights(p, rig.rigid("chest"))
     rig.set_weights(skirt, rig.rigid("hips"))
     return [plate, ridge, skirt] + straps
+
+
+def linnet_shift():
+    """Linnet's shift: a pale, ragged dress to the shins, its hem torn, green with weed."""
+    rings = [
+        (0.35, 0.24, 0.21, 0, 0.0), (0.6, 0.21, 0.18, 0, 0.0), (0.9, 0.16, 0.13, 0, -0.005),
+        (1.1, 0.16, 0.12, 0, -0.012), (1.28, 0.18, 0.13, 0, -0.01), (1.4, 0.16, 0.11, 0, 0.0),
+        (1.46, 0.09, 0.07, 0, 0.006),
+    ]
+    ob = kit.loft("linnet_shift", rings, "c8ccc0", sides=20, power=2.2, cap_bottom=False)
+    ragged(ob, 0.07, seed=21, below=0.45)
+    smooth_part(ob)
+    kit.paint_where(ob, "6a8a62", lambda x, y, z: y < 0.5 or (abs(x) > 0.12 and y < 0.9))
+    rig.set_weights(ob, lambda p: rig.torso_weights(p) if p.y > 0.95 else {"hips": 1.0})
+    return [ob]
 
 
 def widow_dress():
@@ -1139,6 +1179,21 @@ def skeleton_look(i):
         kit.paint_where(musket, "3a3a42", lambda x, y, z: z < g.z - 0.4)
         rig.set_weights(musket, rig.rigid("hand_r"))
         parts.append(musket)
+    elif i == 8:
+        # Linnet, Wren's drowned twin: a pale, ragged shift stained with weed, long wet black hair
+        # down her back and round her face, a garland of kelp. Her lantern is held apart, so it
+        # can be shot from her hand (props.py, story: hand_lantern).
+        parts += linnet_shift()
+        hair = shell("linnet_hair", "1e2a26", 0.02, lambda x, y, z: z > HEAD_C.z - 0.03 or y > HEAD_C.y + 0.07, thick=0.012, rings=18, sectors=26)
+        for v in hair.data.vertices:
+            x, y, z = kit.G(v.co)
+            if y < HEAD_C.y:
+                k = (HEAD_C.y - y) / HEAD_R[1]
+                y -= 0.35 * k
+                x *= 1.0 + 0.15 * k
+            v.co = kit.V(x, y, z)
+        kelp = kit.tube("kelp", [(sx * 0.11, 1.74, 0.02) for sx in (1,)] + [(0.0, 1.79, 0.06), (-0.11, 1.74, 0.02)], 0.014, 5, "3a6a3a")
+        head_bits = [hair, kelp]
     elif i == 6:
         # El Polvorín, the fort's gunner: a barrel strapped round his ribs for armour, a bandolier
         # of bombs, a red bandana, and soot everywhere.

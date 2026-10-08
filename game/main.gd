@@ -397,6 +397,23 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		var to := look_at - stand
 		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
 		game.local_player.pitch = {"gallery": -0.5, "cannons": -0.25, "battery": 0.0, "ocaso": -0.05}[view]
+	elif game and view == "linnet":
+		# The Other Lantern (--chapter t10, best with --time 0.9): Linnet on Gull Isle, a few
+		# steps off, her lantern gathering to flare.
+		var m: Dictionary = game.sim.crews[ServerSim.CREW].mission
+		m.stage = 2  # she stays put for the picture
+		m.next_shot = 1e9
+		var linnet: Skeleton = game.sim.skeletons[m.captain]
+		var isl: Dictionary = Islands.LAYOUT[2]
+		var inward := (Vector3(isl.x, 0, isl.z) - linnet.pos * Vector3(1, 0, 1)).normalized()
+		var stand := linnet.pos + inward.rotated(Vector3.UP, 0.5) * 5.5
+		stand.y = Islands.ground_at(2, stand.x, stand.z)
+		var to := linnet.pos - stand
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(-to.x, -to.z))
+		game.local_player.pitch = -0.08
+		get_tree().create_timer(maxf(0.0, delay - 0.8)).timeout.connect(func() -> void:
+			if game._skeleton_views.has(linnet.id):
+				game._skeleton_views[linnet.id].glint(1.2))
 	elif game and view == "viuda":
 		# The siege at --chapter c6 --chapter-step 2: La Viuda on the Cuervo Negro's quarterdeck,
 		# seen from a boat's length off her quarter.

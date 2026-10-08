@@ -58,6 +58,8 @@ var bomber := false
 var next_bomb := 0.0
 ## La Viuda: a sharpshooter on the flagship's quarterdeck.
 var sniper := false
+## Linnet, Wren's drowned twin, with her blinding lantern (shield_up while it burns).
+var linnet := false
 var shield_down_until := -1.0
 var damage := SWING_DAMAGE
 var swing_cooldown := SWING_COOLDOWN
@@ -101,6 +103,8 @@ func to_array() -> Array:
 
 ## What it wears, for clients: 0 a pirate's rags, 1 Spanish, 2 a Spanish digger, 3 the sergeant.
 func look_code() -> int:
+	if linnet:
+		return 8
 	if sniper:
 		return 7
 	if bomber:
@@ -140,13 +144,14 @@ static func from_array(a: Array) -> Skeleton:
 	s.digging = int(a[7]) == 3
 	s.captain = a.size() > 8 and int(a[8]) == 1
 	var look := int(a[9]) if a.size() > 9 else 0
-	s.spanish = look >= 1
+	s.spanish = look >= 1 and look != 8
 	s.digger = look == 2
 	s.sergeant = look == 3
 	s.crab = look == 4
 	s.gideon = look == 5
 	s.bomber = look == 6
 	s.sniper = look == 7
+	s.linnet = look == 8
 	s.holding = int(a[10]) if a.size() > 10 else -1
 	s.shield_up = a.size() > 11 and int(a[11]) == 1
 	return s

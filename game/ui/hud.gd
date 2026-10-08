@@ -69,6 +69,8 @@ var _health: Control
 var _hurt: ColorRect
 var _ghost: Label
 var _veil: ColorRect
+## Linnet's lantern in your eyes: the screen goes white and slowly clears.
+var _blind: ColorRect
 var _ring: HoldRing
 var _help: PanelContainer
 var _help_hint: Label
@@ -199,6 +201,12 @@ func _ready() -> void:
 	_hurt.color = Color(0.8, 0.05, 0.05, 0.0)
 	_hurt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_hurt)
+
+	_blind = ColorRect.new()
+	_blind.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_blind.color = Color(0.92, 1.0, 0.9, 0.0)
+	_blind.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_blind)
 
 	# While fallen, the world is seen drained and cold through this veil.
 	_veil = ColorRect.new()
@@ -479,6 +487,7 @@ func _process(delta: float) -> void:
 	_health.queue_redraw()
 	_ring.queue_redraw()
 	_hurt.color.a = maxf(0.0, _hurt.color.a - delta * 1.2)
+	_blind.color.a = maxf(0.0, _blind.color.a - delta * 0.4)
 	_ghost.visible = game.local_player.dead
 	_veil.visible = _ghost.visible
 	if _ghost.visible:
@@ -663,10 +672,11 @@ func _fill_shop() -> void:
 			grid.add_child(name)
 			var own := game.owned.has(Shop.key(i))
 			var wearing: bool = (game.my_outfit if kind == Shop.Kind.OUTFIT else game.my_dye) == item[1]
-			grid.add_child(_card_label("wearing" if wearing else ("owned" if own else "%d gold" % item[3]), 16, Color("5a3e22")))
+			var gift: bool = item[3] <= 0
+			grid.add_child(_card_label("wearing" if wearing else ("owned" if own else ("a gift" if gift else "%d gold" % item[3])), 16, Color("5a3e22")))
 			var button := Button.new()
-			button.text = "Wear" if own else "Buy"
-			button.disabled = wearing or (not own and game.purse < item[3])
+			button.text = "Wear" if own else ("-" if gift else "Buy")
+			button.disabled = wearing or (not own and (gift or game.purse < item[3]))
 			button.custom_minimum_size = Vector2(80, 0)
 			button.pressed.connect(func() -> void:
 				game.send_request("buy", i)
@@ -744,6 +754,10 @@ func _parchment_card() -> PanelContainer:
 
 func flash_damage() -> void:
 	_hurt.color.a = 0.35
+
+
+func blind() -> void:
+	_blind.color.a = 1.0
 
 
 ## A new pirate level: a banner across the top for a few seconds.

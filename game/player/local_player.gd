@@ -282,13 +282,14 @@ func current_target() -> Dictionary:
 		var what := held.label() if held else "chest"
 		if mode == Mode.WORLD and held:
 			var here := body.global_position
+			# A chapter's things are handed over, before anything is sold.
+			var give := _give_target(held, here)
+			if not give.is_empty():
+				return give
 			if held.kind == Loot.Kind.CHEST and here.distance_to(Outpost.sell_spot()) < 3.5:
 				return {"kind": "sell", "id": 0, "label": "E  sell the %s to Silas Penny (%d gold)" % [what, held.value]}
 			if held.kind == Loot.Kind.SKULL and here.distance_to(Outpost.mystic_spot()) < 3.5:
 				return {"kind": "sell", "id": 0, "label": "E  give the skull to Mother Wren (%d gold)" % held.value}
-			var give := _give_target(held, here)
-			if not give.is_empty():
-				return give
 			var climb := _lighthouse_target(here)
 			if not climb.is_empty():
 				return climb
@@ -386,7 +387,8 @@ func _give_target(held: Loot, here: Vector3) -> Dictionary:
 	if ch.is_empty() or int(m.handled) >= ch.steps.size():
 		return {}
 	var step: Dictionary = ch.steps[m.handled]
-	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER]:
+	var skull_for := int(step.kind) == Story.Step.BOUNTY and held.kind == Loot.Kind.SKULL and str(step.to) != "wren"
+	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER] and not skull_for:
 		return {}
 	var to := str(step.to)
 	if here.distance_to(StoryRun.give_spot(to)) > StoryRun.give_reach(to):

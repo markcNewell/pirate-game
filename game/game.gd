@@ -403,7 +403,22 @@ func client_on_event(kind: String, data: Array) -> void:
 			Audio.play_at("rattle", Vector3(data[0], data[1], data[2]), -2.0, 0.8)
 		"glint":
 			if _skeleton_views.has(int(data[0])):
-				_skeleton_views[int(data[0])].glint(StoryRun.SNIPER_GLINT)
+				var sk: Skeleton = view_skeletons.get(int(data[0]))
+				_skeleton_views[int(data[0])].glint(StoryRun.LINNET_GLINT if sk and sk.linnet else StoryRun.SNIPER_GLINT)
+		"blind":
+			if int(data[0]) == local_id and hud:
+				hud.blind()
+				Audio.play("bell", -6.0, 1.8, 0.0)
+		"fade":
+			var at := Vector3(data[0], data[1], data[2])
+			for k in 8:
+				effects.smoke(at + Vector3(randf_range(-0.5, 0.5), randf_range(0.2, 1.6), randf_range(-0.5, 0.5)))
+		"lantern_shot":
+			if _skeleton_views.has(int(data[0])):
+				var v: Node3D = _skeleton_views[int(data[0])]
+				v.drop_lantern()
+				effects.smoke(v.global_position + Vector3(-0.3, 1.0, -0.2))
+				Audio.play_at("clang", v.global_position + Vector3.UP, -2.0, 1.6)
 		"sniper_shot":
 			var muzzle := Vector3(data[0], data[1], data[2])
 			var aim := Vector3.UP
@@ -591,7 +606,10 @@ func _update_skeletons(delta: float) -> void:
 			v.gideon = sk.gideon
 			v.bomber = sk.bomber
 			v.sniper = sk.sniper
+			v.linnet = sk.linnet
 			add_child(v)
+			if sk.linnet and not sk.shield_up:
+				v.drop_lantern()
 			_skeleton_views[id] = v
 		var at := Transform3D(Basis(Vector3.UP, sk.yaw), sk.pos)
 		if sk.frame >= 0:

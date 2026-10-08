@@ -60,6 +60,15 @@ const SNIPER_EVERY := 4.0
 const SNIPER_GLINT := 1.0
 const SNIPER_DAMAGE := 40
 const SHARED_REACH := 200.0
+## Linnet (the tale The Other Lantern): she moves on when a pirate comes this near, until her
+## last island; there her lantern flares every LINNET_FLASH_EVERY s (after a glint), blinding
+## anyone within LINNET_BLIND_RANGE looking toward her.
+const LINNET_NEAR := 22.0
+const LINNET_HEALTH := 90
+const LINNET_FLASH_EVERY := 6.0
+const LINNET_GLINT := 1.2
+const LINNET_BLIND_RANGE := 26.0
+const LINNET_BLIND_DOT := 0.8
 ## Objects that stay put from step to step until the chapter ends.
 const PERSIST := [
 	StoryObject.Kind.FIRE, StoryObject.Kind.BONFIRE, StoryObject.Kind.CAMP, StoryObject.Kind.GATE,
@@ -162,7 +171,7 @@ func start(crew: int, index: int, first := 0) -> void:
 		"items": [], "total": 0, "handled": 0, "own": 0, "deadline": -1.0, "captain": -1,
 		"name": ch.id, "islands": [], "objects": [], "raised": [], "thieves": [], "skull": -1,
 		"spot": Vector3.ZERO, "saved": 0, "next_rise": 0.0, "ship": -1, "captains": [], "left": 0,
-		"need": 0, "given": 0, "asked": [], "right": -1, "next_raid": 0.0, "ships": [], "wave": 0,
+		"need": 0, "given": 0, "asked": [], "right": -1, "next_raid": 0.0, "ships": [], "wave": 0, "stage": 0,
 		"talk_i": 0, "next_talk": 0.0, "next_shot": 0.0, "shot_at": -1.0, "shot_target": -1,
 	}
 	sim.crews[crew].offers = []
@@ -283,6 +292,9 @@ func _enter_read(crew: int, step: Dictionary) -> void:
 
 
 func _raise_bounty(crew: int, step: Dictionary) -> void:
+	if step.get("linnet", false):
+		_raise_linnet(crew, step)
+		return
 	var m: Dictionary = sim.crews[crew].mission
 	var island: int = step.island
 	var spec: Dictionary = Islands.LAYOUT[island]
@@ -307,6 +319,107 @@ func _raise_bounty(crew: int, step: Dictionary) -> void:
 	m.next_talk = sim.time + 3.0
 	m.talk_i = 0
 	sim._tell_crew(crew, "%s walks on %s. Fell %s and bring the skull to %s!" % [step.captain, spec.name, step.get("pronoun", "her"), Story.person_name(step.to)])
+
+
+## Linnet on the first of her islands, her lantern lit (it shields her as the sergeant's
+## shield does him, but from every side, until a shot knocks it from her hand).
+func _raise_linnet(crew: int, step: Dictionary) -> void:
+	var m: Dictionary = sim.crews[crew].mission
+	var island: int = step.islands[0]
+	m.islands = [island]
+	m.skull = -1
+	m.stage = 0
+	var sk := sim._new_skeleton(-1, _dry_spot(island))
+	sk.make_captain()
+	sk.linnet = true
+	sk.shield_up = true
+	sk.hp = LINNET_HEALTH
+	sk.cooldown = 1e6
+	sk.story_crew = crew
+	m.captain = sk.id
+	m.raised.append(sk.id)
+	m.next_shot = sim.time + LINNET_FLASH_EVERY
+	m.shot_at = -1.0
+	print("[server] crew %d: Linnet walks on %s" % [crew, Islands.LAYOUT[island].name])
+	sim._tell_crew(crew, "A green lantern walks on %s. Follow Linnet's light." % Islands.LAYOUT[island].name)
+
+
+## Linnet's turn: on to her next island when a pirate comes near; on her last, the drowned
+## rise round her and her lantern flares.
+func _linnet(crew: int, m: Dictionary, step: Dictionary) -> void:
+	var sk: Skeleton = sim.skeletons.get(m.captain)
+	if sk == null or not sk.alive():
+		return
+	var islands: Array = step.islands
+	var last := int(m.stage) >= islands.size() - 1
+	var near := false
+	for id in sim._crew_members(crew):
+		var r: Dictionary = sim.players[id]
+		if r.dead_until < 0.0 and sim._world_pos(r).distance_to(sk.pos) < LINNET_NEAR:
+			near = true
+	if not last:
+		if near:
+			Net.send_event("fade", [sk.pos.x, sk.pos.y, sk.pos.z])
+			m.stage = int(m.stage) + 1
+			var island: int = islands[m.stage]
+			m.islands = [island]
+			sk.pos = _dry_spot(island)
+			print("[server] Linnet moves on to %s" % Islands.LAYOUT[island].name)
+			sim._tell_crew(crew, "Her light goes out, and shows again on %s." % Islands.LAYOUT[island].name)
+			if int(m.stage) == islands.size() - 1:
+				for n in int(step.crew):
+					var a := TAU * n / float(step.crew)
+					var dead := sim._new_skeleton(-1, sk.pos + Vector3(cos(a), 0, sin(a)) * 3.0)
+					dead.pos.y = Islands.ground_at(island, dead.pos.x, dead.pos.z)
+					dead.story_crew = crew
+					m.raised.append(dead.id)
+		return
+	if not sk.shield_up:
+		return  # her lantern is out: only her bones left to fight
+	if m.shot_at >= 0.0 and sim.time >= m.shot_at:
+		m.shot_at = -1.0
+		for id in sim.players:
+			var r: Dictionary = sim.players[id]
+			if r.dead_until >= 0.0 or r.mode != LocalPlayer.Mode.WORLD:
+				continue
+			var to := Vector2(sk.pos.x - r.pos.x, sk.pos.z - r.pos.z)
+			if to.length() > LINNET_BLIND_RANGE or to.length() < 0.01:
+				continue
+			if Vector2(-sin(r.yaw), -cos(r.yaw)).dot(to.normalized()) > LINNET_BLIND_DOT:
+				sim.stats.blinded += 1
+				Net.send_event("blind", [id])
+		return
+	if near and sim.time >= m.next_shot:
+		m.next_shot = sim.time + LINNET_FLASH_EVERY
+		m.shot_at = sim.time + LINNET_GLINT
+		Net.send_event("glint", [sk.id])
+
+
+## Is this item something a chapter wants handed over, not sold: Hollowbell's hoard, or a skull
+## for someone other than Wren (Bosun Grieve's, for Silas)?
+func is_keepsake(item_id: int) -> bool:
+	for c in sim.crews:
+		var m := _mission_of(c)
+		if m.is_empty() or not m.items.has(item_id):
+			continue
+		var step := _step(m)
+		if int(step.kind) == Story.Step.GATHER:
+			return true
+		if int(step.kind) == Story.Step.BOUNTY and item_id == m.skull and str(step.to) != "wren":
+			return true
+	return false
+
+
+## Linnet does not walk at you: she turns to face the nearest pirate and holds up her light.
+func step_linnet(sk: Skeleton) -> void:
+	var best := LINNET_NEAR * 2.0
+	for id in sim.players:
+		var r: Dictionary = sim.players[id]
+		var d: float = r.pos.distance_to(sk.pos)
+		if r.mode == LocalPlayer.Mode.WORLD and r.dead_until < 0.0 and d < best:
+			best = d
+			sk.yaw = atan2(-(r.pos.x - sk.pos.x), -(r.pos.z - sk.pos.z))
+	sk.walking = false
 
 
 ## A captain raised near the middle of an island, counted among the step's dead.
@@ -562,8 +675,13 @@ func _enter_gather(crew: int, step: Dictionary) -> void:
 			for n in int(step.count):
 				var at := c + Vector3(cos(TAU * n / 4.0 + 0.4), 0, sin(TAU * n / 4.0 + 0.4)) * 3.2
 				at.y = Islands.ground_at(island, at.x, at.z) + 0.05
-				m.items.append(sim._new_item(Loot.Kind.CANNON, Loot.State.GROUND, at, 0).id)
-			m.next_raid = sim.time + 20.0
+				if step.item == "hoard":
+					# Hollowbell's hoard: red captain's chests, for Silas and not for sale.
+					m.items.append(sim._new_item(Loot.Kind.CHEST, Loot.State.GROUND, at, 500).id)
+				else:
+					m.items.append(sim._new_item(Loot.Kind.CANNON, Loot.State.GROUND, at, 0).id)
+			if step.has("raids"):
+				m.next_raid = sim.time + 20.0
 		"saltshot":
 			m.islands = [Islands.outpost_index(), 2, _nearest_island(REEF_EDGE)]
 			var salt := sim._new_item(Loot.Kind.CRATE, Loot.State.GROUND, Outpost.cargo_spot(0), 0)
@@ -614,6 +732,16 @@ func give(id: int, r: Dictionary) -> void:
 	if m.is_empty() or r.carry < 0 or not m.items.has(r.carry) or r.mode != LocalPlayer.Mode.WORLD:
 		return
 	var step := _step(m)
+	if int(step.kind) == Story.Step.BOUNTY and r.carry == m.skull and str(step.to) != "wren":
+		# A skull for someone who doesn't buy skulls (Silas, for his old bosun): handed over.
+		if r.pos.distance_to(give_spot(str(step.to))) > give_reach(str(step.to)):
+			return
+		var skull: Loot = sim.items[r.carry]
+		r.carry = -1
+		sim.items.erase(skull.id)
+		print("[server] %s gave the skull of %s to %s" % [r.name, step.captain, Story.person_name(step.to)])
+		on_item_done(r.crew, skull, r.crew, true)
+		return
 	if int(step.kind) not in [Story.Step.CHASE, Story.Step.GATHER]:
 		return
 	if r.pos.distance_to(give_spot(str(step.to))) > give_reach(str(step.to)):
@@ -1265,6 +1393,11 @@ func _finish(crew: int) -> void:
 		sim.profiles.changed(profile.name)
 		sim._award(id, int(ch.xp), "the chapter " + ch.title)
 		# After the XP, so a level gained at the same moment does not take the title's place.
+		if ch.has("gift") and not profile.owned.has(ch.gift):
+			# A thing to wear, kept at Martha's with whatever else you own.
+			profile.owned.append(ch.gift)
+			var gift: int = Shop.index_of(str(ch.gift))
+			Net.send_message(id, "%s gives you a gift: %s. Wear it at Martha's counter." % [Story.person_name(ch.giver), Shop.ITEMS[gift][2]])
 		if ch.has("reward") and not profile.titles.has(ch.reward):
 			profile.titles.append(ch.reward)
 			profile.title = ch.reward
@@ -1555,6 +1688,8 @@ func tick(_dt: float) -> void:
 			Story.Step.BOUNTY:
 				if step.has("talking"):
 					_skull_talks(m, step)
+				if step.get("linnet", false):
+					_linnet(c, m, step)
 			Story.Step.SIEGE_SEA:
 				_battery(c)
 			Story.Step.SIEGE_BEACH:

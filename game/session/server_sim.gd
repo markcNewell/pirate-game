@@ -80,7 +80,7 @@ var stats := {
 	"lightning": 0, "missions": 0, "delivered": 0, "skulls": 0, "xp": 0, "levels": 0,
 	"chapters_started": 0, "chapters": 0, "doused": 0, "thefts": 0, "salted": 0, "explosions": 0,
 	"galleons": 0, "blocked": 0, "given": 0, "broken": 0, "bells": 0, "gates": 0, "guns_silenced": 0,
-	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0,
+	"dives": 0, "fort_shots": 0, "bought": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -832,7 +832,7 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 		"drop":
 			_drop_carried(id)
 		"sell":
-			_sell(r)
+			_sell(r, id)
 		"restock":
 			_restock(r, arg)
 		"open":
@@ -1372,6 +1372,9 @@ func _buy(id: int, r: Dictionary, i: int) -> void:
 	var key := Shop.key(i)
 	if not p.owned.has(key):
 		var price: int = Shop.ITEMS[i][3]
+		if price <= 0:
+			Net.send_message(id, "Martha: \"That one's not mine to sell, love. Someone has to give it you.\"")
+			return
 		if int(p.gold) < price:
 			Net.send_message(id, "Martha shakes her head: that's %d gold, and you have %d." % [price, int(p.gold)])
 			return
@@ -1505,12 +1508,15 @@ func _drop_carried(id: int) -> void:
 
 ## Sell what you carry to the company that buys it: chests to Silas Penny (the Gilded Hand)
 ## at his stall, skulls to Mother Wren (the Lantern Order).
-func _sell(r: Dictionary) -> void:
+func _sell(r: Dictionary, id := 0) -> void:
 	if r.mode != LocalPlayer.Mode.WORLD or r.carry < 0 or not items.has(r.carry):
 		return
 	var item: Loot = items[r.carry]
 	var at := Outpost.sell_spot() if item.kind == Loot.Kind.CHEST else Outpost.mystic_spot()
 	if item.kind not in [Loot.Kind.CHEST, Loot.Kind.SKULL] or r.pos.distance_to(at) > SELL_REACH + 1.0:
+		return
+	if story.is_keepsake(item.id):
+		Net.send_message(id, "That's not for selling: someone at Port Merrow is waiting for it.")
 		return
 	_pay_crew(r.crew, item.value)
 	stats.sold += 1
@@ -1767,6 +1773,9 @@ func _step_skeletons(dt: float) -> void:
 		if sk.crab or sk.gideon:
 			story.step_crab(sk, dt, _floor_for(sk))
 			continue
+		if sk.linnet:
+			story.step_linnet(sk)
+			continue
 		if sk.thief and story.step_thief(sk, dt, _floor_for(sk)):
 			continue
 		var target := _skeleton_target(sk)
@@ -1918,6 +1927,14 @@ func _attack(id: int, r: Dictionary, look: Array) -> void:
 		elif target > 0:
 			var sk: Skeleton = skeletons[target]
 			var from := eye if sk.frame < 0 else ShipPhysics.pose_of(ships[sk.frame], time).affine_inverse() * eye
+			if sk.linnet and sk.shield_up:
+				# Her lantern: a blade passes through its light; a shot knocks it from her hand.
+				if weapon == Weapons.Kind.PISTOL:
+					sk.shield_up = false
+					stats.lanterns += 1
+					print("[server] %s shot the lantern from Linnet's hand" % r.name)
+					Net.send_event("lantern_shot", [target])
+				continue
 			if sk.sergeant and sk.blocks(from):
 				# The tower shield: a blade rings off it; a shot knocks it aside for a moment.
 				stats.blocked += 1

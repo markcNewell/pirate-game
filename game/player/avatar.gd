@@ -9,8 +9,10 @@ extends Node3D
 
 const SHIRTS: Array[Color] = [Color("d63c3c"), Color("3c6fd6"), Color("3cae5a"), Color("9a4fd0")]
 const SKINS: Array[Color] = [Color("f2c49b"), Color("c98e62"), Color("8d5a3b"), Color("e8b48a")]
-## How many looks the pirate model has (look0, look1...: art/blender/characters.py).
-const LOOKS := 8
+## How many looks the pirate model has (look0, look1...: art/blender/characters.py), and how
+## many of them go round the roster (the rest are only worn once given or bought).
+const LOOKS := 9
+const ROSTER_LOOKS := 8
 ## The speeds the walk and run cycles are drawn for (PlayerMotor.WALK and RUN).
 const WALK_SPEED := 4.5
 const RUN_SPEED := 7.0
@@ -67,11 +69,11 @@ func _init(player_name: String, look_index: int, bought_outfit := -1, bought_dye
 	dye = bought_dye
 	var shirt := Shop.shirt_of(bought_dye, look_index)
 	var skin := skin_for(look_index)
-	var look := bought_outfit if bought_outfit >= 0 else look_index
+	var look := bought_outfit % LOOKS if bought_outfit >= 0 else look_index % ROSTER_LOOKS
 	_model = Models.instance("pirate", {
 		Models.SHIRT: shirt, Models.SHIRT_DARK: shirt.darkened(0.28),
 		Models.SKIN: skin, Models.SKIN_DARK: skin.darkened(0.12).lerp(Color("c0503a"), 0.12),
-	}, ["body", "look%d" % (look % LOOKS)])
+	}, ["body", "look%d" % look])
 	add_child(_model)
 	_skeleton = _model.find_children("*", "Skeleton3D", true, false)[0]
 	_build_tree()

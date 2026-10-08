@@ -22,7 +22,10 @@ var sergeant := false
 var gideon := false
 var bomber := false
 var sniper := false
+var linnet := false
 var _glint: MeshInstance3D
+var _lantern: Node3D
+var _lantern_light: OmniLight3D
 var _glint_left := 0.0
 var _digging := false
 var _model: Node3D
@@ -35,7 +38,9 @@ var _fall := 0.0
 
 func _ready() -> void:
 	var outfit := "look%d" % (look % 3)
-	if captain:
+	if linnet:
+		outfit = "look8"
+	elif captain:
 		outfit = "look3"
 	elif bomber:
 		outfit = "look6"
@@ -56,7 +61,7 @@ func _ready() -> void:
 	add_child(_model)
 	if bomber:
 		_model.scale = Vector3.ONE * 1.35
-	if captain:
+	if captain and not linnet:
 		_model.scale = Vector3.ONE * 1.12
 	elif sergeant:
 		_model.scale = Vector3.ONE * 1.25
@@ -98,6 +103,22 @@ func _ready() -> void:
 	var hand_rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_r"))
 	var turn := Basis(Vector3.BACK, deg_to_rad(Avatar.ARM_A))
 	var grip := Transform3D(turn, hand_rest.origin + turn * Avatar.GRIP)
+	if linnet:
+		# Her lantern, held up in her left hand, and its green light.
+		var left := BoneAttachment3D.new()
+		left.bone_name = "hand_l"
+		skeleton.add_child(left)
+		var left_rest := skeleton.get_bone_global_rest(skeleton.find_bone("hand_l"))
+		_lantern = Toon.instance(Models.part("story", "hand_lantern"))
+		_lantern.transform = left_rest.affine_inverse() * Transform3D(Basis.IDENTITY, left_rest.origin + Vector3(0, -0.04, -0.04))
+		left.add_child(_lantern)
+		_lantern_light = OmniLight3D.new()
+		_lantern_light.light_color = Color("9cff8a")
+		_lantern_light.light_energy = 1.6
+		_lantern_light.omni_range = 7.0
+		_lantern_light.position = Vector3(0, -0.22, 0)
+		_lantern.add_child(_lantern_light)
+		return
 	if sniper:
 		# Her musket is part of her outfit; this is the glint off its barrel as she aims.
 		_glint = MeshInstance3D.new()
@@ -155,8 +176,17 @@ func swing() -> void:
 	_player.play("slash", 0.08)
 
 
+## Linnet's lantern, knocked from her hand by a shot (or already gone when we first see her).
+func drop_lantern() -> void:
+	if _lantern:
+		_lantern.visible = false
+
+
 ## La Viuda takes aim: a red glint for as long as the server waits before the shot.
 func glint(seconds: float) -> void:
+	if _lantern_light:
+		_glint_left = seconds
+		return
 	if _glint == null:
 		return
 	_glint_left = seconds
@@ -177,6 +207,10 @@ func place(pose: Transform3D, walking: bool, fallen: bool, delta: float) -> void
 		if _player.current_animation in ["idle_blade", "walk_blade"] and not _digging:
 			_player.play("walk_blade" if walking else "idle_blade", 0.25)
 	_flash = maxf(0.0, _flash - delta * 4.0)
+	if _lantern_light and _lantern.visible:
+		# Linnet's lantern gathers itself before it flares.
+		_glint_left = maxf(0.0, _glint_left - delta)
+		_lantern_light.light_energy = 1.6 + (8.0 * (1.0 - _glint_left) if _glint_left > 0.0 else 0.0)
 	if _glint and _glint_left > 0.0:
 		_glint_left -= delta
 		_glint.visible = _glint_left > 0.0 and not fallen

@@ -9,7 +9,7 @@ sinking; health, cutlass and pistol, skeleton camps and boarding; crew vs crew. 
 companies (the Gilded Hand, the Lantern Order and the Merrow Traders) offer treasure voyages,
 bounties and cargo runs from a mission board, and the story, [the Ash Fleet](docs/specs/2026-10-08-story.md),
 has begun: the prologue and Acts I to III are playable (twenty chapters, from the green lights
-on Gull Isle to the siege of Port Merrow), with five side tales. Every pirate earns XP and levels (which never make anyone
+on Gull Isle to the siege of Port Merrow), with eleven side tales. Every pirate earns XP and levels (which never make anyone
 stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
 24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
 waves, gusts and lightning that can hole your ship, and sound throughout. Specs:

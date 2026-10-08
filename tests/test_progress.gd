@@ -162,7 +162,13 @@ func test_martha_sells_looks_not_power() -> void:
 	check_eq(r.profile.gold, 300, "wearing it again is free")
 	check_eq(r.profile.look, 2)
 	r.pos = Outpost.sell_spot()
-	sim.request(1, "buy", 8, [])
+	sim.request(1, "buy", Shop.index_of("dye0"), [])
 	check(not r.profile.owned.has("dye0"), "only at Martha's counter")
+	# A gift (Silas's cap) is never for sale, whatever gold you bring.
+	r.pos = Outpost.martha_pos()
+	r.profile.gold = 99999
+	sim.request(1, "buy", Shop.index_of("outfit8"), [])
+	check(not r.profile.owned.has("outfit8"), "Martha won't sell Silas's cap")
+	check_eq(r.profile.gold, 99999, "nor take gold for it")
 	for i in Shop.ITEMS.size():
-		check(Shop.ITEMS[i][3] > 0, "%s has a price" % Shop.ITEMS[i][2])
+		check(Shop.ITEMS[i][3] > 0 or Shop.key(i) == "outfit8", "%s has a price" % Shop.ITEMS[i][2])

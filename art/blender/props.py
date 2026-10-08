@@ -819,6 +819,19 @@ def barricade():
     return kit.join("barricade", parts)
 
 
+def hand_lantern():
+    """Linnet's lantern, hanging from its bail (the top of the bail at the origin): a squat
+    iron cage round green glass."""
+    parts = [kit.tube("bail", [(-0.05, -0.12, 0), (0.0, 0.0, 0), (0.05, -0.12, 0)], 0.008, 4, "2e2e36", caps=False)]
+    parts.append(kit.lathe("lamptop", [(0.075, -0.14), (0.04, -0.1), (0.0, -0.085)], 8, "2e2e36"))
+    parts.append(kit.lathe("lampbase", [(0.0, -0.33), (0.07, -0.33), (0.07, -0.3), (0.0, -0.3)], 8, "2e2e36"))
+    parts.append(kit.noink(kit.lathe("lampglass", [(0.055, -0.3), (0.062, -0.22), (0.055, -0.14)], 8, "c8ffb8", caps=False), 0.0))
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        parts.append(kit.box("lampbar", (math.cos(a) * 0.06, -0.22, math.sin(a) * 0.06), (0.012, 0.17, 0.012), "2e2e36"))
+    return kit.join("hand_lantern", parts)
+
+
 def tent_shape(half_w, h, length, color):
     """A ridge tent along Z: two sloping canvas sides, closed ends with a dark door at the front
     (-Z), a ridge pole sticking out at both ends."""
@@ -845,7 +858,7 @@ def bottle():
 
 def main(names):
     builders = {
-        "story": lambda: [grave(), journal(), rowboat(), open_grave(), open_grave("grave_salted", salted=True), keg(), powder_store(), bonfire(), dig_camp(), bottle()],
+        "story": lambda: [grave(), journal(), rowboat(), open_grave(), open_grave("grave_salted", salted=True), keg(), powder_store(), bonfire(), dig_camp(), bottle(), hand_lantern()],
         "loot": lambda: [skull(), coconut(), planks(), oil_jar(), cannon_carriage(), bronze_piece(), brine_barrel(), barricade()] + [cargo_crate(g) for g in range(6)],
         "fx": lambda: [cannonball(), splinter(), wreck_plank(), flame()],
         "tools": lambda: [bucket(), bucket("bucket_empty", water=False), shovel(), hammer()],
