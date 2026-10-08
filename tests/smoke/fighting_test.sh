@@ -38,6 +38,6 @@ check "its crew were felled ($(count "felled skeleton" "$LOGS/board.log"))" '[ "
 check "skeletons fought back" 'grep -q "skeleton_swings=[1-9]" "$LOGS/board.log" || grep -q "skeleton_swings=[1-9]" "$LOGS/island.log"'
 check "no script errors" '! grep -l "SCRIPT ERROR" "$LOGS"/*.log'
 if [ "$fail" -ne 0 ]; then
-	for log in "$LOGS"/*.log; do echo "----- $log"; grep -v "phase=" "$log" | tail -20; done
+	for log in "$LOGS"/*.log; do echo "----- $log"; grep -v "phase=" "$log" | tail -20; grep "phase=" "$log" | tail -3; done
 fi
 exit "$fail"

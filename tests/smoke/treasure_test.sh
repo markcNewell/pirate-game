@@ -39,6 +39,6 @@ check "the ship was restocked" 'grep -q "restocked the ship" "$LOGS/sell_bot.log
 check "no corrections" 'grep -q "corrections=0" "$LOGS/hunt.log" && grep -q "corrections=0" "$LOGS/sell.log"'
 check "no script errors" '! grep -l "SCRIPT ERROR" "$LOGS"/*.log'
 if [ "$fail" -ne 0 ]; then
-	for log in "$LOGS"/*.log; do echo "----- $log"; grep -v "phase=" "$log" | tail -20; done
+	for log in "$LOGS"/*.log; do echo "----- $log"; grep -v "phase=" "$log" | tail -20; grep "phase=" "$log" | tail -3; done
 fi
 exit "$fail"

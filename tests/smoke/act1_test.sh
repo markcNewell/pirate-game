@@ -43,6 +43,6 @@ check "the bonfire took a bucket" 'grep -q "doused a green fire" "$LOGS/camp.log
 check "no corrections" '! grep -h "RESULT server" "$LOGS"/*.log | grep -qv "corrections=0"'
 check "no script errors" '! grep -l "SCRIPT ERROR" "$LOGS"/*.log'
 if [ "$fail" -ne 0 ]; then
-	for log in "$LOGS"/*.log; do echo "----- $log"; grep -v "phase=" "$log" | tail -20; done
+	for log in "$LOGS"/*.log; do echo "----- $log"; grep -v "phase=" "$log" | tail -20; grep "phase=" "$log" | tail -3; done
 fi
 exit "$fail"
