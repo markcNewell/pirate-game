@@ -28,12 +28,13 @@ Spanish caches, officers and the pressed dead, raided cargo runs, wreck gold and
 stronger) and keeps their own gold, remembered by the server between sessions. The sea has a
 24-minute day with sunsets, starry nights and lanterns, a storm that roams the map with big
 waves, gusts and lightning that can hole your ship, sound throughout, and music that follows
-what is around you (Kevin MacLeod's, CC BY 4.0: see [CREDITS.md](CREDITS.md)). Specs:
+what is around you (Kevin MacLeod's, CC BY 4.0: see [CREDITS.md](CREDITS.md)). Hold V to talk:
+anyone within 40 m hears you, from where your pirate stands. Specs:
 [design](docs/specs/2026-10-07-pirate-game-design.md), [2](docs/specs/2026-10-07-m2-ship-combat.md),
 [3](docs/specs/2026-10-07-m3-treasure.md), [4](docs/specs/2026-10-07-m4-fighting.md),
 [5](docs/specs/2026-10-07-m5-crew-vs-crew.md), [art pass](docs/specs/2026-10-07-art-pass-1.md), [storm](docs/specs/2026-10-07-storm.md),
 [Blender models](docs/specs/2026-10-07-art-pass-2-blender.md), [6 missions](docs/specs/2026-10-07-m6-missions.md),
-[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md), [18 the fort and the Maw](docs/specs/2026-10-08-m18-fort-and-maw.md), [19 the shipwright](docs/specs/2026-10-08-m19-shipwright.md), [20 rewards you can see](docs/specs/2026-10-08-m20-rewards-you-can-see.md), [21 the fort as a port](docs/specs/2026-10-08-m21-fort-port.md), [22 play-test](docs/specs/2026-10-08-m22-play-test.md), [23 music](docs/specs/2026-10-08-m23-music.md), [24 lean snapshots](docs/specs/2026-10-08-m24-lean-snapshots.md).
+[7 a pirate's life](docs/specs/2026-10-08-m7-pirates-life.md), [8 Act I](docs/specs/2026-10-08-m8-bones-in-the-sand.md), [9 Act II](docs/specs/2026-10-08-m9-the-ravens-due.md), [10 Act III](docs/specs/2026-10-08-m10-the-siege.md), [11 Act IV](docs/specs/2026-10-08-m11-the-drowned-fleet.md), [12 Act V](docs/specs/2026-10-08-m12-the-heart-of-ash.md), [13 world events](docs/specs/2026-10-08-m13-world-events.md), [14 the armoury](docs/specs/2026-10-08-m14-the-armoury.md), [15 deeds](docs/specs/2026-10-08-m15-deeds.md), [16 the war on the board](docs/specs/2026-10-08-m16-war-on-the-board.md), [18 the fort and the Maw](docs/specs/2026-10-08-m18-fort-and-maw.md), [19 the shipwright](docs/specs/2026-10-08-m19-shipwright.md), [20 rewards you can see](docs/specs/2026-10-08-m20-rewards-you-can-see.md), [21 the fort as a port](docs/specs/2026-10-08-m21-fort-port.md), [22 play-test](docs/specs/2026-10-08-m22-play-test.md), [23 music](docs/specs/2026-10-08-m23-music.md), [24 lean snapshots](docs/specs/2026-10-08-m24-lean-snapshots.md), [25 voice](docs/specs/2026-10-09-m25-voice.md).
 
 ![The title screen](docs/screenshots/title.png)
 
@@ -113,6 +114,7 @@ On the title screen:
 | Board | swim to a skeleton ship and E at its ladder |
 | Heal | E at the banana barrel on the lower deck |
 | Other crews | their names show red; you can fight them, board their ship and steal its chests |
+| Voice | hold V to talk; anyone within 40 m hears you, any crew. Esc menu: open mic, volume, which microphone, mute someone |
 
 The ship starts at anchor with its sails furled. Winch the anchor up, let the sails out, and
 watch the wind arrow at the bottom left: sails pull hardest with the wind behind them, and you
@@ -194,6 +196,9 @@ Bots also take `treasure`, `seller`, `fighter`, `boarder`, `duelist`, `thief`, `
   downloaded; the title tune is the traditional "Drunken Sailor"). `game/audio/audio.gd` (the
   `Audio` autoload) plays them: one-shots in the world, ambience loops that follow the scene,
   and music. Volume and music sliders are on the title screen.
+- `game/voice/`: proximity voice chat. The mic is brought down to 16 kHz, packed 4:1 (IMA
+  ADPCM) 60 ms to a packet, and the server passes each packet to everyone within 45 m; each
+  voice plays from its pirate's head. Tested headless by bots speaking a tone (`--voice-tone`).
 
 - `art/blender/`: every model, as a Python script run by headless Blender 5.2
   (`tools/build_models.sh`), exported to `art/models/*.glb`. The exports are committed, so you

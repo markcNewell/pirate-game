@@ -38,6 +38,8 @@ var _skeleton: Skeleton3D
 var _tree: AnimationTree
 var _look: HeadLook
 var _label: Label3D
+## Over the name while you hear this pirate talk (Voice).
+var _talking: Sprite3D
 var _name := ""
 var _cutlass: Node3D
 var _pistol: Node3D
@@ -112,6 +114,17 @@ func _init(player_name: String, look_index: int, bought_outfit := -1, bought_dye
 	_label.position.y = 2.3
 	_label.no_depth_test = false
 	add_child(_label)
+	_talking = Sprite3D.new()
+	_talking.texture = load("res://art/icon/talking.svg")
+	_talking.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_talking.fixed_size = true
+	_talking.pixel_size = 0.001
+	# Just above the name, on screen: both keep their size near or far, so a gap in metres
+	# would close up with distance.
+	_talking.position.y = 2.3
+	_talking.offset = Vector2(0, 95)
+	_talking.visible = false
+	add_child(_talking)
 	_name = player_name
 	set_weapon(Weapons.Kind.CUTLASS)
 
@@ -240,6 +253,10 @@ func set_bucket(full: bool) -> void:
 ## Crewmates' names are white; other crews' are red.
 func set_hostile(hostile: bool) -> void:
 	_label.modulate = Color("ff8a7a") if hostile else Color.WHITE
+
+
+func set_talking(on: bool) -> void:
+	_talking.visible = on
 
 
 func set_weapon(kind: int) -> void:

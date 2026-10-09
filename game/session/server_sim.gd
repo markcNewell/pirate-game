@@ -86,7 +86,7 @@ var stats := {
 	"dives": 0, "fort_shots": 0, "bought": 0, "refits": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
 	"blinks": 0, "braziers": 0, "beacons": 0, "slams": 0, "throws": 0, "joint_hits": 0, "crumbled": 0,
-	"world_events": 0, "world_won": 0, "deeds": 0,
+	"world_events": 0, "world_won": 0, "deeds": 0, "voice": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -107,6 +107,12 @@ var _ship_looks := {}
 var _sent := {}
 const INTEREST := 500.0
 const REFRESH := 15
+## Voice (docs/specs/2026-10-09-m25-voice.md): heard up to 40 m, so sent a little further, and
+## no more packets a second from one player than this (a talker sends about 17).
+const EARSHOT := 45.0
+const VOICE_PER_SECOND := 25
+## Each player's voice allowance: peer id -> [packets left, server time last topped up].
+var _voice_allowance := {}
 var _next_looks := 0.0
 ## Whether each pirate was last told the fort is their port: peer id -> bool.
 var _fort_open := {}
@@ -861,7 +867,35 @@ func remove_player(id: int) -> String:
 	station_input.erase(id)
 	_fort_open.erase(id)
 	_sent.erase(id)
+	_voice_allowance.erase(id)
 	return who
+
+
+## Who hears `id` speak: everyone within EARSHOT of them, any crew, but not themselves.
+func voice_listeners(id: int) -> Array:
+	if not players.has(id):
+		return []
+	var mouth := _world_pos(players[id])
+	var out := []
+	for other: int in players:
+		if other != id and _world_pos(players[other]).distance_to(mouth) <= EARSHOT:
+			out.append(other)
+	return out
+
+
+## Whether to pass on a voice packet of `size` bytes from `id`: the right size, and within
+## their VOICE_PER_SECOND (topped up as time passes, never above a second's worth).
+func voice_ok(id: int, size: int) -> bool:
+	if size <= VoicePacket.HEADER or size > VoicePacket.MAX_BYTES or not players.has(id):
+		return false
+	var a: Array = _voice_allowance.get(id, [float(VOICE_PER_SECOND), time])
+	a[0] = minf(VOICE_PER_SECOND, a[0] + (time - a[1]) * VOICE_PER_SECOND)
+	a[1] = time
+	_voice_allowance[id] = a
+	if a[0] < 1.0:
+		return false
+	a[0] -= 1.0
+	return true
 
 
 ## A player reports where they are: [teleport seq, mode, x, y, z, yaw, pitch].

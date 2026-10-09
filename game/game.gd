@@ -81,6 +81,8 @@ var proxy: DeckProxy
 var local_player: LocalPlayer
 var hud: Hud
 var effects: Effects
+## Proximity voice chat (docs/specs/2026-10-09-m25-voice.md).
+var voice: Voice
 ## Ships we have seen start to sink (id -> time since the last bubbles).
 var _wrecked := {}
 var _creak_wait := 5.0
@@ -141,6 +143,12 @@ func _build_view() -> void:
 	local_player.game = self
 	local_player.input.is_bot = bot_role != ""
 	add_child(local_player)
+	voice = Voice.new()
+	voice.game = self
+	voice.tone = options.has("voice-tone")
+	voice.for_bot = bot_role != ""
+	voice.send = send_voice
+	add_child(voice)
 	if bot_role != "":
 		var bot := Bot.new()
 		bot.setup(self, bot_role)
@@ -244,6 +252,18 @@ func server_station_input(id: int, axes: Vector2, aim: Vector2) -> void:
 
 func server_request(id: int, action: String, arg: int, data: Array) -> void:
 	sim.request(id, action, arg, data)
+
+
+## A voice packet from `id`: passed on to everyone in earshot (within their cap).
+func server_voice(id: int, packet: PackedByteArray) -> void:
+	if not sim.voice_ok(id, packet.size()):
+		return
+	sim.stats.voice += 1
+	for listener: int in sim.voice_listeners(id):
+		if listener == local_id and has_view():
+			client_on_voice(id, packet)
+		else:
+			Net.send_voice_to(listener, id, packet)
 
 
 # =====================================================================================
@@ -361,6 +381,11 @@ func _make_avatar(id: int, index: int) -> void:
 	avatars[id] = avatar
 	avatar.set_tag(t[0], t[1])
 	avatar.set_loadout(t[4], t[5])
+
+
+func client_on_voice(speaker: int, packet: PackedByteArray) -> void:
+	if voice:
+		voice.receive(speaker, packet)
 
 
 func client_on_message(text: String) -> void:
@@ -684,6 +709,7 @@ func _process(delta: float) -> void:
 		avatar.set_hostile(p.crew != own_crew)
 		avatar.set_weapon(p.weapon)
 		avatar.set_pitch(p.pitch)
+		avatar.set_talking(voice.is_talking(id))
 		avatar.visible = not p.dead
 
 	_update_balls()
@@ -1028,6 +1054,13 @@ func send_station_input(axes: Vector2, aim: Vector2) -> void:
 		server_station_input(local_id, axes, aim)
 	else:
 		Net.send_station_input(axes, aim)
+
+
+func send_voice(packet: PackedByteArray) -> void:
+	if is_server():
+		server_voice(local_id, packet)
+	else:
+		Net.send_voice(packet)
 
 
 ## A crew's mission from a snapshot: {kind, company, title, deadline, captain, handled, total,

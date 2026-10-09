@@ -35,6 +35,13 @@ and check how it looks.
       the Linux server download on a machine with a public address.
 - [ ] Sail together: does their ship and their character move smoothly, or jerkily?
 - [ ] Fight something together. Do hits land when they look like they should?
+- [ ] **Voice**: Esc, check your mic moves the level bar (pick the right one under Microphone
+      if not). Hold V and talk: you see the mic mark bottom left; they see a
+      speaker over your head, and hear you from your pirate, fading as you walk apart and gone
+      by about 40 m. Is it clear enough? Any echo (headphones help), crackle or lag?
+- [ ] Try open mic (Esc, Voice). Does the gold level cut out the background but not your words?
+- [ ] On a Mac: did it ask for the microphone the first time? (If you said no: System Settings >
+      Privacy & Security > Microphone.)
 
 ## Worth noting
 

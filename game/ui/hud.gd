@@ -109,6 +109,12 @@ var _crew: PanelContainer
 var _crew_list: Label
 var _menu: PanelContainer
 var _respawn: Button
+## Voice (docs/specs/2026-10-09-m25-voice.md): the mic mark while you are sent, and the Esc
+## menu's voice column.
+var _talk_mark: TextureRect
+var _mic_choice: OptionButton
+var _mic_meter: MicMeter
+var _mutes: GridContainer
 
 
 func _ready() -> void:
@@ -164,6 +170,20 @@ func _ready() -> void:
 	_gauges.offset_bottom = -20
 	_gauges.offset_left = 20
 	root.add_child(_gauges)
+
+	_talk_mark = TextureRect.new()
+	_talk_mark.texture = load("res://art/icon/mic.svg")
+	_talk_mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_talk_mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_talk_mark.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	# Just above the wind and speed panel.
+	_talk_mark.offset_left = 24
+	_talk_mark.offset_right = 72
+	_talk_mark.offset_top = -210
+	_talk_mark.offset_bottom = -162
+	_talk_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_talk_mark.visible = false
+	root.add_child(_talk_mark)
 
 	_damage = Damage.new()
 	_damage.hud = self
@@ -388,9 +408,13 @@ func _build_menu(root: Control) -> void:
 	_menu.theme = ui_theme()
 	_menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_menu.visible = false
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 36)
+	_menu.add_child(columns)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
-	_menu.add_child(box)
+	columns.add_child(box)
+	columns.add_child(_voice_column())
 	var title := _label(44)
 	title.add_theme_font_override("font", display_font())
 	title.text = "Paused"
@@ -430,6 +454,115 @@ func _build_menu(root: Control) -> void:
 	root.add_child(_menu)
 
 
+## The Esc menu's voice settings: on or off, how to talk, how loud others are, which mic (with
+## a level bar to check it), open mic's level and a mute box for each other pirate.
+func _voice_column() -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.custom_minimum_size.x = 300
+	var title := _label(36)
+	title.add_theme_font_override("font", display_font())
+	title.text = "Voice"
+	col.add_child(title)
+
+	var on := CheckButton.new()
+	on.text = "Voice chat"
+	on.button_pressed = Settings.voice_on
+	on.toggled.connect(func(v: bool) -> void:
+		Settings.voice_on = v
+		_voice_changed())
+	col.add_child(on)
+
+	var mode := OptionButton.new()
+	mode.add_item("Hold V to talk")
+	mode.add_item("Open mic")
+	mode.selected = 1 if Settings.open_mic else 0
+	mode.item_selected.connect(func(i: int) -> void:
+		Settings.open_mic = i == 1
+		_voice_changed())
+	col.add_child(mode)
+
+	col.add_child(_small_label("Voices volume"))
+	var volume := _slider(0.0, 1.0, 0.05, Settings.voice_volume)
+	volume.value_changed.connect(func(v: float) -> void:
+		Settings.voice_volume = v
+		Audio.apply_volumes()
+		Settings.save())
+	col.add_child(volume)
+
+	col.add_child(_small_label("Microphone"))
+	_mic_choice = OptionButton.new()
+	_mic_choice.clip_text = true
+	_mic_choice.item_selected.connect(func(i: int) -> void:
+		Settings.mic_device = _mic_choice.get_item_text(i)
+		if game and game.voice:
+			game.voice.mic.use_device(Settings.mic_device)
+		Settings.save())
+	col.add_child(_mic_choice)
+	_mic_meter = MicMeter.new()
+	_mic_meter.hud = self
+	_mic_meter.custom_minimum_size = Vector2(280, 22)
+	col.add_child(_mic_meter)
+
+	col.add_child(_small_label("Open mic level (the gold mark)"))
+	var level := _slider(0.01, 0.5, 0.01, Settings.mic_level)
+	level.value_changed.connect(func(v: float) -> void:
+		Settings.mic_level = v
+		_voice_changed())
+	col.add_child(level)
+
+	col.add_child(_small_label("Mute"))
+	_mutes = GridContainer.new()
+	_mutes.columns = 2
+	col.add_child(_mutes)
+	return col
+
+
+func _small_label(text: String) -> Label:
+	var l := _label(18)
+	l.text = text
+	return l
+
+
+func _slider(lo: float, hi: float, step: float, value: float) -> HSlider:
+	var s := HSlider.new()
+	s.min_value = lo
+	s.max_value = hi
+	s.step = step
+	s.value = value
+	s.custom_minimum_size = Vector2(280, 24)
+	return s
+
+
+func _voice_changed() -> void:
+	Settings.save()
+	if game and game.voice:
+		game.voice.apply_settings()
+
+
+## Each time the menu opens: the microphones there are now, and a mute box for each pirate here.
+func _fill_voice_menu() -> void:
+	_mic_choice.clear()
+	for device in Mic.devices():
+		_mic_choice.add_item(device)
+		if device == Settings.mic_device:
+			_mic_choice.selected = _mic_choice.item_count - 1
+	for child in _mutes.get_children():
+		child.queue_free()
+	var ids := game.roster.keys()
+	ids.sort()
+	for id: int in ids:
+		if id == game.local_id:
+			continue
+		var box := CheckBox.new()
+		box.text = str(game.roster[id])
+		box.button_pressed = game.voice.muted.has(id)
+		box.toggled.connect(func(v: bool) -> void: game.voice.mute(id, v))
+		_mutes.add_child(box)
+	if _mutes.get_child_count() == 0:
+		_mutes.add_child(_small_label("Nobody else here"))
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if _board.visible and event is InputEventKey and event.pressed and not event.echo:
 		_board_key(event as InputEventKey)
@@ -466,6 +599,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _menu.visible:
 			_close_menu()
 		else:
+			_fill_voice_menu()
 			_menu.visible = true
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event.is_action_pressed("crew"):
@@ -485,6 +619,9 @@ func _process(delta: float) -> void:
 	if game == null or game.local_player == null:
 		return
 	_prompt.text = game.local_player.prompt()
+	_talk_mark.visible = game.voice != null and game.voice.sending
+	if _menu.visible:
+		_mic_meter.queue_redraw()
 	_toast_left -= delta
 	_toast.modulate.a = clampf(_toast_left, 0.0, 1.0)
 	var far := game.distance_to_ship() > GameConfig.RESPAWN_DISTANCE
@@ -956,6 +1093,7 @@ func _controls_card() -> PanelContainer:
 		["E at the map table", "the mission board: treasure, bounties, cargo"],
 		["M (hold)", "read your mission's map"],
 		["J", "your deeds: long goals, each earning a title"],
+		["Hold V", "talk to anyone nearby (voice settings in Esc)"],
 		["Tab / Esc", "crew list / menu"],
 		["Storms", "big seas and lightning that holes the hull: patch, bail, or sail out"],
 	]:
@@ -1023,6 +1161,22 @@ static func bar(ci: CanvasItem, rect: Rect2, frac: float, fill: Color) -> void:
 	full.bg_color = fill
 	full.set_corner_radius_all(int(rect.size.y * 0.5))
 	full.draw(ci.get_canvas_item(), Rect2(rect.position, Vector2(maxf(rect.size.y, rect.size.x * frac), rect.size.y)))
+
+
+## The Esc menu's mic level: how loud the mic is now, and open mic's level as a gold mark.
+class MicMeter:
+	extends Control
+
+	var hud: Hud
+
+	func _draw() -> void:
+		var voice: Voice = hud.game.voice if hud.game else null
+		var level := voice.mic.level if voice and voice.mic else 0.0
+		var rect := Rect2(Vector2(4, 6), Vector2(size.x - 8, size.y - 12))
+		var over := level >= Settings.mic_level
+		Hud.bar(self, rect, level, Color("9cff8a") if over else Color(PAPER, 0.7))
+		var x := rect.position.x + rect.size.x * Settings.mic_level
+		draw_line(Vector2(x, 0), Vector2(x, size.y), GOLD, 3.0)
 
 
 class Compass:

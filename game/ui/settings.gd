@@ -13,6 +13,13 @@ static var crew := 0
 ## Overall and music volume, 0-1.
 static var volume := 0.8
 static var music := 0.6
+## Voice chat (docs/specs/2026-10-09-m25-voice.md): on or off, open mic instead of holding V,
+## how loud others' voices are (0-1), open mic's level (0-1) and which microphone.
+static var voice_on := true
+static var open_mic := false
+static var voice_volume := 0.8
+static var mic_level := 0.1
+static var mic_device := "Default"
 ## A random code made on first launch and sent when joining, so servers keep your pirate's
 ## name (and level and gold) for you alone.
 static var token := ""
@@ -30,6 +37,11 @@ static func load_saved() -> void:
 	crew = cfg.get_value("player", "crew", crew)
 	volume = cfg.get_value("sound", "volume", volume)
 	music = cfg.get_value("sound", "music", music)
+	voice_on = cfg.get_value("voice", "on", voice_on)
+	open_mic = cfg.get_value("voice", "open_mic", open_mic)
+	voice_volume = cfg.get_value("voice", "volume", voice_volume)
+	mic_level = cfg.get_value("voice", "level", mic_level)
+	mic_device = cfg.get_value("voice", "device", mic_device)
 	token = cfg.get_value("player", "token", token)
 
 
@@ -75,5 +87,10 @@ static func save() -> void:
 	cfg.set_value("player", "crew", crew)
 	cfg.set_value("sound", "volume", volume)
 	cfg.set_value("sound", "music", music)
+	cfg.set_value("voice", "on", voice_on)
+	cfg.set_value("voice", "open_mic", open_mic)
+	cfg.set_value("voice", "volume", voice_volume)
+	cfg.set_value("voice", "level", mic_level)
+	cfg.set_value("voice", "device", mic_device)
 	cfg.set_value("player", "token", token)
 	cfg.save(PATH)

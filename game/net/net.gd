@@ -215,6 +215,23 @@ func send_request(action: String, arg: int, data: Array = []) -> void:
 	_request.rpc_id(1, action, arg, data)
 
 
+# --- voice (docs/specs/2026-10-09-m25-voice.md) ---
+# On a channel of its own, unreliable: a late voice packet is no use, and voice must never hold
+# up the game's own messages. Each packet carries its own sequence number for ordering.
+
+const VOICE_CHANNEL := 2
+
+
+func send_voice(packet: PackedByteArray) -> void:
+	if _online():
+		_voice.rpc_id(1, packet)
+
+
+func send_voice_to(id: int, speaker: int, packet: PackedByteArray) -> void:
+	if _online():
+		_voice_from.rpc_id(id, speaker, packet)
+
+
 # --- RPC endpoints ---
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -297,3 +314,15 @@ func _station_input(axes: Vector2, aim: Vector2) -> void:
 func _request(action: String, arg: int, data: Array) -> void:
 	if game and game.is_server():
 		game.server_request(multiplayer.get_remote_sender_id(), action, arg, data)
+
+
+@rpc("any_peer", "call_remote", "unreliable", VOICE_CHANNEL)
+func _voice(packet: PackedByteArray) -> void:
+	if game and game.is_server():
+		game.server_voice(multiplayer.get_remote_sender_id(), packet)
+
+
+@rpc("authority", "call_remote", "unreliable", VOICE_CHANNEL)
+func _voice_from(speaker: int, packet: PackedByteArray) -> void:
+	if game:
+		game.client_on_voice(speaker, packet)

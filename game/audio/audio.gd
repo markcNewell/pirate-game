@@ -1,8 +1,8 @@
 extends Node
 ## Every sound in the game goes through here (the "Audio" autoload). Sounds are the synthesised
 ## WAVs in art/sounds (made by tools/make_sounds.py) and the music in art/music (Music says which
-## track fits). Three buses under Master: Effects, Ambience and Music, so each can be turned up or
-## down. A headless server or bot plays nothing.
+## track fits). Four buses under Master: Effects, Ambience, Music and Voice (other players
+## talking), so each can be turned up or down. A headless server or bot plays nothing.
 
 const VOICES := 24
 const UI_VOICES := 4
@@ -32,7 +32,7 @@ func _ready() -> void:
 	enabled = DisplayServer.get_name() != "headless"
 	if not enabled:
 		return
-	for bus: String in ["Effects", "Ambience", "Music"]:
+	for bus: String in ["Effects", "Ambience", "Music", "Voice"]:
 		AudioServer.add_bus()
 		var i := AudioServer.bus_count - 1
 		AudioServer.set_bus_name(i, bus)
@@ -80,12 +80,13 @@ func _exit_tree() -> void:
 	_streams.clear()
 
 
-## Settings.volume and Settings.music (0-1) onto the Master and Music buses.
+## Settings.volume, .music and .voice_volume (0-1) onto the Master, Music and Voice buses.
 func apply_volumes() -> void:
 	if not enabled:
 		return
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(Settings.volume, 0.001)))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(maxf(Settings.music, 0.001)))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Voice"), linear_to_db(maxf(Settings.voice_volume, 0.001)))
 
 
 ## The stream for `name`, loaded once; loops are set to repeat end to start.

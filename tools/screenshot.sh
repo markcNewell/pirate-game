@@ -13,9 +13,10 @@
 #         colossus (e5), anvil (e5, step 1), deeds, worldmark (a world event on the compass),
 #         hobb (his counter), refit, trophies, figurehead (a refitted ship with every trophy),
 #         crew with --armour 1 or 2 (crewmates in armour; BOTS="sails wheel anchor"), fortport,
-#         title (the title screen: nothing is hosted), ship (--shot-from X,Y,Z --shot-look X,Y,Z in the ship's frame)
+#         title (the title screen: nothing is hosted), menu (the Esc menu, with its voice column), ship (--shot-from X,Y,Z --shot-look X,Y,Z in the ship's frame)
 #   e.g. tools/screenshot.sh /tmp/shot.png outside --demo
-#   BOTS="sails wheel" adds headless bot players to the hosted game first.
+#   BOTS="sails wheel" adds headless bot players to the hosted game first; BOT_ARGS="--voice-tone"
+#   gives each of them extra options (talking, for the voice icons).
 #
 # Needs podman (or ENGINE=docker) and the render image, built once with:
 #   podman build -t pirate-render -f tools/render.Containerfile tools
@@ -35,7 +36,7 @@ mkdir -p "$(dirname "$OUT")"
 		Xvfb :5 -screen 0 '"${SIZE}"'x24 >/dev/null 2>&1 &
 		sleep 2
 		( sleep 4; for role in '"${BOTS:-}"'; do
-			timeout 150 godot --headless --path /game -- --bot "$role" >/dev/null 2>&1 &
+			timeout 150 godot --headless --path /game -- --bot "$role" '"${BOT_ARGS:-}"' >/dev/null 2>&1 &
 		done ) &
 		DISPLAY=:5 timeout 150 godot --path /game --rendering-driver opengl3 --resolution '"$SIZE"' -- "$@"
 	' _ $([ "$VIEW" = title ] || echo --host) --name Mark --screenshot "/out/$(basename "$OUT")" --shot-view "$VIEW" --shot-delay "${DELAY:-6}" "$@" \

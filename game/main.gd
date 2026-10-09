@@ -167,9 +167,12 @@ func _print_summary() -> void:
 		print(line)
 	if game.local_player:
 		var lp := game.local_player
-		print("RESULT client id=%d active=%s mode=%d station=%d ship_seen=(%.1f, %.1f) snapshots_ok=%s" % [
+		var heard := 0
+		for id in game.voice.heard:
+			heard += int(game.voice.heard[id])
+		print("RESULT client id=%d active=%s mode=%d station=%d ship_seen=(%.1f, %.1f) snapshots_ok=%s voice_sent=%d voice_heard=%d" % [
 			game.local_id, lp.active, lp.mode, lp.station, game.view_ship.x, game.view_ship.z,
-			game.render_time > 0.0,
+			game.render_time > 0.0, game.voice.sent, heard,
 		])
 
 
@@ -594,6 +597,10 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		game.hud.set_world_event(["Raven Patrol", "A Spanish galleon is on patrol.", ship.x + to.x, ship.z + to.z])
 	elif game and view == "help":
 		game.hud.toggle_help()
+	elif game and view == "menu":
+		# The Esc menu, voice settings and all (with --voice-tone the level bar moves).
+		game.hud._fill_voice_menu()
+		game.hud._menu.visible = true
 	elif game and view == "ghost":
 		game.sim._hurt_player(game.local_id, 1000, "a falling yard")
 	elif game and view == "map":
