@@ -676,7 +676,7 @@ func _process(delta: float) -> void:
 				lines.append("%s%s" % [ServerSim.CREW_NAMES[c - 1], " (yours)" if c == game.own_crew else ""])
 			var job := ""
 			if p.get("station", -1) >= 0:
-				job = "  -  " + ShipShape.stations()[p.station].label.trim_prefix("take ").trim_prefix("work ")
+				job = "  -  " + str(Hull.of(game.view_ships.get(p.ship)).station(p.station).get("label", "")).trim_prefix("take ").trim_prefix("work ")
 			elif p.get("mode", 0) == LocalPlayer.Mode.WORLD:
 				job = "  -  overboard"
 			var tag: Array = game.tags.get(id, [1, ""])
@@ -704,7 +704,7 @@ func _process(delta: float) -> void:
 		toggle_help()
 	_map.visible = Input.is_action_pressed("map") and not game.mission.is_empty() and not _menu.visible
 	_prompt.visible = not _map.visible and not _board.visible and not reading() and not game.local_player.dead
-	if _board.visible and game.local_player.frame_position().distance_to(ShipShape.map_table_target()) > 3.5:
+	if _board.visible and game.local_player.frame_position().distance_to(game.local_player.hull().map_table_target()) > 3.5:
 		close_board()
 	_card.queue_redraw()
 	if _shop.visible:

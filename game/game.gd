@@ -687,9 +687,10 @@ func _process(delta: float) -> void:
 		local_player.hp = me.hp
 		local_player.dead = me.dead
 	local_player.update_view()
-	if local_player.station >= 0 and ShipShape.stations()[local_player.station].kind == ShipShape.Kind.CANNON:
+	var st := local_player.station_info()
+	if st.get("kind", -1) == ShipShape.Kind.CANNON:
 		# Our own cannon follows the mouse at once rather than waiting for the server.
-		var gun: int = ShipShape.stations()[local_player.station].gun
+		var gun: int = st.gun
 		ship_view.aim_gun(gun, local_player.cannon_aim())
 
 	for id in avatars:
@@ -700,7 +701,7 @@ func _process(delta: float) -> void:
 			continue
 		var feet := Transform3D(Basis(Vector3.UP, p.yaw), p.pos)
 		var on_ship: bool = p.mode == LocalPlayer.Mode.ON_SHIP and ship_views.has(p.ship)
-		var kind: int = ShipShape.stations()[p.station].kind if p.station >= 0 else -1
+		var kind: int = Hull.of(view_ships.get(p.ship)).station(p.station).get("kind", -1) if p.station >= 0 else -1
 		# Afloat out of their ship with the feet well below the sea's mean level: swimming.
 		var swimming: bool = p.mode == LocalPlayer.Mode.WORLD and p.pos.y < -0.5
 		avatar.set_state(kind, swimming, p.carry >= 0, p.act)

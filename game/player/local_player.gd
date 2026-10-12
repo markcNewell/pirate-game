@@ -70,7 +70,6 @@ var _dig_clock := 0.0
 ## Distance walked since the last footstep, and time since the last spade or stroke sound.
 var _stride := 0.0
 var _sound_wait := 0.0
-var _stations := ShipShape.stations()
 
 
 func _ready() -> void:
@@ -134,11 +133,13 @@ func _physics_process(delta: float) -> void:
 		game.send_request("weapon", weapon)
 
 	if station >= 0:
-		body.global_position = DeckProxy.to_proxy(_stations[station].stand)
+		var st := station_info()
+		if not st.is_empty():
+			body.global_position = DeckProxy.to_proxy(st.stand)
 		body.velocity = Vector3.ZERO
 		if input.interact:
 			game.send_request("leave", station)
-		elif input.fire and _stations[station].kind == ShipShape.Kind.CANNON:
+		elif input.fire and st.get("kind", -1) == ShipShape.Kind.CANNON:
 			var aim := cannon_aim()
 			game.send_request("fire", station, [aim.x, aim.y])
 	else:
@@ -166,10 +167,12 @@ func _physics_process(delta: float) -> void:
 
 func _move_on_ship(delta: float) -> void:
 	swimming = false
+	var h := hull()
+	game.proxy.use(h)
 	var local := DeckProxy.from_proxy(body.global_position)
 	# Wading through a flooded lower deck is slow going.
 	var depth := frame_ship().water - (local.y - ShipShape.LOWER_Y)
-	var scale := 0.55 if ShipShape.is_below_deck(local) and depth > 0.6 else 1.0
+	var scale := 0.55 if h.is_below_deck(local) and depth > 0.6 else 1.0
 	if carry >= 0:
 		scale *= CARRY_SPEED
 	var jump := input.jump and carry < 0
@@ -177,7 +180,7 @@ func _move_on_ship(delta: float) -> void:
 	body.move_and_slide()
 	_footsteps(delta, "step_wood")
 	local = DeckProxy.from_proxy(body.global_position)
-	if not ShipShape.is_on_board(local):
+	if not h.is_on_board(local):
 		_go_overboard(local)
 
 
@@ -351,26 +354,30 @@ func current_target() -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	var st := nearest_station()
 	if st >= 0:
-		candidates.append({"kind": "station", "id": st, "label": "E  %s" % _stations[st].label, "at": _stations[st].at})
+		var info := hull().station(st)
+		candidates.append({"kind": "station", "id": st, "label": "E  %s" % info.label, "at": info.at})
 	var hole := nearest_hole()
 	if not hole.is_empty():
 		candidates.append({
 			"kind": "patch", "id": int(hole[0]), "at": Vector3(hole[1], hole[2], hole[3]),
 			"label": "Hold E  patch the hole (%d%%)" % int(float(hole[4]) * 100.0),
 		})
-	if local.y > ShipShape.DECK_Y - 0.5 and _looking_at(eye, ShipShape.hatch_top_target(), HATCH_REACH, 0.3):
+	var h := hull()
+	if h.has_hold and local.y > ShipShape.DECK_Y - 0.5 and _looking_at(eye, ShipShape.hatch_top_target(), HATCH_REACH, 0.3):
 		candidates.append({"kind": "hatch", "id": 0, "label": "E  climb down the hatch", "at": ShipShape.hatch_top_target()})
-	if ShipShape.is_below_deck(local) and eye.distance_to(ShipShape.hatch_bottom_target()) < HATCH_REACH:
+	if h.has_hold and h.is_below_deck(local) and eye.distance_to(ShipShape.hatch_bottom_target()) < HATCH_REACH:
 		candidates.append({"kind": "hatch", "id": 1, "label": "E  climb up", "at": ShipShape.hatch_bottom_target()})
-	if ShipShape.is_below_deck(local) and hp < 100 and game.view_ship.bananas > 0 \
-			and _looking_at(eye, ShipShape.BANANA_BARREL + Vector3.UP * 0.9, 2.6, 0.3):
+	# The galleon keeps her bananas in the hold; the sloop's crate is on deck.
+	var bananas := h.bananas_at + Vector3.UP * (0.9 if h.has_hold else 0.6)
+	if (h.is_below_deck(local) or not h.has_hold) and hp < 100 and game.view_ship.bananas > 0 \
+			and _looking_at(eye, bananas, 2.6, 0.3):
 		candidates.append({
-			"kind": "eat", "id": 0, "at": ShipShape.BANANA_BARREL + Vector3.UP * 0.9,
+			"kind": "eat", "id": 0, "at": bananas,
 			"label": "E  eat a banana (%d left)" % game.view_ship.bananas,
 		})
-	if _looking_at(eye, ShipShape.map_table_target(), 2.6, 0.3):
+	if _looking_at(eye, h.map_table_target(), 2.6, 0.3):
 		var map_label := "E  the mission board" if game.mission.is_empty() else "E  your mission     Hold M  the map"
-		candidates.append({"kind": "board", "id": 0, "label": map_label, "at": ShipShape.map_table_target()})
+		candidates.append({"kind": "board", "id": 0, "label": map_label, "at": h.map_table_target()})
 	for c in candidates:
 		var dot := look_direction().dot((c.at - eye).normalized())
 		if dot > best_dot:
@@ -384,10 +391,9 @@ func current_target() -> Dictionary:
 			var ship := game.view_ship
 			if o.kind == StoryObject.Kind.BOAT and Vector2(ship.x - o.pos.x, ship.z - o.pos.z).length() < StoryRun.RESCUE_REACH + 8.0:
 				return {"kind": "rescue", "id": o.id, "label": "E  throw her a line"}
-	if bucket and local.y > ShipShape.DECK_Y - 0.5:
+	if bucket and h.can_throw(local):
 		return {"kind": "throw", "id": 0, "label": "E  throw the water overboard"}
-	var water := game.view_ship.water
-	if not bucket and water > 0.1 and ShipShape.is_below_deck(local) and local.y < ShipShape.LOWER_Y + water + 0.2:
+	if not bucket and ship_id == game.own_ship and h.can_scoop(local, game.view_ship.water):
 		return {"kind": "scoop", "id": 0, "label": "E  fill your bucket"}
 	return {}
 
@@ -519,7 +525,7 @@ func nearest_station() -> int:
 	var look := look_direction()
 	var best := -1
 	var best_dist := STATION_REACH
-	for st in _stations:
+	for st in hull().stations():
 		var to: Vector3 = st.at - eye
 		var dist := to.length()
 		if dist < best_dist and look.dot(to / dist) > 0.5:
@@ -546,7 +552,8 @@ func hold_progress() -> float:
 ## The hole in reach that we are looking at ([id, x, y, z, progress]), or empty.
 func nearest_hole() -> Array:
 	var local := frame_position()
-	if not ShipShape.is_below_deck(local):
+	var layout := hull()
+	if layout.has_hold and not layout.is_below_deck(local):
 		return []
 	var eye := local + Vector3.UP * EYE_HEIGHT
 	var best: Array = []
@@ -608,7 +615,7 @@ func nearest_ladder() -> int:
 			continue
 		var sides := [-1, 1, ShipShape.STERN_ROPE] if s.flag == 5 and s.kind == ShipState.Kind.SKELETON else [-1, 1]
 		for side: int in sides:
-			var bottom: Vector3 = game.ship_views[id].global_transform * ShipShape.ladder_bottom(side)
+			var bottom: Vector3 = game.ship_views[id].global_transform * Hull.of(s).ladder_bottom(side)
 			if Vector2(p.x - bottom.x, p.z - bottom.z).length() < LADDER_REACH and absf(p.y - bottom.y) < 3.0:
 				_ladder_ship = id
 				return side
@@ -620,11 +627,22 @@ func frame_ship() -> ShipState:
 	return game.view_ships.get(ship_id, game.view_ship)
 
 
+## The layout of the ship we stand on.
+func hull() -> Hull:
+	return Hull.of(frame_ship())
+
+
+## The station we are at, on our own ship ({} if none).
+func station_info() -> Dictionary:
+	return Hull.of(game.view_ship).station(station) if station >= 0 else {}
+
+
 ## The aim of the cannon we are manning, from where we look: (yaw toward the bow, pitch).
 func cannon_aim() -> Vector2:
-	if station < 0 or _stations[station].kind != ShipShape.Kind.CANNON:
+	var st := station_info()
+	if st.get("kind", -1) != ShipShape.Kind.CANNON:
 		return Vector2.ZERO
-	var side: int = _stations[station].side
+	var side: int = st.side
 	var outboard := -PI / 2.0 * side
 	var swing := angle_difference(outboard, yaw) * side
 	return Vector2(
@@ -635,9 +653,10 @@ func cannon_aim() -> Vector2:
 
 ## Seconds until our cannon can fire again (0 when loaded), or -1 if not at a cannon.
 func cannon_reload() -> float:
-	if station < 0 or _stations[station].kind != ShipShape.Kind.CANNON:
+	var st := station_info()
+	if st.get("kind", -1) != ShipShape.Kind.CANNON:
 		return -1.0
-	return game.view_ship.gun_reload[_stations[station].gun]
+	return game.view_ship.gun_reload[st.gun]
 
 
 ## What the HUD should offer right now.
@@ -645,7 +664,7 @@ func prompt() -> String:
 	if not active:
 		return ""
 	if station >= 0:
-		return STATION_HELP[_stations[station].kind]
+		return STATION_HELP.get(station_info().get("kind", -1), "E  let go")
 	var target := current_target()
 	return target.get("label", "")
 
@@ -656,6 +675,8 @@ func apply_teleport(data: Array) -> void:
 	if data.size() > 6 and int(data[6]) >= 0:
 		ship_id = int(data[6])
 	_set_mode(data[1])
+	if mode == Mode.ON_SHIP and game.proxy:
+		game.proxy.use(hull())
 	var p := Vector3(data[2], data[3], data[4])
 	yaw = data[5]
 	body.global_position = DeckProxy.to_proxy(p) if mode == Mode.ON_SHIP else p
