@@ -664,6 +664,8 @@ func _process(delta: float) -> void:
 	_toast.modulate.a = clampf(_toast_left, 0.0, 1.0)
 	var far := game.distance_to_ship() > GameConfig.RESPAWN_DISTANCE
 	_respawn.text = "Respawn on the ship (you are far away)" if far else "Respawn on the ship"
+	if not game.view_ships.has(game.own_ship) or game.view_ship.is_sinking():
+		_respawn.text = "Back to Port Merrow's pier (no ship)"
 	if _crew.visible:
 		var lines := ["Crews"]
 		var ids := game.roster.keys()
