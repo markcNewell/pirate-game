@@ -192,6 +192,10 @@ func _move_in_world(delta: float) -> void:
 	var p := body.global_position
 	var surface := Waves.height(p.x, p.z, game.render_time)
 	swimming = PlayerMotor.is_swimming(p.y, surface)
+	# Walk on the yards' jetties (feet out of the water, or up at their deck), swim or wade
+	# under them.
+	var on_jetties := p.y > surface + 0.3 or p.y > Shipyards.JETTY_Y - 0.2
+	body.collision_mask = 1 | Shipyards.JETTY_LAYER if on_jetties else 1
 	var scale := CARRY_SPEED if carry >= 0 else 1.0
 	if swimming:
 		body.velocity = PlayerMotor.swim(body.velocity, input.wish, yaw, p.y, surface, delta, scale * 0.85)

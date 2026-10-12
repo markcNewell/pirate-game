@@ -930,7 +930,7 @@ func rescue(r: Dictionary) -> void:
 	if not near or ship == null or ship.is_sinking():
 		return
 	isabel.ship = r.crew
-	isabel.pos = PASSENGER_SPOT
+	isabel.pos = passenger_spot(sim.ships.get(r.crew))
 	isabel.yaw = 0.0
 	objects.erase(boat.id)
 	m.objects.erase(boat.id)
@@ -941,6 +941,13 @@ func rescue(r: Dictionary) -> void:
 
 ## Where a passenger stands on the main deck (ship frame), out of the way of the guns.
 const PASSENGER_SPOT := Vector3(0.0, ShipShape.DECK_Y, 3.5)
+
+
+## Where a passenger stands aboard `ship`: on a sloop, just aft of her mast.
+static func passenger_spot(ship: ShipState) -> Vector3:
+	if ship and ship.hull == Hull.Type.SLOOP:
+		return Vector3(0.0, SloopHull.DECK_Y, 1.0)
+	return PASSENGER_SPOT
 
 
 func _first_object(m: Dictionary, kind: int) -> StoryObject:
@@ -1146,7 +1153,7 @@ func use(id: int, r: Dictionary, object_id: int) -> void:
 		var isabel := _first_object(m, StoryObject.Kind.ISABEL)
 		if isabel:
 			isabel.ship = r.crew
-			isabel.pos = PASSENGER_SPOT
+			isabel.pos = passenger_spot(sim.ships.get(r.crew))
 			isabel.yaw = 0.0
 		print("[server] %s freed Isabel from the hulk" % r.name)
 		for pid in sim._crew_members(r.crew):

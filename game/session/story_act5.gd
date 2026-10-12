@@ -343,7 +343,8 @@ func giant_attack(giant: StoryObject, state: Variant) -> void:
 		sim.stats.slams += 1
 		Net.send_event("slam", [giant.id, target.x, target.z])
 		if target.holes.size() < ServerSim.MAX_HOLES:
-			var h := ShipShape.hole_point(Vector3(1.0 if sim._rng.randf() < 0.5 else -1.0, 0.0, sim._rng.randf_range(-6.0, 6.0)))
+			var hull := Hull.of(target)
+			var h := hull.hole_point(Vector3(1.0 if sim._rng.randf() < 0.5 else -1.0, 0.0, sim._rng.randf_range(-6.0, 6.0) * hull.half_length / ShipShape.HALF_LENGTH))
 			target.holes.append([target.next_hole_id, h.x, h.y, h.z, 0.0])
 			target.next_hole_id += 1
 		for id in sim._crew_members(target_id):

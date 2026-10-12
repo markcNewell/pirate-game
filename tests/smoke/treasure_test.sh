@@ -11,7 +11,8 @@ set -euo pipefail
 GODOT="${GODOT:-godot}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PORT="${PORT:-24695}"
-RUN_FOR="${RUN_FOR:-110}"
+# 130 s: on 0.4 the bot finished with 5 s to spare, and the hunt now passes a shipyard jetty.
+RUN_FOR="${RUN_FOR:-130}"
 LOGS="$(mktemp -d)"
 trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }

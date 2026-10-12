@@ -11,7 +11,14 @@ const REACH := 3.2
 const JETTY_IN := 4.0
 const JETTY_OUT := 20.0
 const JETTY_HALF_WIDTH := 0.8
-const JETTY_Y := 1.0
+## High enough that a swimmer's head clears the planks: you swim under a jetty, between its piles
+## (which are only for show), rather than bumping along it (playtest bots did).
+const JETTY_Y := 1.3
+## The landward end ramps up from the sand over this many metres.
+const JETTY_RAMP := 3.0
+## Jetty decks are on their own collision layer, which you walk on but swim under: a swimmer
+## coming ashore beside a jetty would otherwise snag on its planks (playtest bots did).
+const JETTY_LAYER := 4
 const MERROW := 0
 
 ## [island index, angle round the island from +x (radians), shipwright id, name]. The first is
@@ -120,7 +127,9 @@ static func pier_spawn(crew: int, n := 0) -> Dictionary:
 
 
 ## A yard's jetty, signboard and stack of timber, in island-local space (the island's centre at
-## the origin): {"mesh", "faces" (to walk on), "sign": [where its lettering goes, facing]}.
+## the origin): {"mesh" (solid), "deco" (the planks, piles and bollards, nothing to bump into),
+## "faces" (the sign and timber), "jetty" (the deck to walk on, on JETTY_LAYER), "sign": [where
+## its lettering goes, facing]}.
 ## Merrow's yard is Old Hobb's pier, built with the port.
 static func build(i: int) -> Dictionary:
 	var b := MeshBuilder.new()
@@ -132,19 +141,40 @@ static func build(i: int) -> Dictionary:
 	var side := Vector3(-d.z, 0.0, d.x)
 	var basis := Basis.looking_at(d, Vector3.UP)
 	var length := a.distance_to(e)
+	var isl := island(i)
+	var sand := IslandMesh.ground(isl, a.x, a.z)
+	var height := func(along: float) -> float:
+		# Up the ramp from the sand, then level out to sea.
+		return lerpf(sand + 0.06, JETTY_Y, clampf(along / JETTY_RAMP, 0.0, 1.0))
+	# The planks and piles are for show (deco). What you walk on is their top surface alone,
+	# solid only from above, so a swimmer under the jetty never snags on it.
+	var deco := MeshBuilder.new()
+	var walk := MeshBuilder.new()
 	var planks := int(length / 0.36)
 	for k in planks:
-		var at := a.lerp(e, (k + 0.5) / planks)
-		b.box(at + Vector3(0, -0.06, 0), Vector3(JETTY_HALF_WIDTH, 0.06, 0.16), Color("b98a55").darkened(0.05 * (k % 3)), basis)
-	var t := 0.4
+		var along := (k + 0.5) / planks * length
+		var at := a + d * along
+		at.y = height.call(along)
+		var tilt := Basis(side, atan2(JETTY_Y - sand, JETTY_RAMP)) if along < JETTY_RAMP else Basis.IDENTITY
+		deco.box(at + Vector3(0, -0.06, 0), Vector3(JETTY_HALF_WIDTH, 0.06, 0.16), Color("b98a55").darkened(0.05 * (k % 3)), tilt * basis)
+	var cuts: Array[float] = [0.0, JETTY_RAMP * 0.5, JETTY_RAMP, length]
+	for k in cuts.size() - 1:
+		var p0 := a + d * cuts[k]
+		var p1 := a + d * cuts[k + 1]
+		p0.y = height.call(cuts[k])
+		p1.y = height.call(cuts[k + 1])
+		var w := side * JETTY_HALF_WIDTH
+		walk.quad(p0 - w, p0 + w, p1 + w, p1 - w, Color.BLACK, Vector3.UP)
+	var t := JETTY_RAMP
 	while t <= length:
 		for s: float in [-1.0, 1.0]:
 			var p := a + d * t + side * s * (JETTY_HALF_WIDTH - 0.1)
-			b.box(p + Vector3(0, -1.3, 0), Vector3(0.11, 1.45, 0.11), Color("6a4a2e"), basis)
+			deco.box(Vector3(p.x, JETTY_Y - 1.6, p.z), Vector3(0.11, 1.5, 0.11), Color("6a4a2e"), basis)
 		t += 3.0
 	# Bollards at the seaward end to make a ship fast to.
 	for s: float in [-1.0, 1.0]:
-		b.cylinder(e + side * s * 0.55, e + side * s * 0.55 + Vector3(0, 0.45, 0), 0.13, 0.11, 8, Color("4a3424"))
+		var bollard := Vector3(e.x, JETTY_Y, e.z) + side * s * 0.55
+		deco.cylinder(bollard, bollard + Vector3(0, 0.45, 0), 0.13, 0.11, 8, Color("4a3424"))
 	var w := wright_pos(i) - c
 	var at_sign := w + side * 1.7
 	b.box(at_sign + Vector3(0, 0.9, 0), Vector3(0.07, 1.0, 0.07), Color("6a4a2e"), basis)
@@ -154,7 +184,7 @@ static func build(i: int) -> Dictionary:
 		var y := w.y + 0.12 + 0.24 * (k / 2)
 		var off := -side * (2.2 + 0.3 * (k % 2))
 		b.box(w + off + Vector3(0, y - w.y, 0), Vector3(0.12, 0.12, 1.6), Color("a0784a").darkened(0.06 * k), basis)
-	return {"mesh": b.build(), "faces": b.faces(), "sign": [at_sign + Vector3(0, 1.8, 0) - d * 0.07, atan2(-d.x, -d.z) + PI]}
+	return {"mesh": b.build(), "deco": deco.build(), "faces": b.faces(), "jetty": walk.faces(), "sign": [at_sign + Vector3(0, 1.8, 0) - d * 0.07, atan2(-d.x, -d.z) + PI]}
 
 
 ## Whether island-local (x, z) of `spec` is where a yard stands (no palms grow there).

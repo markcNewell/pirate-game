@@ -8,6 +8,16 @@ first guesses, so "too slow", "too easy" or "too much" is exactly what's wanted.
 
 Host & play, Play-test off.
 
+- [ ] You start on Port Merrow's pier beside your ship. Is it clear what to do? (The "Next" card
+      and the gold mark on the compass point to Moll.) E at the ship's ladder takes you aboard.
+- [ ] Get your ship sunk (a skeleton ship will oblige, or sail into the storm). She should stay
+      sunk. Swim to the nearest shipyard (Merrow, Cutlass Cay, Parrot Rock or Gull Isle), E at the
+      shipwright and take the free sloop. Is she fun to sail? Too fragile, too fast?
+- [ ] Earn 500 gold and trade the sloop up for a galleon.
+- [ ] Bailing: one bucket at a time against a hole or two. Does it keep up now?
+- [ ] Alt-tab out, then click the window's title bar: can you move and maximise it now? F11 for
+      full screen.
+
 - [ ] Walking, looking, jumping on deck and ashore: does the mouse feel right? (Esc opens the
       menu with mouse sensitivity.) Does anything stutter?
 - [ ] Raise the anchor, set the sails, steer to Gull Isle. Is sailing fun on your own?

@@ -2081,10 +2081,14 @@ func _restock(r: Dictionary, barrel: int) -> void:
 	if r.pos.distance_to(spots[barrel]) > ITEM_REACH + 1.0:
 		return
 	var ship := _own(r)
+	if not has_ship(r.crew):
+		Net.send_message(players.find_key(r), "You've no ship to load. A shipwright will sell you one.")
+		return
 	if Vector2(ship.x - r.pos.x, ship.z - r.pos.z).length() > RESTOCK_SHIP_RANGE:
 		Net.send_message(players.find_key(r), "Bring the ship closer to load supplies.")
 		return
-	ship.cannonballs = ShipState.MAX_CANNONBALLS
+	# A sloop has no guns to feed.
+	ship.cannonballs = ShipState.MAX_CANNONBALLS if Hull.of(ship).guns > 0 else 0
 	ship.planks = ShipState.MAX_PLANKS
 	ship.bananas = ShipState.MAX_BANANAS
 	stats.restocked += 1

@@ -322,7 +322,18 @@ func _island(spec: Dictionary) -> void:
 			continue
 		var yard := Shipyards.build(i)
 		root.add_child(Toon.instance(yard.mesh))
+		root.add_child(Toon.instance(yard.deco))
 		faces.append_array(yard.faces)
+		var deck := StaticBody3D.new()
+		deck.collision_layer = Shipyards.JETTY_LAYER
+		deck.collision_mask = 0
+		var deck_shape := ConcavePolygonShape3D.new()
+		deck_shape.backface_collision = true
+		deck_shape.set_faces(yard.jetty)
+		var deck_holder := CollisionShape3D.new()
+		deck_holder.shape = deck_shape
+		deck.add_child(deck_holder)
+		root.add_child(deck)
 		var board := Label3D.new()
 		board.text = "SHIPYARD\n%s" % Shipyards.wright_name(i)
 		board.font = Hud.display_font()

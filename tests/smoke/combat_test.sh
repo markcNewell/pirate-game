@@ -3,8 +3,8 @@
 #  1. A fight: a skeleton ship arrives at once; two gunner bots shoot back and a repair bot
 #     patches holes and bails. Passes when cannonballs fly, hit both ships, holes get patched
 #     and the skeleton ship takes damage.
-#  2. A sinking: the crew's ship starts holed with nobody bailing. Passes when it sinks,
-#     comes back, and the bot ends up on deck again.
+#  2. A sinking: the crew's ship starts holed with nobody bailing. Passes when it sinks and
+#     stays sunk (milestone 26: a new ship is bought at a shipyard), the bot left swimming.
 #
 #   tests/smoke/combat_test.sh            (needs `godot` on PATH, or set GODOT=/path/to/godot)
 set -euo pipefail
@@ -55,7 +55,7 @@ wait "$server" || true
 r="$(grep '^RESULT server' "$LOGS/sink.log" || true)"
 check "the holed ship sank ($(field crew_sunk "$r"))" '[ "$(field crew_sunk "$r")" -ge 1 ]'
 check "and stayed sunk: no new ship by itself (milestone 26)" '! grep -q "the crew.s ship is back" "$LOGS/sink.log"'
-check "the bot ended up back on deck" 'grep -q "RESULT client.*active=true mode=0" "$LOGS/sink_bot.log"'
+check "the bot was left swimming (no ship to climb back to)" 'grep -q "RESULT client.*active=true mode=1" "$LOGS/sink_bot.log"'
 
 check "no script errors" '! grep -l "SCRIPT ERROR" "$LOGS"/*.log'
 if [ "$fail" -ne 0 ]; then
