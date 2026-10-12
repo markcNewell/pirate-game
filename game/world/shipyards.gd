@@ -113,7 +113,8 @@ static func merrow_berth(crew: int, hull := Hull.galleon()) -> Dictionary:
 static func pier_spawn(crew: int, n := 0) -> Dictionary:
 	var c := Outpost.spec()
 	var r: float = c.radius
-	var x := float(c.x) + r + (15.0 if crew > 2 else 8.0) + 1.2 * (n % 4)
+	# By the ship's ladder (crews 1 and 2), or at the pier's end for the swim out (3 and 4).
+	var x := float(c.x) + r + (16.5 if crew > 2 else 12.5) + 1.2 * (n % 4)
 	var side := 1.0 if crew % 2 == 1 else -1.0
 	return {"pos": Vector3(x, Outpost.PIER_Y, float(c.z) + side * 0.6), "yaw": PI / 2.0}
 
