@@ -20,7 +20,11 @@ const LADDER_TOLERANCE := 6.0
 const HATCH_REACH := 2.6
 const PATCH_REACH := 2.6
 const PATCH_TIME := 2.0
-const BUCKET := 0.06
+## Metres of water one bucket takes out of the lower deck. A trip (scoop, climb, throw) takes
+## about BAIL_TRIP seconds, so one pirate bailing keeps ahead of two holes (ShipPhysics.LEAK_RATE
+## each); playtest 12-10 found the old 0.06 couldn't keep up with even one.
+const BUCKET := 0.2
+const BAIL_TRIP := 8.0
 const MAX_HOLES := 12
 const PLAYER_RELOAD := 3.0
 const CREW_RESPAWN_DELAY := 10.0

@@ -109,6 +109,9 @@ var _crew: PanelContainer
 var _crew_list: Label
 var _menu: PanelContainer
 var _respawn: Button
+## Shown when the game has let go of the mouse (the window lost focus) and nothing needs it.
+var _click_to_play: Label
+var _full_switch: CheckButton
 ## Voice (docs/specs/2026-10-09-m25-voice.md): the mic mark while you are sent, and the Esc
 ## menu's voice column.
 var _talk_mark: TextureRect
@@ -388,9 +391,33 @@ func _ready() -> void:
 	_crew.add_child(_crew_list)
 	root.add_child(_crew)
 
+	_click_to_play = _label(30)
+	_click_to_play.add_theme_font_override("font", display_font())
+	_click_to_play.text = "Click to play"
+	_click_to_play.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_click_to_play.offset_top = -90
+	_click_to_play.offset_bottom = -50
+	_click_to_play.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_click_to_play.visible = false
+	root.add_child(_click_to_play)
+
 	_build_menu(root)
 	_let_mouse_through(root)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Leaving the window (alt-tab, a click outside) lets the mouse go, and it stays free until a
+## click inside the game: grabbing it back the moment the window had focus again hid the cursor
+## from the title bar, so the window could not be moved or maximised (playtest 12-10).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## Whether "Click to play" should show: the mouse is free with no menu or card open to use it.
+func needs_click() -> bool:
+	return Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and DisplayServer.get_name() != "headless" \
+		and not (_menu.visible or _shop.visible or _board.visible or _talk.visible or _journal.visible)
 
 
 ## Everything on the HUD lets the mouse pass, except what you click in the pause menu.
@@ -446,6 +473,13 @@ func _build_menu(root: Control) -> void:
 		game.local_player.sensitivity = v
 		Settings.save())
 	box.add_child(sens)
+
+	var full := CheckButton.new()
+	full.text = "Full screen (F11)"
+	full.button_pressed = Settings.fullscreen
+	full.toggled.connect(func(v: bool) -> void: Settings.set_fullscreen(v))
+	box.add_child(full)
+	_full_switch = full
 
 	var leave := Button.new()
 	leave.text = "Leave the game"
@@ -600,6 +634,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_menu()
 		else:
 			_fill_voice_menu()
+			_full_switch.set_pressed_no_signal(Settings.fullscreen)
 			_menu.visible = true
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event.is_action_pressed("crew"):
@@ -619,6 +654,7 @@ func _process(delta: float) -> void:
 	if game == null or game.local_player == null:
 		return
 	_prompt.text = game.local_player.prompt()
+	_click_to_play.visible = needs_click()
 	_talk_mark.visible = game.voice != null and game.voice.sending
 	if _menu.visible:
 		_mic_meter.queue_redraw()
@@ -1095,6 +1131,7 @@ func _controls_card() -> PanelContainer:
 		["J", "your deeds: long goals, each earning a title"],
 		["Hold V", "talk to anyone nearby (voice settings in Esc)"],
 		["Tab / Esc", "crew list / menu"],
+		["F11", "full screen"],
 		["Storms", "big seas and lightning that holes the hull: patch, bail, or sail out"],
 	]:
 		for i in 2:

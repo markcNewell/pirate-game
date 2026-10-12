@@ -20,6 +20,8 @@ static var open_mic := false
 static var voice_volume := 0.8
 static var mic_level := 0.1
 static var mic_device := "Default"
+## Full screen (F11, or the Esc menu), remembered between runs.
+static var fullscreen := false
 ## A random code made on first launch and sent when joining, so servers keep your pirate's
 ## name (and level and gold) for you alone.
 static var token := ""
@@ -42,6 +44,7 @@ static func load_saved() -> void:
 	voice_volume = cfg.get_value("voice", "volume", voice_volume)
 	mic_level = cfg.get_value("voice", "level", mic_level)
 	mic_device = cfg.get_value("voice", "device", mic_device)
+	fullscreen = cfg.get_value("display", "fullscreen", fullscreen)
 	token = cfg.get_value("player", "token", token)
 
 
@@ -65,6 +68,23 @@ static func _copy_tree(from: String, to: String) -> void:
 			DirAccess.copy_absolute(from.path_join(file), to.path_join(file))
 	for dir in DirAccess.get_directories_at(from):
 		_copy_tree(from.path_join(dir), to.path_join(dir))
+
+
+## Full screen on or off, now and next time.
+static func set_fullscreen(on: bool) -> void:
+	fullscreen = on
+	save()
+	apply_window()
+
+
+## Puts the window in full screen or back in a window, as Settings.fullscreen says (nothing to
+## do without a screen).
+static func apply_window() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var want := DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
+	if DisplayServer.window_get_mode() != want:
+		DisplayServer.window_set_mode(want)
 
 
 ## The token, made (and saved) the first time it is needed.
@@ -92,5 +112,6 @@ static func save() -> void:
 	cfg.set_value("voice", "volume", voice_volume)
 	cfg.set_value("voice", "level", mic_level)
 	cfg.set_value("voice", "device", mic_device)
+	cfg.set_value("display", "fullscreen", fullscreen)
 	cfg.set_value("player", "token", token)
 	cfg.save(PATH)

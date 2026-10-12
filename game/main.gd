@@ -36,6 +36,8 @@ var _summarised := false
 func _ready() -> void:
 	PlayerInput.register_actions()
 	Settings.load_saved()
+	if Settings.fullscreen:
+		Settings.apply_window()
 	_args = _parse(OS.get_cmdline_user_args())
 	if _args.has("play-test"):
 		# The title screen's play-test from the command line: --play-test CHAPTER (flags given
@@ -51,6 +53,13 @@ func _ready() -> void:
 		Storm.pin = Vector2(float(xz[0]), float(xz[1]))
 	# Start next frame: the scene root refuses new children while it is still being built.
 	_start.call_deferred()
+
+
+## F11 toggles full screen anywhere: the title screen or at sea.
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_F11:
+		Settings.set_fullscreen(not Settings.fullscreen)
+		get_viewport().set_input_as_handled()
 
 
 func _start() -> void:
