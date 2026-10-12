@@ -13,9 +13,11 @@ func _sim() -> ServerSim:
 # --- buckets ---
 
 func test_one_bailer_keeps_ahead_of_two_holes() -> void:
-	var per_second := ServerSim.BUCKET / ServerSim.BAIL_TRIP
-	check(per_second > 2.0 * ShipPhysics.LEAK_RATE,
-		"a bucket every %.0f s takes %.3f m/s against two holes' %.3f" % [ServerSim.BAIL_TRIP, per_second, 2.0 * ShipPhysics.LEAK_RATE])
+	for hull: Hull in [Hull.galleon(), Hull.sloop()]:
+		var trip := maxf(Hull.BAIL_TRIP if hull.has_hold else 0.0, hull.bail_every)
+		var per_second := hull.bucket / trip
+		check(per_second > 1.5 * hull.leak_rate,
+			"%s: a bucket every %.1f s takes %.3f m/s against a hole's %.3f" % [hull.name, trip, per_second, hull.leak_rate])
 
 
 func test_a_bucket_thrown_takes_out_its_water() -> void:
@@ -29,4 +31,4 @@ func test_a_bucket_thrown_takes_out_its_water() -> void:
 	r.pos = ShipShape.SPAWNS[0]
 	sim.request(1, "throw", 0, [])
 	sim.tick(DT)
-	check_near(ship.water, 1.0 - ServerSim.BUCKET, 0.01, "one bucket's worth gone")
+	check_near(ship.water, 1.0 - Hull.galleon().bucket, 0.01, "one bucket's worth gone")

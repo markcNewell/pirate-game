@@ -20,11 +20,6 @@ const LADDER_TOLERANCE := 6.0
 const HATCH_REACH := 2.6
 const PATCH_REACH := 2.6
 const PATCH_TIME := 2.0
-## Metres of water one bucket takes out of the lower deck. A trip (scoop, climb, throw) takes
-## about BAIL_TRIP seconds, so one pirate bailing keeps ahead of two holes (ShipPhysics.LEAK_RATE
-## each); playtest 12-10 found the old 0.06 couldn't keep up with even one.
-const BUCKET := 0.2
-const BAIL_TRIP := 8.0
 const MAX_HOLES := 12
 const PLAYER_RELOAD := 3.0
 const CREW_RESPAWN_DELAY := 10.0
@@ -128,7 +123,6 @@ var _spawns: Array = CREW_SPAWNS
 var _next_projectile := 1
 var _evacuated := {}
 var _pending_bail := {}
-var _stations := ShipShape.stations()
 var _rng := RandomNumberGenerator.new()
 ## The last lightning flash slot already judged for a strike.
 var _last_flash := -1
@@ -229,6 +223,12 @@ func crew_ship(crew := CREW) -> ShipState:
 ## The ship belonging to a player's crew.
 func _own(r: Dictionary) -> ShipState:
 	return ships.get(r.crew)
+
+
+## Whether a crew has a ship afloat (a sunk one stays on the list, on the bottom, until the
+## crew buys another at a shipyard).
+func has_ship(crew: int) -> bool:
+	return ships.has(crew) and not ships[crew].is_sinking()
 
 
 func _ensure_crew(crew: int) -> void:
@@ -345,20 +345,22 @@ func _lightning() -> void:
 
 func _strike(ship_id: int) -> void:
 	var s: ShipState = ships[ship_id]
-	var mast := Vector3(0.0, ShipShape.DECK_Y, ShipShape.MAST_Z[1])
+	var hull := Hull.of(s)
+	var tallest := hull.masts() - 1
+	var mast := Vector3(0.0, hull.deck_y, hull.mast_z[tallest])
 	var side := 1.0 if _rng.randf() < 0.5 else -1.0
 	if s.holes.size() < MAX_HOLES:
-		var h := ShipShape.hole_point(Vector3(side, 0.0, mast.z + _rng.randf_range(-1.5, 1.5)))
+		var h := hull.hole_point(Vector3(side, 0.0, mast.z + _rng.randf_range(-1.5, 1.5)))
 		s.holes.append([s.next_hole_id, h.x, h.y, h.z, 0.0])
 		s.next_hole_id += 1
 	else:
-		s.water = minf(ShipPhysics.SINK_LEVEL, s.water + 0.15)
+		s.water = minf(hull.sink_level, s.water + 0.15)
 	for id in players:
 		var r: Dictionary = players[id]
 		if r.mode == LocalPlayer.Mode.ON_SHIP and r.ship == ship_id and r.pos.distance_to(mast) < 4.0:
 			_hurt_player(id, 25, "lightning")
 	stats.lightning += 1
-	var top := ShipPhysics.pose_of(s, time) * (mast + Vector3(0, ShipShape.MAST_HEIGHT[1], 0))
+	var top := ShipPhysics.pose_of(s, time) * (mast + Vector3(0, hull.mast_height[tallest], 0))
 	Net.send_event("lightning", [ship_id, top.x, top.y, top.z])
 	if crews.has(ship_id):
 		_tell_crew(ship_id, "Lightning strikes the mainmast! We're holed!")
@@ -376,8 +378,8 @@ func _crew_controls(ship_id: int) -> ShipControls:
 		if input.is_empty() or time - input.time > STATION_INPUT_TIMEOUT:
 			continue
 		var axes: Vector2 = input.axes
-		var st: Dictionary = _stations[id]
-		match st.kind:
+		var st := Hull.of(ships.get(ship_id)).station(id)
+		match st.get("kind", -1):
 			ShipShape.Kind.WHEEL:
 				c.wheel = axes.x
 			ShipShape.Kind.SAILS:
@@ -661,7 +663,7 @@ func _separate_ships() -> void:
 				continue
 			var pa := Vector2(a.x, a.z)
 			var pb := Vector2(b.x, b.z)
-			if pa.distance_to(pb) > 2.0 * ShipShape.HALF_LENGTH + SHIP_CONTACT:
+			if pa.distance_to(pb) > Hull.of(a).half_length + Hull.of(b).half_length + SHIP_CONTACT:
 				continue
 			var closest := INF
 			for da: float in [-9.0, 0.0, 9.0]:
@@ -730,14 +732,15 @@ func _projectile_hits(p: Dictionary, pos: Vector3, age: float, poses: Dictionary
 		var pose: Transform3D = poses[id]
 		var inv := pose.affine_inverse()
 		var local := inv * pos
-		if local.length() > 25.0 or not ShipShape.inside_hull(local):
+		var hull := Hull.of(s)
+		if local.length() > 25.0 or not hull.inside_hull(local):
 			continue
 		# Walk back along this tick's path to where the ball met the hull.
 		var outside: Vector3 = inv * p.prev
 		var inside := local
 		for i in 10:
 			var mid := (outside + inside) * 0.5
-			if ShipShape.inside_hull(mid):
+			if hull.inside_hull(mid):
 				inside = mid
 			else:
 				outside = mid
@@ -768,26 +771,27 @@ func _hull_hit(p: Dictionary, ship_id: int, local: Vector3, world: Vector3) -> v
 		Net.send_event("impact", [p.id, kind, world.x, world.y, world.z, ship_id, time])
 		return
 	# Saltshot: a crew that brewed it holes the dead's ships twice.
-	if s.kind == ShipState.Kind.SKELETON and ShipShape.makes_hole(local) and _has_saltshot(_crew_of_ship(p.ship)) and s.holes.size() < MAX_HOLES:
-		var extra := ShipShape.hole_point(local + Vector3(0, 0, 0.9))
+	var hull := Hull.of(s)
+	if s.kind == ShipState.Kind.SKELETON and hull.makes_hole(local) and _has_saltshot(_crew_of_ship(p.ship)) and s.holes.size() < MAX_HOLES:
+		var extra := hull.hole_point(local + Vector3(0, 0, 0.9))
 		s.holes.append([s.next_hole_id, extra.x, extra.y, extra.z, 0.0])
 		s.next_hole_id += 1
 		stats.holes += 1
-	if ShipShape.makes_hole(local):
+	if hull.makes_hole(local):
 		kind = 1
 		stats.hits += 1
 		if s.flag == 2:
 			# Every hit below her waterline counts toward breaking her, holes patched or not.
 			story.act4.on_hole(ship_id)
 		if s.holes.size() < MAX_HOLES:
-			var h := ShipShape.hole_point(local)
+			var h := hull.hole_point(local)
 			s.holes.append([s.next_hole_id, h.x, h.y, h.z, 0.0])
 			s.next_hole_id += 1
 			stats.holes += 1
 			if crews.has(ship_id):
-				_tell_crew(ship_id, "We're hit! Water on the lower deck!")
+				_tell_crew(ship_id, "We're hit! Water on the lower deck!" if hull.has_hold else "We're hit! She's taking water!")
 		else:
-			s.water = minf(ShipPhysics.SINK_LEVEL, s.water + 0.15)
+			s.water = minf(hull.sink_level, s.water + 0.15)
 	Net.send_event("impact", [p.id, kind, world.x, world.y, world.z, ship_id, time])
 	var shooter := _crew_of_ship(p.ship)
 	if shooter > 0 and shooter != s.crew:
@@ -918,7 +922,7 @@ func player_state(id: int, data: Array) -> void:
 	if mode == r.mode:
 		ok = pos.distance_to(r.pos) <= MAX_PLAYER_SPEED * elapsed + 2.0
 		if mode == LocalPlayer.Mode.ON_SHIP:
-			ok = ok and ShipShape.plausible_position(pos)
+			ok = ok and Hull.of(crew).plausible_position(pos)
 		else:
 			ok = ok and _plausible_in_world(pos)
 	elif r.mode == LocalPlayer.Mode.ON_SHIP and mode == LocalPlayer.Mode.WORLD:
@@ -947,8 +951,9 @@ func set_station_input(id: int, axes: Vector2, aim: Vector2) -> void:
 		return
 	station_input[id] = {"axes": axes.limit_length(1.4), "aim": aim, "time": time}
 	var r: Dictionary = players[id]
-	if r.station >= 0 and _stations[r.station].kind == ShipShape.Kind.CANNON:
-		var gun: int = _stations[r.station].gun
+	var st := Hull.of(_own(r)).station(r.station) if r.station >= 0 else {}
+	if st.get("kind", -1) == ShipShape.Kind.CANNON:
+		var gun: int = st.gun
 		_own(r).gun_yaw[gun] = clampf(aim.x, -ShipShape.CANNON_YAW_LIMIT, ShipShape.CANNON_YAW_LIMIT)
 		_own(r).gun_pitch[gun] = clampf(aim.y, ShipShape.CANNON_PITCH_MIN, ShipShape.CANNON_PITCH_MAX)
 
@@ -1050,14 +1055,14 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 
 
 func _take_station(id: int, r: Dictionary, station: int) -> void:
-	if station < 0 or station >= _stations.size() or r.mode != LocalPlayer.Mode.ON_SHIP:
+	if not has_ship(r.crew) or r.mode != LocalPlayer.Mode.ON_SHIP:
 		return
-	if _own(r).is_sinking() or r.station == station:
+	var st := Hull.of(_own(r)).station(station)
+	if st.is_empty() or r.station == station:
 		return
 	if r.carry >= 0:
 		Net.send_message(id, "Put the chest down first")
 		return
-	var st: Dictionary = _stations[station]
 	var key: int = r.crew * 100 + station
 	if station_owner.has(key) and station_owner[key] != id:
 		Net.send_message(id, "%s is already on it" % roster.get(station_owner[key], "Someone"))
@@ -1089,7 +1094,9 @@ func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
 		var s: ShipState = ships[ship_id]
 		if s.is_sinking() or (side == ShipShape.STERN_ROPE and s.flag != 5):
 			continue
-		var bottom := ShipPhysics.pose_of(s, time) * ShipShape.ladder_bottom(side)
+		if side == ShipShape.STERN_ROPE and s.hull != Hull.Type.GALLEON:
+			continue
+		var bottom := ShipPhysics.pose_of(s, time) * Hull.of(s).ladder_bottom(side)
 		if Vector2(r.pos.x - bottom.x, r.pos.z - bottom.z).length() > LADDER_TOLERANCE:
 			continue
 		stats.climbs += 1
@@ -1101,12 +1108,12 @@ func _climb(id: int, r: Dictionary, side: int, wanted := -1) -> void:
 			print("[server] %s climbed aboard" % r.name)
 		# Face inboard: starboard ladder looks toward -x, which is a quarter turn left.
 		var facing := 0.0 if side == ShipShape.STERN_ROPE else PI / 2.0 * side
-		_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.ladder_top(side), facing, ship_id)
+		_teleport(id, LocalPlayer.Mode.ON_SHIP, Hull.of(s).ladder_top(side), facing, ship_id)
 		return
 
 
 func _hatch(id: int, r: Dictionary, up: int) -> void:
-	if r.mode != LocalPlayer.Mode.ON_SHIP or r.station >= 0:
+	if r.mode != LocalPlayer.Mode.ON_SHIP or r.station >= 0 or not Hull.of(ships.get(r.ship)).has_hold:
 		return
 	if up == 0 and r.pos.distance_to(ShipShape.hatch_top_target()) < HATCH_REACH + 1.0:
 		_teleport(id, LocalPlayer.Mode.ON_SHIP, ShipShape.HATCH_BOTTOM, PI)
@@ -1146,26 +1153,31 @@ func _scoop(r: Dictionary) -> void:
 		story.scoop(r)
 		return
 	var s := _own(r)
-	if r.mode != LocalPlayer.Mode.ON_SHIP or r.bucket or s.water < 0.1:
+	if r.mode != LocalPlayer.Mode.ON_SHIP or r.bucket or s == null or r.ship != r.crew:
 		return
-	if ShipShape.is_below_deck(r.pos) and r.pos.y < ShipShape.LOWER_Y + s.water + 0.3:
+	if Hull.of(s).can_scoop(r.pos, s.water):
 		r.bucket = true
 
 
 func _throw(r: Dictionary) -> void:
-	if r.mode != LocalPlayer.Mode.ON_SHIP or not r.bucket or r.pos.y < ShipShape.DECK_Y - 0.5:
+	var s := _own(r)
+	if r.mode != LocalPlayer.Mode.ON_SHIP or not r.bucket or s == null or r.ship != r.crew:
+		return
+	var hull := Hull.of(s)
+	# A sloop's water is right under the deck, so her bailer doesn't climb: a throw takes a moment.
+	if not hull.can_throw(r.pos) or (r.last_bail >= 0.0 and time - r.last_bail < hull.bail_every):
 		return
 	r.bucket = false
 	r.last_bail = time
-	_pending_bail[r.crew] = _pending_bail.get(r.crew, 0.0) + BUCKET
+	_pending_bail[r.crew] = _pending_bail.get(r.crew, 0.0) + hull.bucket
 	stats.bailed += 1
 
 
 func _player_fire(r: Dictionary, station: int, aim: Array) -> void:
 	if r.station != station or station < 0 or aim.size() != 2:
 		return
-	var st: Dictionary = _stations[station]
-	if st.kind != ShipShape.Kind.CANNON or _own(r).is_sinking():
+	var st := Hull.of(_own(r)).station(station)
+	if st.get("kind", -1) != ShipShape.Kind.CANNON or _own(r).is_sinking():
 		return
 	if _own(r).gun_reload[st.gun] > 0.0:
 		return
@@ -1188,7 +1200,8 @@ func _free_station_of(id: int) -> void:
 
 
 func _free_spawn(for_id: int) -> Vector3:
-	for spot in ShipShape.SPAWNS:
+	var spots := Hull.of(_own(players[for_id]) if players.has(for_id) else null).spawns
+	for spot in spots:
 		var taken := false
 		for id in players:
 			var r: Dictionary = players[id]
@@ -1197,7 +1210,7 @@ func _free_spawn(for_id: int) -> Vector3:
 				taken = true
 		if not taken:
 			return spot
-	return ShipShape.SPAWNS[0]
+	return spots[0]
 
 
 ## Put a player somewhere. `ship` is the ship whose frame `pos` is in (ON_SHIP), else -1.
@@ -1329,7 +1342,7 @@ func _levels(crew: int) -> Array:
 func _show_board(id: int, r: Dictionary) -> void:
 	if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != r.crew:
 		return
-	if r.pos.distance_to(ShipShape.map_table_target()) > MAP_TABLE_REACH + 1.0:
+	if r.pos.distance_to(Hull.of(ships.get(r.ship)).map_table_target()) > MAP_TABLE_REACH + 1.0:
 		return
 	var crew: Dictionary = crews[r.crew]
 	if crew.mission.is_empty():
@@ -1357,7 +1370,7 @@ func _make_offers(crew: int) -> Array[Dictionary]:
 func _take_offer(_id: int, r: Dictionary, company: int) -> void:
 	if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != r.crew or not crews[r.crew].mission.is_empty():
 		return
-	if r.pos.distance_to(ShipShape.map_table_target()) > MAP_TABLE_REACH + 1.0:
+	if r.pos.distance_to(Hull.of(ships.get(r.ship)).map_table_target()) > MAP_TABLE_REACH + 1.0:
 		return
 	var crew: Dictionary = crews[r.crew]
 	if crew.offers.is_empty():
@@ -2221,11 +2234,12 @@ func _pos_in_frame(r: Dictionary, frame: int) -> Vector3:
 ## Where a skeleton may stand: dry land on islands, the decks on ships.
 func _floor_for(sk: Skeleton) -> Callable:
 	if sk.frame >= 0:
+		var hull := Hull.of(ships.get(sk.frame))
 		return func(x: float, z: float) -> float:
-			var p := Vector3(x, ShipShape.DECK_Y, z)
-			if not ShipShape.is_on_board(p) or absf(x) > ShipShape.half_width(z, ShipShape.DECK_Y) - 0.5:
+			var p := Vector3(x, hull.deck_y, z)
+			if not hull.is_on_board(p) or absf(x) > hull.half_width(z, hull.deck_y) - 0.5:
 				return NAN
-			return ShipShape.floor_y(z, x)
+			return hull.floor_y(z, x)
 	# A camp's skeletons keep to their island; the story's raised dead to the one they stand on.
 	var island := sk.home if sk.home >= 0 else Islands.island_at(sk.pos.x, sk.pos.z, 4.0)
 	if island < 0 and Outpost.on_pier(sk.pos.x, sk.pos.z):
@@ -2478,7 +2492,7 @@ func _eat(r: Dictionary) -> void:
 	var ship := _own(r)
 	if r.mode != LocalPlayer.Mode.ON_SHIP or r.ship != r.crew or ship.bananas <= 0 or r.hp >= HEALTH:
 		return
-	if r.pos.distance_to(ShipShape.BANANA_BARREL) > EAT_REACH + 1.0:
+	if r.pos.distance_to(Hull.of(ships.get(r.ship)).bananas_at) > EAT_REACH + 1.0:
 		return
 	ship.bananas -= 1
 	r.hp = mini(HEALTH, r.hp + BANANA_HEAL)

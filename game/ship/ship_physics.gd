@@ -66,8 +66,9 @@ static func step(
 		s.x = drift.x
 		s.z = drift.y
 		return
-	s.water = clampf(s.water + s.leaks() * LEAK_RATE * dt - c.bail, 0.0, SINK_LEVEL)
-	if s.water >= SINK_LEVEL:
+	var h := Hull.of(s)
+	s.water = clampf(s.water + s.leaks() * h.leak_rate * dt - c.bail, 0.0, h.sink_level)
+	if s.water >= h.sink_level:
 		s.sink = 1e-3
 	s.rudder = clampf(s.rudder + c.wheel * RUDDER_RATE * dt, -1.0, 1.0)
 	for m in ShipState.MASTS:
@@ -85,15 +86,16 @@ static func step(
 
 	var push := 0.0
 	if not s.anchored:
-		for m in ShipState.MASTS:
-			push += 0.5 * SAIL_PUSH * s.sail_height[m] * sail_efficiency(s.yaw, s.sail_angle[m], wind_dir)
-	push *= wind_strength * (1.0 - WATER_DRAG * s.water / SINK_LEVEL)
-	s.speed += (push - DRAG * s.speed * absf(s.speed)) * dt
+		for m in h.masts():
+			push += h.sail_push / h.masts() * s.sail_height[m] * sail_efficiency(s.yaw, s.sail_angle[m], wind_dir)
+	push *= wind_strength * (1.0 - WATER_DRAG * s.water / h.sink_level)
+	var drag := h.sail_push / (h.max_speed * h.max_speed)
+	s.speed += (push - drag * s.speed * absf(s.speed)) * dt
 	if s.anchored:
 		s.speed = move_toward(s.speed, 0.0, ANCHOR_DECEL * dt)
 
-	var steer := clampf(absf(s.speed) / TURN_SPEED, 0.0, 1.0) * (1.0 if s.speed >= 0.0 else -1.0)
-	s.yaw = wrapf(s.yaw - s.rudder * TURN_RATE * steer * dt, -PI, PI)
+	var steer := clampf(absf(s.speed) / h.turn_speed, 0.0, 1.0) * (1.0 if s.speed >= 0.0 else -1.0)
+	s.yaw = wrapf(s.yaw - s.rudder * h.turn_rate * steer * dt, -PI, PI)
 
 	var pos := Vector2(s.x, s.z) + forward(s.yaw) * s.speed * dt
 	pos = _keep_off_islands(pos, s, islands)
@@ -105,7 +107,7 @@ static func _keep_off_islands(pos: Vector2, s: ShipState, islands: Array) -> Vec
 	var f := forward(s.yaw)
 	for island: Dictionary in islands:
 		var centre := Vector2(island.x, island.z)
-		var bow := pos + f * BOW_PROBE
+		var bow := pos + f * Hull.of(s).bow_probe
 		var gap: float = bow.distance_to(centre) - island.radius
 		if gap < 0.0:
 			# Back the whole ship out along the bow-to-island line and kill the speed: no
@@ -117,10 +119,11 @@ static func _keep_off_islands(pos: Vector2, s: ShipState, islands: Array) -> Vec
 
 ## Where the hull sits on the waves. Stateless, so every machine agrees given the same clock.
 ## Water inside makes her sit lower; while sinking she slides under bow first.
-static func pose(x: float, z: float, yaw: float, t: float, water := 0.0, sink := 0.0) -> Transform3D:
+static func pose(x: float, z: float, yaw: float, t: float, water := 0.0, sink := 0.0, hull: Hull = null) -> Transform3D:
+	var h := hull if hull else Hull.galleon()
 	var p := Vector2(x, z)
-	var f := forward(yaw) * POSE_HALF_LENGTH
-	var r := starboard(yaw) * POSE_HALF_BEAM
+	var f := forward(yaw) * h.pose_half_length
+	var r := starboard(yaw) * h.pose_half_beam
 	var h_mid := Waves.height(p.x, p.y, t)
 	var h_bow := Waves.height(p.x + f.x, p.y + f.y, t)
 	var h_stern := Waves.height(p.x - f.x, p.y - f.y, t)
@@ -130,8 +133,8 @@ static func pose(x: float, z: float, yaw: float, t: float, water := 0.0, sink :=
 	# Averaging five points across a 26 m hull smooths out the short waves, so the ship
 	# feels heavy without a spring that would need per-machine state.
 	var heave := 0.4 * h_mid + 0.15 * (h_bow + h_stern + h_port + h_star)
-	var pitch := atan2(h_bow - h_stern, 2.0 * POSE_HALF_LENGTH) * 0.9
-	var roll := atan2(h_star - h_port, 2.0 * POSE_HALF_BEAM) * 0.8
+	var pitch := atan2(h_bow - h_stern, 2.0 * h.pose_half_length) * 0.9
+	var roll := atan2(h_star - h_port, 2.0 * h.pose_half_beam) * 0.8
 	heave -= water * 0.3 + sink * sink * 22.0
 	pitch -= sink * 0.45
 	roll += sink * 0.2
@@ -141,7 +144,7 @@ static func pose(x: float, z: float, yaw: float, t: float, water := 0.0, sink :=
 
 ## Pose for a ship state, including its water and sinking.
 static func pose_of(s: ShipState, t: float) -> Transform3D:
-	return pose(s.x, s.z, s.yaw, t, s.water, s.sink)
+	return pose(s.x, s.z, s.yaw, t, s.water, s.sink, Hull.of(s))
 
 
 ## World velocity of the ship (m/s), for things it launches.
