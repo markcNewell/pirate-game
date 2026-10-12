@@ -16,6 +16,8 @@ var flag := 0
 ## A crew's ship: her fitted looks and trophies from the shipwright, [sails, hull, flag,
 ## figurehead, trophies].
 var looks: Array = []
+## The hull this view draws (SloopView draws the sloop); a ship whose hull changes gets a new view.
+var hull_type := Hull.Type.GALLEON
 
 var _rigs: Array[Node3D] = []
 var _sails: Array[Array] = []
@@ -457,7 +459,7 @@ func _make_hole(at: Vector3) -> Node3D:
 	add_child(node)
 	node.add_child(Toon.instance(_hole_mesh))
 	var outside := Toon.instance(_hole_mesh)
-	outside.position = Vector3(side * (ShipShape.half_width(at.z, at.y) - absf(at.x) + 0.02), 0, 0)
+	outside.position = Vector3(side * (Hull.of_type(hull_type).half_width(at.z, at.y) - absf(at.x) + 0.02), 0, 0)
 	node.add_child(outside)
 	var patch := Toon.instance(_patch_mesh)
 	patch.name = "Patch"

@@ -67,7 +67,7 @@ func follow(camera_pos: Vector3, sea_time: float, ships: Dictionary) -> void:
 			return at.distance_squared_to(Vector2(p.x, p.z)) < at.distance_squared_to(Vector2(q.x, q.z)))
 		near.resize(MAX_SHIPS)
 	for s: ShipState in near:
-		a.append(Vector4(s.x, s.z, s.yaw, 0.0))
+		a.append(Vector4(s.x, s.z, s.yaw, Hull.of(s).half_length / ShipShape.HALF_LENGTH))
 		b.append(Vector4(s.sink, s.water, s.speed, 0.0))
 	var count := a.size()
 	while a.size() < MAX_SHIPS:

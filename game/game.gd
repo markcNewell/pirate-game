@@ -160,8 +160,12 @@ func _build_view() -> void:
 
 
 func _ship_view_for(id: int, s: ShipState) -> ShipView:
+	# A crew that traded up (or bought a new ship of another kind) gets her drawn afresh.
+	if ship_views.has(id) and ship_views[id].hull_type != s.hull:
+		ship_views[id].queue_free()
+		ship_views.erase(id)
 	if not ship_views.has(id):
-		var v := ShipView.new()
+		var v: ShipView = SloopView.new() if s.hull == Hull.Type.SLOOP else ShipView.new()
 		v.kind = s.kind
 		v.crew = s.crew
 		v.flag = s.flag

@@ -85,7 +85,7 @@ var stats := {
 	"dives": 0, "fort_shots": 0, "bought": 0, "refits": 0, "sieges": 0, "battery_shots": 0, "climbed": 0, "blinded": 0, "lanterns": 0,
 	"alarms": 0, "lanterns_smashed": 0, "lunges": 0, "parried": 0, "reef_tears": 0,
 	"blinks": 0, "braziers": 0, "beacons": 0, "slams": 0, "throws": 0, "joint_hits": 0, "crumbled": 0,
-	"world_events": 0, "world_won": 0, "deeds": 0, "voice": 0,
+	"world_events": 0, "world_won": 0, "deeds": 0, "voice": 0, "ships_bought": 0,
 }
 var items := {}  # item id -> Loot
 ## Test hooks: the island missions go to (-1 for random), the mission kind the board always
@@ -120,6 +120,11 @@ var ai_enabled := true
 var next_ai_time := AI_FIRST_DELAY
 var _next_ship_id := 10
 var _spawns: Array = CREW_SPAWNS
+## Shipyards (docs/specs/2026-10-12-m26-shipyards.md): crews start on Merrow's pier with their
+## ship moored there, and a sunk ship stays gone until the crew buys another. Off (`harbour`
+## false), ships start at sea, as the tests expect. `first_hull`: a test hook (--sloop).
+var harbour := false
+var first_hull := Hull.Type.GALLEON
 var _next_projectile := 1
 var _evacuated := {}
 var _pending_bail := {}
@@ -135,6 +140,9 @@ func _init(options: Dictionary = {}) -> void:
 	next_ai_time = float(options.get("ai-delay", AI_FIRST_DELAY))
 	if options.has("crews-close"):
 		_spawns = CREW_SPAWNS_CLOSE
+	# A real game starts at Port Merrow (main.gd asks for it); tests start at sea as before.
+	harbour = options.has("harbour")
+	first_hull = Hull.Type.SLOOP if options.has("sloop") else Hull.Type.GALLEON
 	# Test hooks: start near an island or the outpost, with a chest aboard.
 	if options.has("voyage-island"):
 		options_island = int(options["voyage-island"])
@@ -231,6 +239,78 @@ func has_ship(crew: int) -> bool:
 	return ships.has(crew) and not ships[crew].is_sinking()
 
 
+## Whether the crew's ship is still at her berth by Merrow's pier.
+func _moored_at_merrow(crew: int) -> bool:
+	var s: ShipState = ships.get(crew)
+	var b := Shipyards.merrow_berth(crew, Hull.of(s))
+	return s != null and Vector2(s.x - b.x, s.z - b.z).length() < 20.0
+
+
+## Puts a pirate on Merrow's pier by their crew's berth.
+func _to_pier(id: int) -> void:
+	var r: Dictionary = players[id]
+	var n := 0
+	for other in _crew_members(r.crew):
+		if other != id and players[other].mode == LocalPlayer.Mode.WORLD and Outpost.on_pier(players[other].pos.x, players[other].pos.z):
+			n += 1
+	var spot := Shipyards.pier_spawn(r.crew, n)
+	_teleport(id, LocalPlayer.Mode.WORLD, spot.pos, spot.yaw)
+
+
+## E at a shipwright, buying a ship of `hull_type` (Hull.Type): the galleon for its price from
+## the buyer's own gold, or the sloop free. One ship a crew: a crew with a galleon afloat can't
+## buy one, and a sloop is broken up when her crew trades up. The new ship is moored at the
+## yard with the buyer aboard (and anyone who was aboard the old one).
+func _buy_ship(id: int, r: Dictionary, hull_type: int) -> void:
+	if hull_type not in [Hull.Type.GALLEON, Hull.Type.SLOOP] or r.mode != LocalPlayer.Mode.WORLD:
+		return
+	var yard := Shipyards.at(r.pos)
+	if yard < 0:
+		return
+	var wright := Shipyards.wright_name(yard)
+	var hull := Hull.of_type(hull_type)
+	var old: ShipState = ships.get(r.crew)
+	var afloat := has_ship(r.crew)
+	if afloat and (old.hull == Hull.Type.GALLEON or hull_type == Hull.Type.SLOOP):
+		Net.send_message(id, "%s: \"You've a ship already. Sink her first, or trade a sloop up.\"" % wright)
+		return
+	var p: Dictionary = r.profile
+	if int(p.gold) < hull.price:
+		Net.send_message(id, "%s: \"A galleon's %d gold, and you've %d. The sloop's free.\"" % [wright, hull.price, int(p.gold)])
+		return
+	p.gold = int(p.gold) - hull.price
+	var aboard: Array = []
+	if afloat:
+		for other in _crew_members(r.crew):
+			if players[other].mode == LocalPlayer.Mode.ON_SHIP and players[other].ship == r.crew:
+				aboard.append(other)
+	var s := ShipState.new()
+	s.crew = r.crew
+	s.hull = hull_type
+	var b := Shipyards.berth(yard, hull, r.crew)
+	s.x = b.x
+	s.z = b.z
+	s.yaw = b.yaw
+	for other in _crew_members(r.crew):
+		_free_station_of(other)
+	_put_crew_ship(r.crew, s)
+	# Loot left aboard the old one comes across to the new deck.
+	for item_id in items:
+		var item: Loot = items[item_id]
+		if item.state == Loot.State.ON_SHIP and item.ship == r.crew:
+			item.pos = hull.cargo_spot + Vector3(0.6 * (item_id % 3), 0, 0)
+	if not id in aboard:
+		aboard.append(id)
+	for other in aboard:
+		_teleport(other, LocalPlayer.Mode.ON_SHIP, _free_spawn(other), 0.0)
+	stats.ships_bought += 1
+	var where: String = Shipyards.island(yard).name
+	print("[server] %s bought a %s at %s for crew %d (%d gold)" % [r.name, hull.name, where, r.crew, hull.price])
+	_tell_crew(r.crew, "%s bought us a %s at %s. All aboard!" % [r.name, hull.name, where])
+	profiles.changed(r.name)
+	_send_profile(id)
+
+
 func _ensure_crew(crew: int) -> void:
 	if crews.has(crew):
 		return
@@ -244,9 +324,26 @@ func _ensure_crew(crew: int) -> void:
 func _launch_crew_ship(crew: int) -> void:
 	var s := ShipState.new()
 	s.crew = crew
-	var spot: Vector2 = _spawns[crew - 1]
-	s.x = spot.x
-	s.z = spot.y
+	s.hull = first_hull
+	if harbour:
+		var b := Shipyards.merrow_berth(crew, Hull.of(s))
+		s.x = b.x
+		s.z = b.z
+		s.yaw = b.yaw
+	else:
+		var spot: Vector2 = _spawns[crew - 1]
+		s.x = spot.x
+		s.z = spot.y
+	_put_crew_ship(crew, s)
+
+
+## Makes `s` the crew's ship (a new one, or bought to replace a sunk one or a sloop): stocked
+## for her size, with nobody at her stations.
+func _put_crew_ship(crew: int, s: ShipState) -> void:
+	if s.hull == Hull.Type.SLOOP:
+		s.cannonballs = 0
+		s.planks = 8
+		s.bananas = 5
 	ships[crew] = s
 	_evacuated.erase(crew)
 	for key in station_owner.keys():
@@ -618,10 +715,9 @@ func _handle_sinking() -> void:
 			else:
 				Net.send_message(0, "The skeleton ship is going down!")
 		if s.sink >= 1.0:
-			if crews.has(id):
-				if crews[id].respawn_at < 0.0:
-					crews[id].respawn_at = time + CREW_RESPAWN_DELAY
-			else:
+			# A crew's ship stays on the bottom (still on the list, so her crew has a "ship" to
+			# refer to) until they buy another at a shipyard.
+			if not crews.has(id):
 				_drop_wreck_loot(s)
 				for sid in skeletons.keys():
 					if skeletons[sid].frame == id:
@@ -847,7 +943,10 @@ func add_player(id: int, player_name: String, wanted_crew := 0, token := "") -> 
 	print("[server] %s joined crew %d (peer %d)" % [clean, crew, id])
 	Net.send_roster(roster)
 	var ship: ShipState = ships[crew]
-	if ship.is_sinking():
+	if harbour and (ship.is_sinking() or _moored_at_merrow(crew)):
+		# A new crew starts on the pier by its ship; so does anyone whose crew has none.
+		_to_pier(id)
+	elif ship.is_sinking():
 		_teleport(id, LocalPlayer.Mode.WORLD, Vector3(ship.x + 12.0, 0.5, ship.z), 0.0)
 	else:
 		_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(id), 0.0)
@@ -977,8 +1076,12 @@ func request(id: int, action: String, arg: int, data: Array) -> void:
 		"respawn":
 			_free_station_of(id)
 			r.bucket = false
-			if _own(r) and not _own(r).is_sinking():
+			if has_ship(r.crew):
 				_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(id), 0.0)
+			elif harbour:
+				_to_pier(id)
+		"ship":
+			_buy_ship(id, r, arg)
 		"hatch":
 			_hatch(id, r, arg)
 		"patch":
@@ -1225,7 +1328,9 @@ func _teleport(id: int, mode: int, pos: Vector3, yaw: float, ship := -2) -> void
 	r.pos = pos
 	r.yaw = yaw
 	r.time = time
-	Net.send_teleport(id, [r.seq, mode, pos.x, pos.y, pos.z, yaw, r.ship])
+	# The frame ship's hull goes too, so the client walks on the right deck from the first step.
+	var hull: int = ships[r.ship].hull if ships.has(r.ship) else Hull.Type.GALLEON
+	Net.send_teleport(id, [r.seq, mode, pos.x, pos.y, pos.z, yaw, r.ship, hull])
 
 
 static func compass_name(heading: float) -> String:
@@ -2297,13 +2402,19 @@ func _hurt_player(id: int, damage: int, by: String, attacker := -1, hit := Weapo
 func _step_ghosts() -> void:
 	for id in players:
 		var r: Dictionary = players[id]
-		var own: ShipState = ships.get(r.crew)
-		if r.dead_until < 0.0 or time < r.dead_until or own == null or own.is_sinking():
+		if r.dead_until < 0.0 or time < r.dead_until:
 			continue
+		if not has_ship(r.crew) and not harbour:
+			continue  # at sea with no ship (tests): wait for one
 		r.dead_until = -1.0
 		r.hp = HEALTH
-		_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(id), 0.0)
-		Net.send_message(id, "Back from the brink. Welcome aboard.")
+		if has_ship(r.crew):
+			_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(id), 0.0)
+			Net.send_message(id, "Back from the brink. Welcome aboard.")
+		else:
+			# No ship to come back to: the crew's home port.
+			_to_pier(id)
+			Net.send_message(id, "Back from the brink, on Port Merrow's pier. A shipwright will sell you a ship.")
 
 
 ## A swing or a shot: the client says where it looked; the server decides what it hit.

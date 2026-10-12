@@ -17,10 +17,10 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near 2 --event green_fire --port "$PORT" --quit-after "$QUIT" >"$LOGS/fire.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 1 --event patrol --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/patrol.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 4 --event fort --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/fort.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near maw --event maw --port "$((PORT + 3))" --quit-after "$QUIT" >"$LOGS/maw.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 2 --event green_fire --port "$PORT" --quit-after "$QUIT" >"$LOGS/fire.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 1 --event patrol --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/patrol.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 4 --event fort --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/fort.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near maw --event maw --port "$((PORT + 3))" --quit-after "$QUIT" >"$LOGS/maw.log" 2>&1 &
 sleep 2
 run --bot lights --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/fire_bot.log" 2>&1 &
 run --bot gunner --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/patrol_bot.log" 2>&1 &

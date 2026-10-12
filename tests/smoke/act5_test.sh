@@ -16,9 +16,9 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near 6 --chapter e2 --chapter-step 1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/ceniza.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 0 --chapter e3 --chapter-step 1 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/beacon.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near maw --chapter e5 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/giant.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 6 --chapter e2 --chapter-step 1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/ceniza.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 0 --chapter e3 --chapter-step 1 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/beacon.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near maw --chapter e5 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/giant.log" 2>&1 &
 sleep 2
 run --bot brazier --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/ceniza_bot.log" 2>&1 &
 run --bot beacon --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/beacon_bot.log" 2>&1 &

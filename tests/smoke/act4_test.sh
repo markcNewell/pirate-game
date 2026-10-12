@@ -18,9 +18,9 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near hulk --chapter d1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/hulk.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 7 --chapter d4 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/lanterns.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near reef --chapter d6 --chapter-step 2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/duel.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near hulk --chapter d1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/hulk.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 7 --chapter d4 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/lanterns.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near reef --chapter d6 --chapter-step 2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/duel.log" 2>&1 &
 sleep 2
 run --bot sneak --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/hulk_bot.log" 2>&1 &
 run --bot lanterns --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/lanterns_bot.log" 2>&1 &

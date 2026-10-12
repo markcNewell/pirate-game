@@ -16,9 +16,9 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near 1 --chapter b4 --port "$PORT" --quit-after "$QUIT" >"$LOGS/bells.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 2 --chapter b2 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/dive.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 4 --chapter b6 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/fort.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 1 --chapter b4 --port "$PORT" --quit-after "$QUIT" >"$LOGS/bells.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 2 --chapter b2 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/dive.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 4 --chapter b6 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/fort.log" 2>&1 &
 sleep 2
 run --bot bells --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/bells_bot.log" 2>&1 &
 run --bot diver --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/dive_bot.log" 2>&1 &

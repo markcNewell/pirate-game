@@ -39,7 +39,7 @@ uniform float path_strength = 0.0;
 
 uniform vec4 islands[MAX_ISLANDS];  // x, z, waterline radius, unused
 uniform int island_count = 0;
-uniform vec4 ships[MAX_SHIPS];  // x, z, heading, unused
+uniform vec4 ships[MAX_SHIPS];  // x, z, heading, size (1 the galleon, smaller for the sloop)
 uniform vec4 ships_b[MAX_SHIPS];  // sinking progress, water inside, speed (m/s), unused
 uniform int ship_count = 0;
 
@@ -145,7 +145,9 @@ void fragment() {
 		}
 		float c = cos(ships[i].z);
 		float s = sin(ships[i].z);
-		vec2 local = vec2(c * d.x - s * d.y, s * d.x + c * d.y);
+		// A smaller hull is the galleon's shape shrunk: work in galleon-sized units.
+		float size = ships[i].w > 0.0 ? ships[i].w : 1.0;
+		vec2 local = vec2(c * d.x - s * d.y, s * d.x + c * d.y) / size;
 		float sinking = ships_b[i].x;
 		float speed = ships_b[i].z;
 		if (sinking < 0.3 && abs(local.y) < 13.0 && abs(local.x) < hull_half_width(local.y, wave_height) - 0.05) {

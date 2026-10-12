@@ -1284,9 +1284,10 @@ class Gauges:
 		if game.view_ship.anchored and game.view_ship.anchor_progress > 0.0:
 			anchor = "winching %d%%" % int(game.view_ship.anchor_progress * 100.0)
 		draw_string(font, Vector2(130, 82), anchor, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)
-		draw_string(font, Vector2(130, 108), "sails %d%% / %d%%" % [
-			int(game.view_ship.sail_height[0] * 100.0), int(game.view_ship.sail_height[1] * 100.0)
-		], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)
+		var sails := "sails %d%% / %d%%" % [int(game.view_ship.sail_height[0] * 100.0), int(game.view_ship.sail_height[1] * 100.0)]
+		if Hull.of(game.view_ship).masts() == 1:
+			sails = "sail %d%%" % int(game.view_ship.sail_height[0] * 100.0)
+		draw_string(font, Vector2(130, 108), sails, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)
 
 
 ## The lower deck: water level against the sinking point, open holes, and your bucket.
@@ -1302,7 +1303,7 @@ class Damage:
 			return
 		Hud.panel(self, Rect2(Vector2.ZERO, size))
 		var font := get_theme_default_font()
-		var frac := clampf(ship.water / ShipPhysics.SINK_LEVEL, 0.0, 1.0)
+		var frac := clampf(ship.water / Hull.of(ship).sink_level, 0.0, 1.0)
 		var fill := Color("4fb6f5") if frac < 0.6 else Color("ff5a4a")
 		Hud.bar(self, Rect2(Vector2(16, 40), Vector2(size.x - 32, 14)), frac, fill)
 		draw_string(font, Vector2(16, 28), "water below: %d cm" % int(ship.water * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, PAPER)

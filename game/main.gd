@@ -43,6 +43,10 @@ func _ready() -> void:
 		# The title screen's play-test from the command line: --play-test CHAPTER (flags given
 		# as well win).
 		_args.merge(PlayTest.options_for(str(_args["play-test"]), int(_args.get("gold", 0)), str(_args.get("event", ""))), false)
+	# A game starts at Port Merrow with the ships moored there (docs/specs/2026-10-12-m26-shipyards.md);
+	# --at-sea is the old start out at sea, which the bot tests and screenshots are built on.
+	if not _args.has("at-sea"):
+		_args["harbour"] = true
 	Net.options = _args
 	if _args.has("time"):
 		Daylight.override = float(_args.time)

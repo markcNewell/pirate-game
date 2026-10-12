@@ -13,7 +13,7 @@ LOGS="$(mktemp -d)"
 trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 
-run --server --no-save --no-ai --storm 0,0 --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/server.log" 2>&1 &
+run --server --at-sea --no-save --no-ai --storm 0,0 --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/server.log" 2>&1 &
 server=$!
 sleep 2
 run --bot sails --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/bot.log" 2>&1 &

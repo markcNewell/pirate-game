@@ -168,7 +168,11 @@ func _physics_process(delta: float) -> void:
 func _move_on_ship(delta: float) -> void:
 	swimming = false
 	var h := hull()
-	game.proxy.use(h)
+	# Until the first snapshot names her, trust the hull the teleport said.
+	if game.view_ships.has(ship_id):
+		game.proxy.use(h)
+	else:
+		h = Hull.of_type(game.proxy.hull_type)
 	var local := DeckProxy.from_proxy(body.global_position)
 	# Wading through a flooded lower deck is slow going.
 	var depth := frame_ship().water - (local.y - ShipShape.LOWER_Y)
@@ -676,7 +680,7 @@ func apply_teleport(data: Array) -> void:
 		ship_id = int(data[6])
 	_set_mode(data[1])
 	if mode == Mode.ON_SHIP and game.proxy:
-		game.proxy.use(hull())
+		game.proxy.use(Hull.of_type(int(data[7])) if data.size() > 7 else hull())
 	var p := Vector3(data[2], data[3], data[4])
 	yaw = data[5]
 	body.global_position = DeckProxy.to_proxy(p) if mode == Mode.ON_SHIP else p

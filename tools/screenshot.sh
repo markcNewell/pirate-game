@@ -29,6 +29,9 @@ GODOT_BIN="${GODOT_BIN:-$(readlink -f "$(command -v godot)")}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SIZE="${SIZE:-1280x720}"
 mkdir -p "$(dirname "$OUT")"
+# The hosted game starts out at sea, as the views were framed; HARBOUR=1 starts at Port Merrow.
+FIRST=--at-sea
+if [ -n "${HARBOUR:-}" ]; then FIRST=--harbour; fi
 # shellcheck disable=SC2016
 "$ENGINE" run --rm \
 	-v "$ROOT:/game:Z" -v "$GODOT_BIN:/usr/local/bin/godot:ro,Z" -v "$(dirname "$OUT"):/out:Z" \
@@ -38,6 +41,6 @@ mkdir -p "$(dirname "$OUT")"
 		( sleep 4; for role in '"${BOTS:-}"'; do
 			timeout 150 godot --headless --path /game -- --bot "$role" '"${BOT_ARGS:-}"' >/dev/null 2>&1 &
 		done ) &
-		DISPLAY=:5 timeout 150 godot --path /game --rendering-driver opengl3 --resolution '"$SIZE"' -- "$@"
+		DISPLAY=:5 timeout 150 godot --path /game --rendering-driver opengl3 --resolution '"$SIZE"' -- '"$FIRST"' "$@"
 	' _ $([ "$VIEW" = title ] || echo --host) --name Mark --screenshot "/out/$(basename "$OUT")" --shot-view "$VIEW" --shot-delay "${DELAY:-6}" "$@" \
 	2>&1 | grep -E "screenshot|SCRIPT ERROR|ERROR" | grep -vE "audio|ALSA|init_output_device" || true

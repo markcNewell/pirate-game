@@ -117,7 +117,9 @@ func plausible_position(p: Vector3) -> bool:
 	if not is_on_board(p) or p.y < DECK_Y - 0.4 or p.y > DECK_Y + 3.0:
 		return false
 	for rect in solids():
-		if rect.grow(-0.15).has_point(Vector2(p.x, p.z)):
+		# A little slack round each fitting; the thin sail post has none to give.
+		var inner := rect.grow(-minf(0.15, minf(rect.size.x, rect.size.y) * 0.25))
+		if inner.has_point(Vector2(p.x, p.z)):
 			return false
 	return true
 

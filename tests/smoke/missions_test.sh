@@ -20,10 +20,10 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near 1 --voyage-island 1 --mission bounty --port "$PORT" --quit-after "$QUIT" >"$LOGS/bounty.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near outpost --test-skull --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/skull.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near outpost --mission cargo --voyage-island 2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/cargo.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 2 --test-cargo --voyage-island 2 --port "$((PORT + 3))" --quit-after "$QUIT" >"$LOGS/courier.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 1 --voyage-island 1 --mission bounty --port "$PORT" --quit-after "$QUIT" >"$LOGS/bounty.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --test-skull --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/skull.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --mission cargo --voyage-island 2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/cargo.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 2 --test-cargo --voyage-island 2 --port "$((PORT + 3))" --quit-after "$QUIT" >"$LOGS/courier.log" 2>&1 &
 sleep 2
 run --bot bounty --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/bounty_bot.log" 2>&1 &
 run --bot seller --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/skull_bot.log" 2>&1 &

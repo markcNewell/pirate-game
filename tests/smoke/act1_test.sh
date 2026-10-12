@@ -18,10 +18,10 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near 2 --chapter a2 --chapter-aboard --port "$PORT" --quit-after "$QUIT" >"$LOGS/salt.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 0 --chapter a3 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/kegs.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 0 --chapter a1 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/dig.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 0 --chapter a6 --port "$((PORT + 3))" --quit-after "$QUIT" >"$LOGS/camp.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 2 --chapter a2 --chapter-aboard --port "$PORT" --quit-after "$QUIT" >"$LOGS/salt.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 0 --chapter a3 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/kegs.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 0 --chapter a1 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/dig.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 0 --chapter a6 --port "$((PORT + 3))" --quit-after "$QUIT" >"$LOGS/camp.log" 2>&1 &
 sleep 2
 run --bot salter --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/salt_bot.log" 2>&1 &
 run --bot kegs --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/kegs_bot.log" 2>&1 &

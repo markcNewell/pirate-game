@@ -24,7 +24,7 @@ field() { sed -n "s/.* $1=\([^ ]*\).*/\1/p" <<<"$2"; }
 
 # --- 1. the fight ---
 FIGHT=150
-run --server --no-save --calm --ai-delay 3 --port "$PORT" --quit-after "$((FIGHT + 6))" >"$LOGS/fight.log" 2>&1 &
+run --server --at-sea --no-save --calm --ai-delay 3 --port "$PORT" --quit-after "$((FIGHT + 6))" >"$LOGS/fight.log" 2>&1 &
 server=$!
 sleep 2
 bots=()
@@ -47,14 +47,14 @@ check "a sunk skeleton ship leaves loot" \
 
 # --- 2. the sinking ---
 SINK=70
-run --server --no-save --calm --no-ai --test-holes 6 --port "$((PORT + 1))" --quit-after "$((SINK + 4))" >"$LOGS/sink.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --test-holes 6 --port "$((PORT + 1))" --quit-after "$((SINK + 4))" >"$LOGS/sink.log" 2>&1 &
 server=$!
 sleep 2
 run --bot anchor --port "$((PORT + 1))" --quit-after "$SINK" >"$LOGS/sink_bot.log" 2>&1 || true
 wait "$server" || true
 r="$(grep '^RESULT server' "$LOGS/sink.log" || true)"
 check "the holed ship sank ($(field crew_sunk "$r"))" '[ "$(field crew_sunk "$r")" -ge 1 ]'
-check "the ship came back" 'grep -q "the crew.s ship is back" "$LOGS/sink.log"'
+check "and stayed sunk: no new ship by itself (milestone 26)" '! grep -q "the crew.s ship is back" "$LOGS/sink.log"'
 check "the bot ended up back on deck" 'grep -q "RESULT client.*active=true mode=0" "$LOGS/sink_bot.log"'
 
 check "no script errors" '! grep -l "SCRIPT ERROR" "$LOGS"/*.log'

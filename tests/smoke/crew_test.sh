@@ -17,11 +17,11 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 
 servers=()
-run --server --no-save --calm --no-ai --crews-close --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/duel.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --crews-close --port "$PORT" --quit-after "$((RUN_FOR + 6))" >"$LOGS/duel.log" 2>&1 &
 servers+=($!)
-run --server --no-save --calm --no-ai --crews-close --port "$((PORT + 1))" --quit-after "$((RUN_FOR + 6))" >"$LOGS/guns.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --crews-close --port "$((PORT + 1))" --quit-after "$((RUN_FOR + 6))" >"$LOGS/guns.log" 2>&1 &
 servers+=($!)
-run --server --no-save --calm --no-ai --crews-close --test-steal --port "$((PORT + 2))" --quit-after "$((RUN_FOR + 6))" >"$LOGS/theft.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --crews-close --test-steal --port "$((PORT + 2))" --quit-after "$((RUN_FOR + 6))" >"$LOGS/theft.log" 2>&1 &
 servers+=($!)
 sleep 2
 bots=()

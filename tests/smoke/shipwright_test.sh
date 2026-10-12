@@ -17,8 +17,8 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near outpost --gold 2000 --port "$PORT" --quit-after "$QUIT" >"$LOGS/server.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 4 --gold 2000 --done e6 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/fort.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --gold 2000 --port "$PORT" --quit-after "$QUIT" >"$LOGS/server.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 4 --gold 2000 --done e6 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/fort.log" 2>&1 &
 sleep 2
 run --bot fortarms --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/fort_bot.log" 2>&1 &
 run --bot wright --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/wright_bot.log" 2>&1 &

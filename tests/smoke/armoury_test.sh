@@ -15,8 +15,8 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near outpost --gold 2000 --port "$PORT" --quit-after "$QUIT" >"$LOGS/shop.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near 1 --blade 1 --gun 1 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/fight.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --gold 2000 --port "$PORT" --quit-after "$QUIT" >"$LOGS/shop.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near 1 --blade 1 --gun 1 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/fight.log" 2>&1 &
 sleep 2
 run --bot armourer --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/shop_bot.log" 2>&1 &
 run --bot fighter --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/fight_bot.log" 2>&1 &

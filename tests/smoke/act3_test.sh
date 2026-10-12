@@ -18,9 +18,9 @@ trap 'rm -rf "$LOGS"' EXIT
 run() { "$GODOT" --headless --path "$ROOT" -- "$@"; }
 QUIT=$((RUN_FOR + 6))
 
-run --server --no-save --calm --no-ai --start-near outpost --chapter c1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/lamp.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near outpost --chapter c6 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/battery.log" 2>&1 &
-run --server --no-save --calm --no-ai --start-near outpost --chapter c6 --chapter-step 2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/viuda.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --chapter c1 --port "$PORT" --quit-after "$QUIT" >"$LOGS/lamp.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --chapter c6 --port "$((PORT + 1))" --quit-after "$QUIT" >"$LOGS/battery.log" 2>&1 &
+run --server --at-sea --no-save --calm --no-ai --start-near outpost --chapter c6 --chapter-step 2 --port "$((PORT + 2))" --quit-after "$QUIT" >"$LOGS/viuda.log" 2>&1 &
 sleep 2
 run --bot keeper --port "$PORT" --quit-after "$RUN_FOR" >"$LOGS/lamp_bot.log" 2>&1 &
 run --bot battery --port "$((PORT + 1))" --quit-after "$RUN_FOR" >"$LOGS/battery_bot.log" 2>&1 &
