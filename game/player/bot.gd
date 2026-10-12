@@ -37,6 +37,9 @@ extends Node
 ##   beacon  - Every Hand: go ashore and light the island's beacon
 ##   giant   - The Bone Colossus: man a cannon and shoot at its lowest glowing joint
 ##   armourer - go ashore at Port Merrow and buy a rapier and a blunderbuss at Martha's counter
+##   embark  - start on Port Merrow's pier and climb aboard the crew's ship from it
+##   shipyard - with the crew's ship sunk, swim to the nearest shipyard and buy a ship (the
+##             galleon with 500 gold, else the free sloop), then winch the anchor and set sail
 
 const ARRIVE := 0.45
 const STATIONS := {"wheel": 0, "sails": 2, "anchor": 3}
@@ -156,6 +159,10 @@ func _physics_process(delta: float) -> void:
 			_fortarms(input)
 		"watcher":
 			_watcher()
+		"embark":
+			_embark(input)
+		"shipyard":
+			_shipyard(input)
 
 
 func _process(_delta: float) -> void:
@@ -175,7 +182,11 @@ func _go(input: PlayerInput, target: Vector3) -> bool:
 		# walking away, so the bot would pace back and forth instead of using the station.
 		return true
 	if _route.is_empty() or _route.back().distance_to(target) > 0.05:
-		_route = BotNav.find_path(_player.frame_position(), target)
+		# The sloop's deck is open: straight there. The galleon's needs planning.
+		if Hull.of(_player.frame_ship()).type == Hull.Type.SLOOP:
+			_route = _round_the_mast(_player.frame_position(), target)
+		else:
+			_route = BotNav.find_path(_player.frame_position(), target)
 		if _route.is_empty():
 			_route = [target]
 	var here := _player.frame_position()
@@ -189,6 +200,47 @@ func _go(input: PlayerInput, target: Vector3) -> bool:
 			return false
 		_route.pop_front()
 	return true
+
+
+## On the sloop's open deck: straight there, or round whichever fittings (mast, post, winch,
+## table) stand in the way, by the corners of the nearest one.
+func _round_the_mast(from: Vector3, target: Vector3, depth := 2) -> Array[Vector3]:
+	var straight: Array[Vector3] = [target]
+	var block := _sloop_block(from, target)
+	if not block.has_area() or depth == 0:
+		return straight
+	var best: Array[Vector3] = []
+	var best_len := INF
+	var g := block.grow(0.6)
+	var hull := Hull.sloop()
+	for c: Vector2 in [g.position, g.position + Vector2(g.size.x, 0), g.end, g.position + Vector2(0, g.size.y)]:
+		var corner := Vector3(c.x, target.y, c.y)
+		if absf(c.x) > hull.half_width(c.y, hull.deck_y) - 0.45 or _sloop_block(from, corner).has_area():
+			continue
+		var rest := _round_the_mast(corner, target, depth - 1)
+		var length := from.distance_to(corner)
+		var prev := corner
+		for p in rest:
+			length += prev.distance_to(p)
+			prev = p
+		if length < best_len:
+			best_len = length
+			best = [corner]
+			best.append_array(rest)
+	return best if not best.is_empty() else straight
+
+
+## The first of the sloop's fittings a walk from `a` to `b` would bump into (an empty Rect2 if none).
+func _sloop_block(a: Vector3, b: Vector3) -> Rect2:
+	var steps := maxi(2, int(a.distance_to(b) / 0.1))
+	for rect: Rect2 in (Hull.sloop() as SloopHull).solids():
+		var g := rect.grow(0.42)
+		# The end counts too: a corner tucked against another fitting can't be reached.
+		for k in range(1, steps + 1):
+			var p := a.lerp(b, float(k) / steps)
+			if g.has_point(Vector2(p.x, p.z)):
+				return rect
+	return Rect2()
 
 
 func _look_at(point: Vector3) -> void:
@@ -210,8 +262,8 @@ func _man(input: PlayerInput, station: int) -> bool:
 			_timer = 0.0
 		return true
 	_working = false
-	var st: Dictionary = ShipShape.stations()[station]
-	if not _go(input, st.stand):
+	var st := Hull.of(game.view_ship).station(station)
+	if st.is_empty() or not _go(input, st.stand):
 		return false
 	_look_at(st.at)
 	if _every(0.5):
@@ -392,7 +444,7 @@ func _nearest_ladder_bottom() -> Vector3:
 	var best := Vector3.ZERO
 	var best_d := INF
 	for side: int in [-1, 1]:
-		var b: Vector3 = game.ship_view.global_transform * ShipShape.ladder_bottom(side)
+		var b: Vector3 = game.ship_view.global_transform * Hull.of(game.view_ship).ladder_bottom(side)
 		var d := p.distance_to(b)
 		if d < best_d:
 			best = b
@@ -1462,6 +1514,64 @@ func _wright(input: PlayerInput) -> void:
 		game.send_request("wright", Shipwright.index_of("sails7"))
 		_say("asked Hobb for black sails")
 		_phase = "done"
+
+
+## Start on Merrow's pier (docs/specs/2026-10-12-m26-shipyards.md): walk to the end beside our
+## ship's ladder and climb aboard.
+func _embark(input: PlayerInput) -> void:
+	if _phase == "done":
+		return
+	if _player.mode == LocalPlayer.Mode.ON_SHIP:
+		_say("aboard our ship from the pier")
+		_phase = "done"
+		return
+	if game.ship_view == null:
+		return
+	var bottom := _nearest_ladder_bottom()
+	if _head_to(input, bottom, 1.8) or _player.nearest_ladder() != 0:
+		input.wish = Vector2.ZERO
+		if _every(0.5):
+			input.interact = true
+
+
+## Our ship sunk, swim to the nearest yard and buy one: the galleon if we can pay, else the sloop.
+## Then winch the anchor up and let the sail out.
+func _shipyard(input: PlayerInput) -> void:
+	if _player.dead or _phase == "sailing":
+		return
+	var afloat := game.view_ships.has(game.own_ship) and not game.view_ship.is_sinking()
+	if _player.mode == LocalPlayer.Mode.WORLD and not afloat:
+		var yard := -1
+		var best := INF
+		for i in Shipyards.count():
+			var d := _player.body.global_position.distance_to(Shipyards.wright_pos(i))
+			if d < best:
+				best = d
+				yard = i
+		var at := Shipyards.wright_pos(yard)
+		if _head_to(input, at, Shipyards.REACH - 0.6) and _every(2.0):
+			var want := Hull.Type.GALLEON if game.purse >= Hull.galleon().price else Hull.Type.SLOOP
+			game.send_request("ship", want)
+			_say("asked %s for a %s with %d gold" % [Shipyards.wright_name(yard), Hull.of_type(want).name, game.purse])
+		return
+	if _player.mode != LocalPlayer.Mode.ON_SHIP or not afloat:
+		return
+	if _phase != "aboard" and _phase != "anchor" and _phase != "sail":
+		_say("aboard our new %s, %d gold left" % [Hull.of(game.view_ship).name, game.purse])
+		_phase = "anchor"
+	if _phase == "anchor":
+		if not game.view_ship.anchored:
+			game.send_request("leave", 3)
+			_phase = "sail"
+			_working = false
+		elif _man(input, 3):
+			input.wish = Vector2(0, 1)
+		return
+	if _man(input, 1):
+		input.wish = Vector2(0, 1)
+		if game.view_ship.speed > 1.0:
+			_say("under sail in the %s at %.1f m/s" % [Hull.of(game.view_ship).name, game.view_ship.speed])
+			_phase = "sailing"
 
 
 ## Ashore at the fort once it is our port: in through the gate to Isabel, and buy a rapier.

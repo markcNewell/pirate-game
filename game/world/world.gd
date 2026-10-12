@@ -317,6 +317,28 @@ func _island(spec: Dictionary) -> void:
 			var light := Lantern.new(Color("ffd08a"), 1.6, 9.0)
 			light.position = lamp - root.position
 			root.add_child(light)
+	for i in range(1, Shipyards.count()):
+		if Shipyards.island(i) != spec:
+			continue
+		var yard := Shipyards.build(i)
+		root.add_child(Toon.instance(yard.mesh))
+		faces.append_array(yard.faces)
+		var board := Label3D.new()
+		board.text = "SHIPYARD\n%s" % Shipyards.wright_name(i)
+		board.font = Hud.display_font()
+		board.font_size = 40
+		board.pixel_size = 0.01
+		board.modulate = Color("3a2414")
+		board.outline_size = 0
+		board.position = yard.sign[0]
+		board.rotation.y = yard.sign[1]
+		root.add_child(board)
+		var wright_at := Shipyards.wright_pos(i)
+		var out := (wright_at - Vector3(spec.x, wright_at.y, spec.z)).normalized()
+		var npc := Npc.new(str(Shipyards.YARDS[i][2]), atan2(-out.x, -out.z))
+		npc.position = wright_at - root.position
+		root.add_child(npc)
+		_npcs.append(npc)
 	if spec.get("fort", false):
 		var fort := Toon.instance(Models.mesh("fort"))
 		fort.position = Vector3(0, Fort.PLATEAU_Y, 0)

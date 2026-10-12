@@ -33,7 +33,7 @@ WHEEL = (0.0, DECK_Y, 3.8)
 CAPSTAN = (0.0, DECK_Y, -3.6)
 MAP_TABLE = (-0.85, DECK_Y, 2.1)
 BANANAS = (0.9, DECK_Y, 2.2)
-SAIL_POST = (0.7, DECK_Y, -0.5)
+SAIL_POST = (0.0, DECK_Y, MAST_Z[0])  # the pin rail round the mast's foot
 
 # The one square sail: its yard's height above the deck, the sail's height and width.
 SAIL_TOP = 7.4

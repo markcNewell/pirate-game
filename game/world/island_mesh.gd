@@ -178,6 +178,8 @@ static func _ground(b: MeshBuilder, spec: Dictionary) -> void:
 ## Is island-local (x, z) on one of the story's sites, which grow no palms or bushes: the dig
 ## camp and the powder store on Cutlass Cay, the old graveyard on Gull Isle, the fort's top?
 static func story_site(spec: Dictionary, x: float, z: float) -> bool:
+	if Shipyards.clearing(spec, x, z):
+		return true
 	if spec.get("fort", false):
 		return Vector2(x, z).length() < Fort.WALL_R + 3.0
 	if spec.get("ash", false):

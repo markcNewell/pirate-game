@@ -299,6 +299,28 @@ func _screenshot(path: String, delay: float, view: String) -> void:
 		game.sim.players[game.local_id].profile.owned.append("sails7")
 		game.sim._send_profile(game.local_id)
 		get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void: game.send_request("talk", Story.PEOPLE_IDS.find("hobb")))
+	elif game and view in ["yard", "yardship"]:
+		# A shipwright's yard (--yard N, default Gull Isle's): "yard" stands at the counter with
+		# 600 gold and the card open; "yardship" sinks our ship, takes the free sloop and looks at
+		# her alongside the jetty from the sea.
+		var i := int(_args.get("yard", 3))
+		var at := Shipyards.wright_pos(i)
+		var isl := Shipyards.island(i)
+		var out := (at - Vector3(isl.x, at.y, isl.z)).normalized()
+		var stand := at + out * 1.8
+		game.sim._teleport(game.local_id, LocalPlayer.Mode.WORLD, stand, atan2(out.x, out.z))
+		game.sim.players[game.local_id].profile.gold = 600
+		game.sim._send_profile(game.local_id)
+		if view == "yard":
+			get_tree().create_timer(maxf(0.0, delay * 0.5 - 1.0)).timeout.connect(func() -> void: game.hud.show_yard(i))
+		else:
+			game.sim.ships[ServerSim.CREW].sink = 1.0
+			game.send_request("ship", int(_args.get("hull", Hull.Type.SLOOP)))
+			var cam := Camera3D.new()
+			add_child(cam)
+			var side := Vector3(-out.z, 0, out.x)
+			cam.look_at_from_position(at + out * 34.0 + side * 22.0 + Vector3(0, 9, 0), at + out * 12.0)
+			cam.make_current()
 	elif game and view == "shop":
 		# Big Martha's counter open, with gold to spend.
 		var at := Outpost.martha_pos()

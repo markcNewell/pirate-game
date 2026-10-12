@@ -111,6 +111,8 @@ var _menu: PanelContainer
 var _respawn: Button
 ## Shown when the game has let go of the mouse (the window lost focus) and nothing needs it.
 var _click_to_play: Label
+## The parchment card in the middle shows the mission board, or a shipwright's yard (this one).
+var _yard := -1
 var _full_switch: CheckButton
 ## Voice (docs/specs/2026-10-09-m25-voice.md): the mic mark while you are sent, and the Esc
 ## menu's voice column.
@@ -704,7 +706,8 @@ func _process(delta: float) -> void:
 		toggle_help()
 	_map.visible = Input.is_action_pressed("map") and not game.mission.is_empty() and not _menu.visible
 	_prompt.visible = not _map.visible and not _board.visible and not reading() and not game.local_player.dead
-	if _board.visible and game.local_player.frame_position().distance_to(game.local_player.hull().map_table_target()) > 3.5:
+	var reach_from := Shipyards.wright_pos(_yard) if _yard >= 0 else game.local_player.hull().map_table_target()
+	if _board.visible and game.local_player.frame_position().distance_to(reach_from) > (Shipyards.REACH + 1.0 if _yard >= 0 else 3.5):
 		close_board()
 	_card.queue_redraw()
 	if _shop.visible:
@@ -729,6 +732,7 @@ func _process(delta: float) -> void:
 ## Show the board: the three offers (game.offers), or the running mission with a way to give
 ## it up. Keys: 1-3 take an offer, 4 gives up, E or Esc close.
 func show_board() -> void:
+	_yard = -1
 	for child in _board_box.get_children():
 		child.queue_free()
 	var title := _card_label("Mission board", 40, Color("5a3e22"))
@@ -971,7 +975,42 @@ func _fill_wright() -> void:
 
 func close_board() -> void:
 	_board.visible = false
+	_yard = -1
 	game.local_player.board_open = false
+
+
+## A shipwright's card (docs/specs/2026-10-12-m26-shipyards.md): 1 the galleon for her price,
+## 2 the sloop for nothing.
+func show_yard(i: int) -> void:
+	close_board()
+	_yard = i
+	for child in _board_box.get_children():
+		child.queue_free()
+	var title := _card_label("%s's yard" % Shipyards.wright_name(i), 40, Color("5a3e22"))
+	title.add_theme_font_override("font", display_font())
+	_board_box.add_child(title)
+	var galleon := Hull.galleon()
+	var rows := [
+		["1   The galleon:  %d gold  (you have %d)" % [galleon.price, game.purse], "Two masts, eight guns and a hold below, with room for the whole crew."],
+		["2   The sloop:  free", "One mast and no guns: quick, but a few holes sink her. Room for about three."],
+	]
+	for row: Array in rows:
+		var head := _card_label(row[0], 24, Color("5a3e22"))
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_board_box.add_child(head)
+		var line := _card_label("      " + str(row[1]), 18, Color("2a1a10"))
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_board_box.add_child(line)
+	var s := game.view_ship
+	var afloat := game.view_ships.has(game.own_ship) and not s.is_sinking()
+	if afloat and s.hull == Hull.Type.SLOOP:
+		_board_box.add_child(_card_label("Your crew's sloop is broken up if you buy the galleon.", 18, Color("8a2a1a")))
+	elif afloat:
+		_board_box.add_child(_card_label("Your crew's galleon is still afloat.", 18, Color("8a2a1a")))
+	_board_box.add_child(_card_label("1 / 2  buy        E  close", 18, Color("8a2a1a")))
+	_board.visible = true
+	_board.reset_size()
+	game.local_player.board_open = true
 
 
 func board_visible() -> bool:
@@ -980,6 +1019,14 @@ func board_visible() -> bool:
 
 func _board_key(event: InputEventKey) -> void:
 	var key := event.physical_keycode
+	if _yard >= 0:
+		if key in [KEY_1, KEY_2]:
+			game.send_request("ship", Hull.Type.GALLEON if key == KEY_1 else Hull.Type.SLOOP)
+			Audio.play("click")
+			close_board()
+		elif key in [KEY_E, KEY_ESCAPE]:
+			close_board()
+		return
 	if key in [KEY_1, KEY_2, KEY_3] and game.mission.is_empty():
 		var i := key - KEY_1
 		var takeable := _takeable_offers()
@@ -1065,6 +1112,40 @@ func toast(text: String) -> void:
 ## Compass heading of the camera: 0 = north (-Z), 90 = east (+X).
 ## Which way the world event lies from where you stand, in compass degrees; NAN when there is
 ## none or you are already there.
+## The way to the story's next chapter while no mission is under way (docs/specs/2026-10-12-m26-shipyards.md):
+## {"text", "at" (where its giver stands, or null when the act isn't open yet)}, or {}. Worked
+## out from your own chapters, which is the crew's for a new crew.
+func next_chapter() -> Dictionary:
+	if game == null or not game.mission.is_empty():
+		return {}
+	var i := Story.next_for([game.chapters])
+	if i < 0:
+		return {}
+	var ch: Dictionary = Story.CHAPTERS[i]
+	var act: int = ch.act
+	if Progress.level(game.xp) < Progress.ACT_LEVEL[act]:
+		return {"text": "%s opens at pirate level %d" % [Story.ACT_NAMES[act], Progress.ACT_LEVEL[act]], "at": null}
+	var who: String = ch.giver
+	var text := "Speak to %s, %s, at Port Merrow" % [Story.person_name(who), Story.PEOPLE[who].what]
+	if ch.get("night", false):
+		text += " after dark"
+	return {"text": text, "at": Story.person_pos(who)}
+
+
+## Compass bearing (degrees) to the next chapter's giver, or NAN when there is none or you are
+## already there.
+func next_chapter_bearing() -> float:
+	var cam := get_viewport().get_camera_3d()
+	var next := next_chapter()
+	if cam == null or next.is_empty() or next.at == null:
+		return NAN
+	var at: Vector3 = next.at
+	var to := Vector2(at.x - cam.global_position.x, at.z - cam.global_position.z)
+	if to.length() < 6.0:
+		return NAN
+	return fposmod(rad_to_deg(atan2(to.x, -to.y)), 360.0)
+
+
 func world_event_bearing() -> float:
 	var cam := get_viewport().get_camera_3d()
 	if _world_event.is_empty() or cam == null:
@@ -1251,6 +1332,14 @@ class Compass:
 		if not is_nan(event):
 			var ex := mid + clampf(wrapf(event - h, -180.0, 180.0), -80.0, 80.0) / 90.0 * mid
 			draw_colored_polygon(PackedVector2Array([Vector2(ex, 6), Vector2(ex + 7, 13), Vector2(ex, 20), Vector2(ex - 7, 13)]), WORLD_GREEN)
+		# A gold diamond marks the way to the story's next chapter, until it starts.
+		var story := hud.next_chapter_bearing()
+		if not is_nan(story):
+			var sx := mid + clampf(wrapf(story - h, -180.0, 180.0), -80.0, 80.0) / 90.0 * mid
+			var pts := PackedVector2Array([Vector2(sx, 4), Vector2(sx + 9, 13), Vector2(sx, 22), Vector2(sx - 9, 13)])
+			draw_colored_polygon(pts, GOLD)
+			pts.append(pts[0])
+			draw_polyline(pts, INK, 2.0)
 		# A gold pointer at the top marks where you are facing.
 		draw_colored_polygon(PackedVector2Array([Vector2(mid - 8, 0), Vector2(mid + 8, 0), Vector2(mid, 10)]), GOLD)
 
@@ -1340,6 +1429,7 @@ class MissionCard:
 	func _draw() -> void:
 		var m: Dictionary = hud.game.mission
 		if m.is_empty():
+			_draw_next()
 			return
 		var lines := MissionCard.steps(m, hud.game.render_time)
 		var font := get_theme_default_font()
@@ -1374,6 +1464,20 @@ class MissionCard:
 				var w := minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, width)
 				draw_line(Vector2(14, y - 6), Vector2(18 + w, y - 6), Color(PAPER, 0.6), 2.0)
 			top += heights[i] + 4.0
+
+	## With no mission running: where the story goes next ("Next: speak to Moll ..."), with the
+	## compass's gold diamond pointing the way.
+	func _draw_next() -> void:
+		var next := hud.next_chapter()
+		if next.is_empty():
+			return
+		var font := get_theme_default_font()
+		var width := size.x - 32
+		var text: String = next.text + (". Follow the gold mark on the compass." if next.at != null else ".")
+		var h := font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width, 18).y
+		Hud.panel(self, Rect2(Vector2.ZERO, Vector2(size.x, 44.0 + h)))
+		draw_string(font, Vector2(16, 26), "NEXT", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Story.COLOUR)
+		draw_multiline_string(font, Vector2(16, 34 + font.get_ascent(18)), text, HORIZONTAL_ALIGNMENT_LEFT, width, 18, -1, PAPER)
 
 	## The steps as [text, done] (text starting "!" is a warning).
 	static func act_name(m: Dictionary) -> String:

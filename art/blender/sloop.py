@@ -211,10 +211,15 @@ def fittings():
     parts.append(kit.box("pedestal", (w[0], w[1] + 0.45, w[2]), (0.3, 0.9, 0.24), slot("hull_dark"), bevel=0.02))
     c = S.CAPSTAN
     parts.append(kit.box("winchbase", (c[0], c[1] + 0.08, c[2]), (0.9, 0.16, 0.9), slot("hull_dark"), bevel=0.02))
+    # A pin rail round the mast's foot, with belaying pins, where the halyards are made fast.
     p = S.SAIL_POST
-    parts.append(kit.box("post", (p[0], p[1] + 0.5, p[2]), (0.16, 1.0, 0.16), slot("mast"), bevel=0.02))
-    for dy in (0.45, 0.8):
-        parts.append(kit.box("cleat", (p[0], p[1] + dy, p[2]), (0.3, 0.05, 0.07), slot("hull_dark"), bevel=0.01))
+    for dx, dz, sx, sz in ((0.0, -0.3, 0.66, 0.06), (0.0, 0.3, 0.66, 0.06), (-0.3, 0.0, 0.06, 0.66), (0.3, 0.0, 0.06, 0.66)):
+        parts.append(kit.box("pinrail", (p[0] + dx, p[1] + 0.62, p[2] + dz), (sx, 0.06, sz), slot("hull_dark"), bevel=0.01))
+    for dx, dz in ((-0.3, -0.3), (0.3, -0.3), (-0.3, 0.3), (0.3, 0.3)):
+        parts.append(kit.box("stanchion", (p[0] + dx, p[1] + 0.31, p[2] + dz), (0.06, 0.62, 0.06), slot("mast")))
+    for k in range(4):
+        x = -0.2 + 0.13 * k
+        parts.append(kit.box("pin", (p[0] + x, p[1] + 0.72, p[2] + 0.3), (0.025, 0.2, 0.025), slot("mast")))
     t = S.MAP_TABLE
     parts.append(kit.box("tabletop", (t[0], t[1] + 0.74, t[2]), (0.8, 0.06, 0.6), slot("mast"), bevel=0.015))
     for lx in (-0.32, 0.32):

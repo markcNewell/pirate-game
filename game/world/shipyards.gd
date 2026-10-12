@@ -108,11 +108,73 @@ static func merrow_berth(crew: int, hull := Hull.galleon()) -> Dictionary:
 	return {"x": float(c.x) + r + 1.0 + hull.half_length + beyond, "z": float(c.z) + side * out, "yaw": -PI / 2.0}
 
 
-## Where a pirate of `crew` starts (or wakes with no ship) on Merrow's pier, facing their
-## berth; `n` spreads several of them along it.
+## Where a pirate of `crew` starts (or wakes with no ship) on Merrow's pier, beside their
+## berth and facing up the pier to the port (and Moll); `n` spreads several of them along it.
 static func pier_spawn(crew: int, n := 0) -> Dictionary:
 	var c := Outpost.spec()
 	var r: float = c.radius
 	var x := float(c.x) + r + (15.0 if crew > 2 else 8.0) + 1.2 * (n % 4)
 	var side := 1.0 if crew % 2 == 1 else -1.0
-	return {"pos": Vector3(x, Outpost.PIER_Y, float(c.z) + side * 0.6), "yaw": PI if side > 0.0 else 0.0}
+	return {"pos": Vector3(x, Outpost.PIER_Y, float(c.z) + side * 0.6), "yaw": PI / 2.0}
+
+
+## A yard's jetty, signboard and stack of timber, in island-local space (the island's centre at
+## the origin): {"mesh", "faces" (to walk on), "sign": [where its lettering goes, facing]}.
+## Merrow's yard is Old Hobb's pier, built with the port.
+static func build(i: int) -> Dictionary:
+	var b := MeshBuilder.new()
+	var c := _centre(i)
+	var ends := jetty(i)
+	var a := ends[0] - c
+	var e := ends[1] - c
+	var d := _dir(i)
+	var side := Vector3(-d.z, 0.0, d.x)
+	var basis := Basis.looking_at(d, Vector3.UP)
+	var length := a.distance_to(e)
+	var planks := int(length / 0.36)
+	for k in planks:
+		var at := a.lerp(e, (k + 0.5) / planks)
+		b.box(at + Vector3(0, -0.06, 0), Vector3(JETTY_HALF_WIDTH, 0.06, 0.16), Color("b98a55").darkened(0.05 * (k % 3)), basis)
+	var t := 0.4
+	while t <= length:
+		for s: float in [-1.0, 1.0]:
+			var p := a + d * t + side * s * (JETTY_HALF_WIDTH - 0.1)
+			b.box(p + Vector3(0, -1.3, 0), Vector3(0.11, 1.45, 0.11), Color("6a4a2e"), basis)
+		t += 3.0
+	# Bollards at the seaward end to make a ship fast to.
+	for s: float in [-1.0, 1.0]:
+		b.cylinder(e + side * s * 0.55, e + side * s * 0.55 + Vector3(0, 0.45, 0), 0.13, 0.11, 8, Color("4a3424"))
+	var w := wright_pos(i) - c
+	var at_sign := w + side * 1.7
+	b.box(at_sign + Vector3(0, 0.9, 0), Vector3(0.07, 1.0, 0.07), Color("6a4a2e"), basis)
+	b.box(at_sign + Vector3(0, 1.8, 0), Vector3(0.95, 0.32, 0.05), Color("d8b07a"), basis)
+	# Seasoned timber waiting for the next hull.
+	for k in 4:
+		var y := w.y + 0.12 + 0.24 * (k / 2)
+		var off := -side * (2.2 + 0.3 * (k % 2))
+		b.box(w + off + Vector3(0, y - w.y, 0), Vector3(0.12, 0.12, 1.6), Color("a0784a").darkened(0.06 * k), basis)
+	return {"mesh": b.build(), "faces": b.faces(), "sign": [at_sign + Vector3(0, 1.8, 0) - d * 0.07, atan2(-d.x, -d.z) + PI]}
+
+
+## Whether island-local (x, z) of `spec` is where a yard stands (no palms grow there).
+static func clearing(spec: Dictionary, x: float, z: float) -> bool:
+	for i in range(1, count()):
+		if island(i) != spec:
+			continue
+		var w := wright_pos(i)
+		if Vector2(x + float(spec.x), z + float(spec.z)).distance_to(Vector2(w.x, w.z)) < 7.0:
+			return true
+	return false
+
+
+## Test hook (--wreck-at): a spot in the water a short swim from yard `i`, clear of its jetty
+## and berth, from where a straight swim reaches the beach by the shipwright.
+static func test_swim_spot(i: int) -> Vector3:
+	var w := wright_pos(i)
+	if i == MERROW:
+		# South of the pier, so the way in crosses the beach rather than the pier's piles.
+		var c := Outpost.spec()
+		return Vector3(float(c.x) + float(c.radius) + 8.0, 0.0, float(c.z) + 24.0)
+	var d := _dir(i)
+	var side := Vector3(-d.z, 0.0, d.x)
+	return Vector3(w.x, 0.0, w.z) + d * 18.0 - side * 9.0

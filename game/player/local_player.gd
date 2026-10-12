@@ -280,6 +280,9 @@ func _interact(delta: float) -> void:
 			game.send_request(target.kind, target.id)
 		"armoury":
 			game.send_request("armoury", 0)
+		"yard":
+			if game.hud:
+				game.hud.show_yard(target.id)
 
 
 ## What E would do right now: {kind, id, label}, or empty.
@@ -337,6 +340,10 @@ func current_target() -> Dictionary:
 					return {"kind": "restock", "id": ServerSim.FORT_BARRELS + i, "label": "E  load supplies onto the ship"}
 			if here.distance_to(Fort.isabel_pos()) < Story.TALK_REACH:
 				return {"kind": "armoury", "id": 0, "label": "E  see Isabel's rack of arms"}
+		# A shipwright: at Merrow only when the crew needs a ship (else Hobb does refits).
+		var yard := Shipyards.at(body.global_position)
+		if yard >= 0 and (yard != Shipyards.MERROW or not galleon_afloat()):
+			return {"kind": "yard", "id": yard, "label": "E  talk to %s, the shipwright" % Shipyards.wright_name(yard)}
 		var tale := _story_target(body.global_position)
 		if not tale.is_empty():
 			return tale
@@ -629,6 +636,12 @@ func nearest_ladder() -> int:
 ## The ship whose frame we stand in.
 func frame_ship() -> ShipState:
 	return game.view_ships.get(ship_id, game.view_ship)
+
+
+## Whether our crew has a galleon afloat (a sunk one, or a sloop, sends us to the shipwright).
+func galleon_afloat() -> bool:
+	var s := game.view_ship
+	return game.view_ships.has(game.own_ship) and not s.is_sinking() and s.hull == Hull.Type.GALLEON
 
 
 ## The layout of the ship we stand on.

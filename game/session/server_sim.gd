@@ -124,6 +124,9 @@ var _spawns: Array = CREW_SPAWNS
 ## ship moored there, and a sunk ship stays gone until the crew buys another. Off (`harbour`
 ## false), ships start at sea, as the tests expect. `first_hull`: a test hook (--sloop).
 var harbour := false
+## Test hook (--wreck-at YARD): a crew's ship starts on the bottom and its pirates in the water
+## a short swim from that shipyard.
+var options_wreck := -1
 var first_hull := Hull.Type.GALLEON
 var _next_projectile := 1
 var _evacuated := {}
@@ -142,6 +145,7 @@ func _init(options: Dictionary = {}) -> void:
 		_spawns = CREW_SPAWNS_CLOSE
 	# A real game starts at Port Merrow (main.gd asks for it); tests start at sea as before.
 	harbour = options.has("harbour")
+	options_wreck = int(options.get("wreck-at", -1))
 	first_hull = Hull.Type.SLOOP if options.has("sloop") else Hull.Type.GALLEON
 	# Test hooks: start near an island or the outpost, with a chest aboard.
 	if options.has("voyage-island"):
@@ -950,6 +954,10 @@ func add_player(id: int, player_name: String, wanted_crew := 0, token := "") -> 
 		_teleport(id, LocalPlayer.Mode.WORLD, Vector3(ship.x + 12.0, 0.5, ship.z), 0.0)
 	else:
 		_teleport(id, LocalPlayer.Mode.ON_SHIP, _free_spawn(id), 0.0)
+	if options_wreck >= 0 and options_wreck < Shipyards.count():
+		ship.sink = 1.0
+		_evacuated[crew] = true
+		_teleport(id, LocalPlayer.Mode.WORLD, Shipyards.test_swim_spot(options_wreck), 0.0)
 	Net.send_message(0, "%s joined %s" % [clean, crew_name(crew)])
 	_send_profile(id)
 	_update_tag(id)

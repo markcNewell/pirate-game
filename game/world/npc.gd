@@ -13,6 +13,10 @@ const WHO := {
 	"gideon": {"shirt": Color("c8302a"), "skin": Color("e8b48a")},
 	"martha": {"shirt": Color("7a9a6a"), "skin": Color("e8b48a")},
 	"hobb": {"shirt": Color("c8b48a"), "skin": Color("d89a70")},
+	# The island yards' shipwrights (Shipyards), in Hobb's working clothes.
+	"peg": {"shirt": Color("8a5a3a"), "skin": Color("e8b48a"), "part": "hobb"},
+	"tarr": {"shirt": Color("3a5a7a"), "skin": Color("9a6a42"), "part": "hobb"},
+	"nan": {"shirt": Color("7a8a5a"), "skin": Color("d8a07a"), "part": "hobb"},
 	"ocaso": {"shirt": Color("e8e4d8"), "skin": Color("d8c8b0")},
 	"cuervo": {"shirt": Color("efe8da"), "skin": Color("dcae86")},
 }
@@ -28,7 +32,7 @@ func _init(who: String, facing: float) -> void:
 	_model = Models.instance("npcs", {
 		Models.SHIRT: look.shirt, Models.SHIRT_DARK: look.shirt.darkened(0.28),
 		Models.SKIN: look.skin, Models.SKIN_DARK: look.skin.darkened(0.12),
-	}, ["body", who])
+	}, ["body", str(look.get("part", who))])
 	add_child(_model)
 	_rest_yaw = facing
 	rotation.y = facing
